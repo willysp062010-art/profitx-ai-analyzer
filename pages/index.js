@@ -1,123 +1,163 @@
-import Head from "next/head";
 import { useState } from "react";
 
 const DEFAULT_MINT = "6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump";
 
+function fmtUsd(value) {
+  if (value == null) return "N/D";
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "N/D";
+  return new Intl.NumberFormat("fr-FR", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: n < 1 ? 6 : 0
+  }).format(n);
+}
+
+function fmtNumber(value) {
+  if (value == null || !Number.isFinite(Number(value))) return "N/D";
+  return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(Number(value));
+}
+
+function fmtDate(ms) {
+  if (!ms) return "N/D";
+  return new Date(ms).toLocaleString("fr-FR");
+}
+
 export default function Home() {
   const [mint, setMint] = useState(DEFAULT_MINT);
-  const [result, setResult] = useState(null);
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  async function analyze(e) {
-    e.preventDefault();
+  async function analyze() {
     setLoading(true);
     setError("");
-    setResult(null);
+    setData(null);
+
     try {
-      const r = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mint: mint.trim() })
+      const response = await fetch(`/api/analyze?mint=${encodeURIComponent(mint.trim())}`, {
+        headers: { Accept: "application/json" }
       });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error || "Analyse impossible.");
-      setResult(data);
-    } catch (err) {
-      setError(err.message);
+      const result = await response.json();
+
+      if (!response.ok || !result.ok) {
+        throw new Error(result.error || "Analyse impossible.");
+      }
+      setData(result);
+    } catch (e) {
+      setError(e.message || "Une erreur est survenue.");
     } finally {
       setLoading(false);
     }
   }
 
-  const score = result?.score?.total;
-  const status = result?.status;
+  const score = data?.score;
+  const metric = data?.metrics || {};
 
   return (
-    <>
-      <Head>
-        <title>PROFITX AI Analyzer</title>
-        <meta name="description" content="PROFITX AI — Solana token structure analyzer." />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-      </Head>
+    <main className="shell">
+      <header className="topbar">
+        <div className="brand"><span className="logo">P</span> PROFITX AI</div>
+        <div className="tag">SOLANA TOKEN ANALYZER</div>
+      </header>
 
-      <main className="page">
-        <nav className="nav">
-          <div className="brand"><span className="mark">P</span> PROFITX AI</div>
-          <span className="badge">SOLANA TOKEN ANALYZER</span>
-        </nav>
+      <section className="hero">
+        <div className="eyebrow">DATA ENGINE • PFX ENGINE • SCORE</div>
+        <h1>Analyse structurelle<br />d’un token Solana.</h1>
+        <p className="intro">
+          Un moteur conçu pour séparer les données observables, les signaux de risque
+          et le score structurel. Pas de promesse de rendement.
+        </p>
 
-        <section className="hero">
-          <p className="eyebrow">DATA ENGINE • PFX ENGINE • SCORE</p>
-          <h1>Analyse structurelle d’un token Solana.</h1>
-          <p className="lead">
-            Un moteur conçu pour séparer les données observables, les signaux de risque
-            et le score structurel. Pas de promesse de rendement.
-          </p>
+        <div className="search">
+          <input
+            value={mint}
+            onChange={e => setMint(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") analyze(); }}
+            placeholder="Adresse mint Solana"
+            spellCheck="false"
+          />
+          <button onClick={analyze} disabled={loading || !mint.trim()}>
+            {loading ? "Analyse..." : "Analyser"}
+          </button>
+        </div>
 
-          <form onSubmit={analyze} className="search">
-            <input
-              value={mint}
-              onChange={(e) => setMint(e.target.value)}
-              placeholder="Adresse mint Solana"
-              aria-label="Adresse mint Solana"
-              spellCheck="false"
-            />
-            <button disabled={loading || !mint.trim()}>
-              {loading ? "Analyse…" : "Analyser"}
-            </button>
-          </form>
+        <div className="hint">
+          Les données manquantes restent explicitement signalées : elles ne sont pas inventées.
+        </div>
+      </section>
 
-          <p className="hint">
-            Les données manquantes restent explicitement signalées : elles ne sont pas inventées.
-          </p>
-        </section>
+      {error && <div className="error">{error}</div>}
 
-        {error && <div className="error">{error}</div>}
-
-        {result && (
-          <section className="results">
-            <div className="scoreCard">
-              <div>
-                <p className="label">SCORE STRUCTUREL</p>
-                <div className="score">{score ?? "—"}<small>/100</small></div>
-                <p className="status">{status}</p>
-              </div>
-              <div className="meta">
-                <div><span>Mint</span><code>{result.mint}</code></div>
-                <div><span>Horodatage</span><strong>{new Date(result.timestamp).toLocaleString("fr-FR")}</strong></div>
-              </div>
+      {data && (
+        <section className="results">
+          <div className="scoreCard">
+            <div>
+              <div className="label">SCORE STRUCTUREL</div>
+              <div className="score">{score == null ? "N/D" : score}<span>/100</span></div>
+              <div className={`status ${data.status}`}>{data.status}</div>
             </div>
-
-            <div className="grid">
-              {Object.entries(result.score?.components || {}).map(([key, value]) => (
-                <article className="card" key={key}>
-                  <p className="label">{key}</p>
-                  <strong>{value == null ? "N/D" : `${value}/100`}</strong>
-                </article>
-              ))}
+            <div className="meta">
+              <div><span>Mint</span><strong>{data.mint}</strong></div>
+              <div><span>Horodatage</span><strong>{new Date().toLocaleString("fr-FR")}</strong></div>
             </div>
+          </div>
 
+          <div className="metrics">
+            {[
+              ["liquidity", "liquidité"],
+              ["distribution", "distribution"],
+              ["activity", "activité"],
+              ["volume", "volume"],
+              ["maturity", "maturité"]
+            ].map(([key, label]) => (
+              <div className="metric" key={key}>
+                <div className="label">{label}</div>
+                <strong>{metric[key] == null ? "N/D" : `${Math.round(metric[key])}/100`}</strong>
+              </div>
+            ))}
+          </div>
+
+          <div className="panel">
+            <h2>Données observées</h2>
+            <div className="observed">
+              <div><span>Liquidité</span><strong>{fmtUsd(data.observed?.liquidityUsd)}</strong></div>
+              <div><span>Volume 24h</span><strong>{fmtUsd(data.observed?.volume24hUsd)}</strong></div>
+              <div><span>Transactions 24h</span><strong>{fmtNumber(data.observed?.activity24h)}</strong></div>
+              <div><span>Holders</span><strong>{data.observed?.holders == null ? "N/D" : fmtNumber(data.observed.holders)}</strong></div>
+            </div>
+            {data.missingData?.length > 0 && (
+              <div className="missing">
+                Données manquantes : {data.missingData.join(", ")}
+              </div>
+            )}
+          </div>
+
+          {data.pair && (
             <div className="panel">
-              <h2>Données observées</h2>
-              <div className="dataGrid">
-                <div><span>Liquidité</span><strong>{result.data?.liquidityUsd == null ? "N/D" : `$${Number(result.data.liquidityUsd).toLocaleString("en-US")}`}</strong></div>
-                <div><span>Volume 24h</span><strong>{result.data?.volume24hUsd == null ? "N/D" : `$${Number(result.data.volume24hUsd).toLocaleString("en-US")}`}</strong></div>
-                <div><span>Holders</span><strong>{result.data?.holders == null ? "N/D" : result.data.holders}</strong></div>
-                <div><span>Activité</span><strong>{result.data?.activity == null ? "N/D" : `${result.data.activity}/100`}</strong></div>
+              <h2>Paire principale détectée</h2>
+              <div className="pairGrid">
+                <div><span>DEX</span><strong>{data.pair.dex || "N/D"}</strong></div>
+                <div><span>Prix USD</span><strong>{data.pair.priceUsd == null ? "N/D" : `$${data.pair.priceUsd}`}</strong></div>
+                <div><span>Market Cap</span><strong>{fmtUsd(data.pair.marketCap)}</strong></div>
+                <div><span>FDV</span><strong>{fmtUsd(data.pair.fdv)}</strong></div>
+                <div><span>Création paire</span><strong>{fmtDate(data.pair.pairCreatedAt)}</strong></div>
               </div>
-              {result.missingData?.length > 0 && (
-                <p className="missing">Données manquantes : {result.missingData.join(", ")}</p>
+              {data.pair.url && (
+                <a className="dexLink" href={data.pair.url} target="_blank" rel="noreferrer">
+                  Ouvrir la paire sur DEX Screener ↗
+                </a>
               )}
             </div>
+          )}
 
-            <p className="disclaimer">
-              Cet outil fournit une analyse technique/structurelle à partir des données disponibles.
-              Il ne constitue pas un conseil financier et ne garantit aucun résultat.
-            </p>
-          </section>
-        )}
-      </main>
-    </>
+          <div className="note">{data.note}</div>
+          <div className="disclaimer">
+            Cet outil fournit une analyse technique/structurelle à partir des données disponibles.
+            Il ne constitue pas un conseil financier et ne garantit aucun résultat.
+          </div>
+        </section>
+      )}
+    </main>
   );
 }

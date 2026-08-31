@@ -1,32 +1,28 @@
-# PROFITX AI Analyzer
+# PROFITX AI — Solana Token Analyzer
 
-Analyse structurelle de tokens Solana pour le projet PROFITX.
+Version 2.0 — correction du moteur de récupération DEX Screener.
 
-## Architecture
+## Ce qui est corrigé
 
-- Interface Next.js
-- API server-side `/api/analyze`
-- Données marché via DexScreener
-- RPC Solana
-- Helius optionnel côté serveur
-- Score structurel pondéré : liquidité 25, distribution 25, activité 20, volume 15, maturité 15
-- Données absentes conservées à `null` et listées dans `missingData`
-- Statuts : `NO_MARKET`, `LOW_LIQUIDITY`, `INSUFFICIENT_DATA`, `VALID`
+- Endpoint DEX Screener officiel `/tokens/v1/solana/{tokenAddress}`.
+- Sélection robuste de la paire principale.
+- Liquidité USD.
+- Volume 24h.
+- Transactions 24h.
+- Maturité de la paire.
+- Score recalculé uniquement avec les données réellement disponibles.
+- Les données non exposées par DEX Screener (ex. nombre fiable de holders) restent `N/D` au lieu d'être inventées.
+- Gestion explicite de `NO_MARKET`, `PARTIAL_DATA`, `VALID` et erreurs amont.
+- Timeout réseau côté API.
 
-## Lancer
+## Déploiement
 
-```bash
-npm install
-npm run dev
-```
+Le projet utilise Next.js Pages Router. Aucun secret n'est nécessaire pour DEX Screener.
 
-Puis ouvrir `http://localhost:3000`.
+Après import GitHub → Vercel, utiliser le preset Next.js et le répertoire racine `./`.
 
-## Déploiement Vercel
+## Important
 
-Importer ce dépôt dans Vercel. Les variables `HELIUS_API_KEY` et `SOLANA_RPC_URL` sont optionnelles. Ne jamais exposer une clé privée ou une clé API dans le navigateur.
+Ne pas ajouter de clé privée, seed phrase ou secret dans le dépôt.
 
-Le mint PFX utilisé comme exemple est celui fourni pour le projet :
-`6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump`
-
-Ce logiciel est un outil d'analyse technique/structurelle et ne constitue pas un conseil financier.
+La documentation DEX Screener décrit les endpoints token/pairs utilisés par ce projet.

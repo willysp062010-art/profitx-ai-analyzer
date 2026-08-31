@@ -1,143 +1,273 @@
-const DEFAULT_RPC = "https://api.mainnet-beta.solana.com";
+const DEX_BASE = "https://api.dexscreener.com";
+const FETCH_TIMEOUT_MS = 12000;
 
-function clamp(n, min = 0, max = 100) {
-  return Math.max(min, Math.min(max, n));
+function json(res, status, body) {
+  res.status(status).setHeader("Cache-Control", "no-store");
+  return res.status(status).json(body);
 }
 
-async function rpc(method, params) {
-  const url = process.env.SOLANA_RPC_URL || DEFAULT_RPC;
-  const r = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params })
-  });
-  if (!r.ok) throw new Error("RPC Solana indisponible.");
-  const j = await r.json();
-  if (j.error) throw new Error(j.error.message || "Erreur RPC.");
-  return j.result;
+function isSolanaMint(value) {
+  return typeof value === "string" && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value);
 }
 
-async function heliusAssetsByOwner(owner) {
-  if (!process.env.HELIUS_API_KEY) return null;
-  const endpoint = `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`;
-  const r = await fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: "profitx",
-      method: "getAssetsByOwner",
-      params: {
-        ownerAddress: owner,
-        page: 1,
-        limit: 1000,
-        displayOptions: { showFungible: true }
-      }
-    })
-  });
-  if (!r.ok) return null;
-  return r.json();
+async function fetchJson(url) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      signal: controller.signal
+    });
+
+    const text = await response.text();
+    let data = null;
+    try { data = text ? JSON.parse(text) : null; } catch {}
+
+    if (!response.ok) {
+      const error = new Error(`Upstream HTTP ${response.status}`);
+      error.status = response.status;
+      error.body = data || text;
+      throw error;
+    }
+    return data;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function finite(value) {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function num(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function pickPair(pairs, mint) {
+  const valid = (Array.isArray(pairs) ? pairs : []).filter(
+    p => p && p.chainId === "solana" && p.pairAddress
+  );
+
+  if (!valid.length) return null;
+
+  return [...valid].sort((a, b) => {
+    const al = num(a?.liquidity?.usd) || 0;
+    const bl = num(b?.liquidity?.usd) || 0;
+    const av = num(a?.volume?.h24) || 0;
+    const bv = num(b?.volume?.h24) || 0;
+    const at = a?.baseToken?.address === mint ? 1 : 0;
+    const bt = b?.baseToken?.address === mint ? 1 : 0;
+    return (bt - at) * 1e12 + (bl - al) * 1000 + (bv - av);
+  })[0];
+}
+
+function scoreLiquidity(usd) {
+  if (!finite(usd)) return null;
+  if (usd <= 0) return 0;
+  return Math.min(100, (Math.log10(usd + 1) / Math.log10(1000000 + 1)) * 100);
+}
+
+function scoreVolume(usd) {
+  if (!finite(usd)) return null;
+  if (usd <= 0) return 0;
+  return Math.min(100, (Math.log10(usd + 1) / Math.log10(10000000 + 1)) * 100);
+}
+
+function scoreActivity(txns) {
+  if (!txns || typeof txns !== "object") return null;
+  const buys = num(txns.buys);
+  const sells = num(txns.sells);
+  if (!finite(buys) && !finite(sells)) return null;
+  const total = (buys || 0) + (sells || 0);
+  if (total <= 0) return 0;
+  return Math.min(100, (Math.log10(total + 1) / Math.log10(10001)) * 100);
+}
+
+function scoreMaturity(createdAt) {
+  const ms = num(createdAt);
+  if (!finite(ms) || ms <= 0) return null;
+  const ageDays = Math.max(0, (Date.now() - ms) / 86400000);
+  return Math.min(100, (Math.log10(ageDays + 1) / Math.log10(91)) * 100);
+}
+
+function fmtUsd(value) {
+  if (!finite(value)) return null;
+  return value;
+}
+
+function calculateOverall(metrics) {
+  const weights = {
+    liquidity: 30,
+    distribution: 15,
+    activity: 25,
+    volume: 20,
+    maturity: 10
+  };
+
+  const available = Object.entries(metrics)
+    .filter(([, value]) => finite(value));
+
+  if (!available.length) return { score: null, status: "INSUFFICIENT_DATA" };
+
+  const totalWeight = available.reduce((sum, [key]) => sum + weights[key], 0);
+  const weighted = available.reduce(
+    (sum, [key, value]) => sum + value * weights[key],
+    0
+  );
+
+  const score = Math.round(weighted / totalWeight);
+  const missing = Object.keys(weights).filter(key => !finite(metrics[key]));
+
+  return {
+    score,
+    status: missing.length ? "PARTIAL_DATA" : "VALID",
+    missing
+  };
 }
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Méthode non autorisée." });
-
-  const mint = String(req.body?.mint || "").trim();
-  if (!/^[1-9A-HJ-NP-Za-km-z]{32,50}$/.test(mint)) {
-    return res.status(400).json({ error: "Adresse mint Solana invalide." });
+  if (req.method !== "GET" && req.method !== "POST") {
+    return json(res, 405, { ok: false, error: "Method not allowed" });
   }
 
-  const missingData = [];
-  let supply = null;
-  let decimals = null;
-  let holders = null;
-
-  try {
-    const supplyInfo = await rpc("getTokenSupply", [mint]);
-    supply = Number(supplyInfo?.value?.uiAmount ?? 0);
-    decimals = supplyInfo?.value?.decimals ?? null;
-  } catch {
-    missingData.push("supply");
+  let mint = "";
+  if (req.method === "GET") {
+    mint = req.query?.mint || "";
+  } else {
+    mint = req.body?.mint || "";
   }
 
-  // Le RPC public permet de récupérer les comptes de token, mais peut être limité.
-  // On garde donc holders explicites plutôt que d'inventer une valeur.
-  try {
-    const accounts = await rpc("getTokenAccountsByOwner", [
-      "11111111111111111111111111111111",
-      { mint },
-      { encoding: "jsonParsed" }
-    ]);
-    if (accounts?.value) holders = accounts.value.length;
-  } catch {
-    // Pas de valeur artificielle.
+  mint = String(mint).trim();
+
+  if (!isSolanaMint(mint)) {
+    return json(res, 400, {
+      ok: false,
+      error: "Adresse Solana invalide. Utilise l'adresse mint du token."
+    });
   }
 
-  let liquidityUsd = null;
-  let volume24hUsd = null;
-  let activity = null;
-
-  // Données de marché : source publique, sans clé côté client.
   try {
-    const r = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${mint}`);
-    if (r.ok) {
-      const j = await r.json();
-      const pairs = (j.pairs || []).filter(p => p.chainId === "solana");
-      if (pairs.length) {
-        const pair = pairs.sort((a,b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0))[0];
-        liquidityUsd = pair.liquidity?.usd ?? null;
-        volume24hUsd = pair.volume?.h24 ?? null;
-        const tx = pair.txns?.h24;
-        if (tx) activity = clamp(((tx.buys + tx.sells) / 200) * 100);
-      }
+    // IMPORTANT: this is the documented DEX Screener token endpoint.
+    // It returns pairs with liquidity, volume, txns and pairCreatedAt.
+    const url = `${DEX_BASE}/tokens/v1/solana/${encodeURIComponent(mint)}`;
+    const pairs = await fetchJson(url);
+
+    if (!Array.isArray(pairs) || pairs.length === 0) {
+      return json(res, 200, {
+        ok: true,
+        mint,
+        status: "NO_MARKET",
+        score: null,
+        metrics: {
+          liquidity: null,
+          distribution: null,
+          activity: null,
+          volume: null,
+          maturity: null
+        },
+        observed: {
+          liquidityUsd: null,
+          volume24hUsd: null,
+          holders: null,
+          activity24h: null
+        },
+        pair: null,
+        missingData: ["liquidity", "volume24h", "activity", "maturity", "distribution"],
+        message: "Aucune paire Solana exploitable trouvée sur DEX Screener."
+      });
     }
-  } catch {
-    // Données absentes = null, jamais inventées.
-  }
 
-  if (liquidityUsd == null) missingData.push("liquidity");
-  if (volume24hUsd == null) missingData.push("volume24h");
-  if (holders == null) missingData.push("holders");
-  if (activity == null) missingData.push("activity");
-
-  const liquidityScore = liquidityUsd == null ? null : clamp(Math.log10(Math.max(liquidityUsd, 1)) * 20);
-  const volumeScore = volume24hUsd == null ? null : clamp(Math.log10(Math.max(volume24hUsd, 1)) * 20);
-  const activityScore = activity;
-  const distributionScore = holders == null ? null : clamp(holders * 2);
-  const maturityScore = supply != null && liquidityUsd != null ? 60 : null;
-
-  const components = {
-    liquidity: liquidityScore,
-    distribution: distributionScore,
-    activity: activityScore,
-    volume: volumeScore,
-    maturity: maturityScore
-  };
-
-  const weights = { liquidity: 25, distribution: 25, activity: 20, volume: 15, maturity: 15 };
-  let weighted = 0;
-  let weightAvailable = 0;
-  for (const [k, w] of Object.entries(weights)) {
-    if (components[k] != null) {
-      weighted += components[k] * w;
-      weightAvailable += w;
+    const pair = pickPair(pairs, mint);
+    if (!pair) {
+      return json(res, 200, {
+        ok: true,
+        mint,
+        status: "NO_MARKET",
+        score: null,
+        metrics: {
+          liquidity: null,
+          distribution: null,
+          activity: null,
+          volume: null,
+          maturity: null
+        },
+        observed: {
+          liquidityUsd: null,
+          volume24hUsd: null,
+          holders: null,
+          activity24h: null
+        },
+        pair: null,
+        missingData: ["liquidity", "volume24h", "activity", "maturity", "distribution"]
+      });
     }
-  }
 
-  const total = weightAvailable >= 50 ? Math.round(weighted / weightAvailable) : null;
-  let status = "INSUFFICIENT_DATA";
-  if (total != null) {
-    if (liquidityUsd != null && liquidityUsd < 5000) status = "LOW_LIQUIDITY";
-    else if (liquidityUsd != null || volume24hUsd != null) status = "VALID";
-    else status = "NO_MARKET";
-  }
+    const liquidityUsd = num(pair?.liquidity?.usd);
+    const volume24hUsd = num(pair?.volume?.h24);
+    const txns24h = pair?.txns?.h24 || null;
+    const activity24h =
+      finite(num(txns24h?.buys)) || finite(num(txns24h?.sells))
+        ? (num(txns24h?.buys) || 0) + (num(txns24h?.sells) || 0)
+        : null;
 
-  return res.status(200).json({
-    mint,
-    timestamp: new Date().toISOString(),
-    status,
-    data: { supply, decimals, holders, liquidityUsd, volume24hUsd, activity },
-    score: { total, components, weights },
-    missingData
-  });
+    const maturityScore = scoreMaturity(pair?.pairCreatedAt);
+
+    // DEX Screener does not expose a reliable holder count in this endpoint.
+    // We deliberately keep distribution/holders as N/D instead of inventing data.
+    const metrics = {
+      liquidity: scoreLiquidity(liquidityUsd),
+      distribution: null,
+      activity: scoreActivity(txns24h),
+      volume: scoreVolume(volume24hUsd),
+      maturity: maturityScore
+    };
+
+    const overall = calculateOverall(metrics);
+    const missingData = overall.missing || [];
+
+    return json(res, 200, {
+      ok: true,
+      mint,
+      status: overall.status,
+      score: overall.score,
+      metrics,
+      observed: {
+        liquidityUsd: fmtUsd(liquidityUsd),
+        volume24hUsd: fmtUsd(volume24hUsd),
+        holders: null,
+        activity24h
+      },
+      pair: {
+        address: pair.pairAddress || null,
+        dex: pair.dexId || null,
+        url: pair.url || null,
+        baseToken: pair.baseToken || null,
+        quoteToken: pair.quoteToken || null,
+        priceUsd: num(pair.priceUsd),
+        marketCap: num(pair.marketCap),
+        fdv: num(pair.fdv),
+        pairCreatedAt: num(pair.pairCreatedAt)
+      },
+      source: "DEX Screener",
+      missingData,
+      note:
+        missingData.length
+          ? "Le score est calculé uniquement à partir des métriques réellement disponibles. Aucune donnée manquante n'est inventée."
+          : "Toutes les métriques disponibles ont été utilisées."
+    });
+  } catch (error) {
+    console.error("PROFITX analyze error:", error);
+    return json(res, 502, {
+      ok: false,
+      status: "UPSTREAM_ERROR",
+      error:
+        error?.name === "AbortError"
+          ? "DEX Screener a mis trop de temps à répondre."
+          : "Impossible de récupérer les données DEX Screener.",
+      details: process.env.NODE_ENV === "development" ? String(error) : undefined
+    });
+  }
 }

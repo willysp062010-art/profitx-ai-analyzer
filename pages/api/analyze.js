@@ -29,7 +29,10 @@ function clamp(value, min = 0, max = 100) {
 
 function json(res, status, body) {
   res.setHeader("Cache-Control", "no-store");
-  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.setHeader(
+    "Content-Type",
+    "application/json; charset=utf-8"
+  );
 
   return res.status(status).json(body);
 }
@@ -417,16 +420,6 @@ function analysePumpCoin(
     }
   }
 
-  let liquidityScore = null;
-
-  if (liquidityUsd !== null) {
-    liquidityScore = clamp(
-      Math.log10(
-        Math.max(liquidityUsd, 1)
-      ) * 20
-    );
-  }
-
   return {
     liquidityUsd,
 
@@ -441,7 +434,13 @@ function analysePumpCoin(
     priceUsd:
       numberOrNull(coin?.price_usd) ??
       numberOrNull(coin?.priceUsd) ??
-      null,
+      (
+        effectiveMarketCapUsd !== null &&
+        numberOrNull(coin?.total_supply) !== null
+          ? effectiveMarketCapUsd /
+            numberOrNull(coin.total_supply)
+          : null
+      ),
 
     marketCapUsd:
       effectiveMarketCapUsd,
@@ -460,8 +459,6 @@ function analysePumpCoin(
     activity,
 
     maturity,
-
-    liquidityScore,
 
     pumpComplete:
       coin?.complete === true,
@@ -564,10 +561,6 @@ function calculateScore(
       );
   }
 
-  /*
-   * Distribution is deliberately left null.
-   * We do not invent a holder/distribution score.
-   */
   components.distribution = null;
 
   const weights = {
@@ -602,26 +595,18 @@ function calculateScore(
 
   let total = null;
 
-  /*
-   * Minimum amount of real information
-   * required before displaying a score.
-   */
   if (availableWeight >= 40) {
     total = Math.round(
       weightedTotal /
-        availableWeight
+      availableWeight
     );
   }
 
   return {
     total,
-
     components,
-
     weights,
-
     availableWeight,
-
     source
   };
 }
@@ -673,7 +658,7 @@ function buildStatus(
 }
 
 /* =========================================================
-   OPTIONAL TOKEN SUPPLY VIA SOLANA RPC
+   TOKEN SUPPLY VIA SOLANA RPC
    ========================================================= */
 
 async function getTokenSupply(mint) {
@@ -698,6 +683,7 @@ async function getTokenSupply(mint) {
             id: "profitx-supply",
             method:
               "getTokenSupply",
+
             params: [
               mint,
               {
@@ -737,16 +723,13 @@ async function getTokenSupply(mint) {
 }
 
 /* =========================================================
-   OPTIONAL HOLDER COUNT
+   HOLDER COUNT
    ========================================================= */
 
 async function getHolderEstimate() {
   /*
-   * A reliable holder count requires an indexed
-   * token-account service.
-   *
-   * We deliberately return null rather than
-   * inventing a holder number.
+   * Pour le moment aucune estimation artificielle.
+   * On affiche N/D plutôt qu'une donnée inventée.
    */
   return null;
 }
@@ -759,17 +742,6 @@ export default async function handler(
   req,
   res
 ) {
-  /*
-   * IMPORTANT:
-   *
-   * The current index.js sends GET:
-   *
-   * /api/analyze?mint=...
-   *
-   * We therefore accept GET.
-   *
-   * POST is also accepted for future use.
-   */
   if (
     req.method !== "GET" &&
     req.method !== "POST"
@@ -833,24 +805,17 @@ export default async function handler(
   }
 
   let source = null;
-
   let metrics = null;
-
   let pumpCoin = null;
-
   let solPriceUsd = null;
-
   let dexPair = null;
 
   let dexError = null;
-
   let pumpError = null;
 
-  /*
-   * -------------------------------------------------------
-   * 1. DEXSCREENER
-   * -------------------------------------------------------
-   */
+  /* =======================================================
+     1. DEXSCREENER
+     ======================================================= */
 
   try {
     const dex =
@@ -875,14 +840,9 @@ export default async function handler(
       "Erreur DexScreener.";
   }
 
-  /*
-   * -------------------------------------------------------
-   * 2. PUMP.FUN
-   * -------------------------------------------------------
-   *
-   * Used when DexScreener does not yet have
-   * an indexed market.
-   */
+  /* =======================================================
+     2. PUMP.FUN
+     ======================================================= */
 
   if (!metrics) {
     try {
@@ -896,11 +856,6 @@ export default async function handler(
 
       solPriceUsd =
         pump.solPriceUsd;
-
-      /*
-       * Security check:
-       * Pump.fun must confirm the exact mint.
-       */
 
       if (
         pumpCoin?.mint &&
@@ -926,11 +881,9 @@ export default async function handler(
     }
   }
 
-  /*
-   * -------------------------------------------------------
-   * 3. NO MARKET
-   * -------------------------------------------------------
-   */
+  /* =======================================================
+     3. NO MARKET
+     ======================================================= */
 
   if (!metrics) {
     return json(
@@ -991,13 +944,10 @@ export default async function handler(
           supply: null,
           decimals: null,
           holders: null,
-
           liquidityUsd: null,
           volume24hUsd: null,
-
           activity: null,
           transactions24h: null,
-
           priceUsd: null,
           marketCapUsd: null
         },
@@ -1006,8 +956,13 @@ export default async function handler(
 
         market: {
           pairAddress: null,
-          dexId: null
+          dexId: null,
+          url: null
         },
+
+        pair: null,
+
+        pump: null,
 
         missingData: [
           "market",
@@ -1018,6 +973,9 @@ export default async function handler(
         ],
 
         diagnostics: {
+          requestMethod:
+            req.method,
+
           dexscreenerUsed: false,
           pumpfunUsed: false,
 
@@ -1031,41 +989,31 @@ export default async function handler(
     );
   }
 
-  /*
-   * -------------------------------------------------------
-   * 4. TOKEN SUPPLY
-   * -------------------------------------------------------
-   */
+  /* =======================================================
+     4. TOKEN SUPPLY
+     ======================================================= */
 
   const supply =
     await getTokenSupply(
       mint
     );
 
-  /*
-   * -------------------------------------------------------
-   * 5. HOLDERS
-   * -------------------------------------------------------
-   */
+  /* =======================================================
+     5. HOLDERS
+     ======================================================= */
 
   const holderCount =
-    await getHolderEstimate(
-      mint
-    );
+    await getHolderEstimate();
 
-  /*
-   * -------------------------------------------------------
-   * 6. MISSING DATA
-   * -------------------------------------------------------
-   */
+  /* =======================================================
+     6. MISSING DATA
+     ======================================================= */
 
   const missingData = [];
 
   if (
-    metrics.liquidityUsd ===
-      null ||
-    metrics.liquidityUsd ===
-      undefined
+    metrics.liquidityUsd === null ||
+    metrics.liquidityUsd === undefined
   ) {
     missingData.push(
       "liquidity"
@@ -1073,10 +1021,8 @@ export default async function handler(
   }
 
   if (
-    metrics.volume24hUsd ===
-      null ||
-    metrics.volume24hUsd ===
-      undefined
+    metrics.volume24hUsd === null ||
+    metrics.volume24hUsd === undefined
   ) {
     missingData.push(
       "volume24h"
@@ -1084,10 +1030,8 @@ export default async function handler(
   }
 
   if (
-    metrics.activity ===
-      null ||
-    metrics.activity ===
-      undefined
+    metrics.activity === null ||
+    metrics.activity === undefined
   ) {
     missingData.push(
       "activity"
@@ -1095,10 +1039,8 @@ export default async function handler(
   }
 
   if (
-    metrics.maturity ===
-      null ||
-    metrics.maturity ===
-      undefined
+    metrics.maturity === null ||
+    metrics.maturity === undefined
   ) {
     missingData.push(
       "maturity"
@@ -1106,21 +1048,17 @@ export default async function handler(
   }
 
   if (
-    holderCount ===
-      null ||
-    holderCount ===
-      undefined
+    holderCount === null ||
+    holderCount === undefined
   ) {
     missingData.push(
       "holders"
     );
   }
 
-  /*
-   * -------------------------------------------------------
-   * 7. SCORE
-   * -------------------------------------------------------
-   */
+  /* =======================================================
+     7. SCORE
+     ======================================================= */
 
   const score =
     calculateScore(
@@ -1136,11 +1074,9 @@ export default async function handler(
     );
   }
 
-  /*
-   * -------------------------------------------------------
-   * 8. STATUS
-   * -------------------------------------------------------
-   */
+  /* =======================================================
+     8. STATUS
+     ======================================================= */
 
   const status =
     buildStatus(
@@ -1150,11 +1086,9 @@ export default async function handler(
       pumpCoin
     );
 
-  /*
-   * -------------------------------------------------------
-   * 9. FINAL RESPONSE
-   * -------------------------------------------------------
-   */
+  /* =======================================================
+     9. FINAL RESPONSE
+     ======================================================= */
 
   return json(
     res,
@@ -1214,18 +1148,12 @@ export default async function handler(
           null
       },
 
-      /*
-       * Compatible avec l'ancienne interface.
-       */
-
       metrics: {
         liquidity:
           metrics.liquidityUsd,
 
         distribution:
-          holderCount !== null
-            ? null
-            : null,
+          null,
 
         activity:
           metrics.activity,
@@ -1375,9 +1303,17 @@ export default async function handler(
               dexPair.volume?.h24 ??
               null,
 
-            marketCapUsd:
+            marketCap:
               dexPair.marketCap ??
               dexPair.fdv ??
+              null,
+
+            fdv:
+              dexPair.fdv ??
+              null,
+
+            pairCreatedAt:
+              dexPair.pairCreatedAt ??
               null
           }
         : null,
@@ -1414,17 +1350,20 @@ export default async function handler(
 
       missingData,
 
+      note:
+        source === "pumpfun"
+          ? "Analyse Pump.fun : certaines données de marché ne sont pas encore disponibles tant que le token n'est pas gradué."
+          : "Analyse basée sur les données de marché observables.",
+
       diagnostics: {
         requestMethod:
           req.method,
 
         dexscreenerUsed:
-          source ===
-          "dexscreener",
+          source === "dexscreener",
 
         pumpfunUsed:
-          source ===
-          "pumpfun",
+          source === "pumpfun",
 
         dexscreenerError:
           dexError,

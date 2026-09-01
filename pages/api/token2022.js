@@ -7,8 +7,7 @@ const TOKEN_2022_PROGRAM_ID =
 const REQUEST_TIMEOUT_MS = 10000;
 
 /* =========================================================
-   EXTENSION TYPES — TOKEN-2022
-   Based on the official Token-2022 ExtensionType enum.
+   TOKEN-2022 EXTENSION TYPES
 ========================================================= */
 
 const EXTENSION_TYPES = {
@@ -43,30 +42,24 @@ const EXTENSION_TYPES = {
   28: "PERMISSIONED_BURN"
 };
 
-/*
- * Extensions which can materially affect the risk profile.
- *
- * IMPORTANT:
- * Presence does NOT automatically mean "scam".
- * It means that ProfitX must inspect the extension.
- */
-const SECURITY_RELEVANT_EXTENSIONS = new Set([
-  "TRANSFER_FEE_CONFIG",
-  "MINT_CLOSE_AUTHORITY",
-  "DEFAULT_ACCOUNT_STATE",
-  "NON_TRANSFERABLE",
-  "INTEREST_BEARING_CONFIG",
-  "PERMANENT_DELEGATE",
-  "TRANSFER_HOOK",
-  "CONFIDENTIAL_TRANSFER_MINT",
-  "CONFIDENTIAL_TRANSFER_FEE_CONFIG",
-  "SCALED_UI_AMOUNT",
-  "PAUSABLE",
-  "PERMISSIONED_BURN"
-]);
+const SECURITY_RELEVANT_EXTENSIONS =
+  new Set([
+    "TRANSFER_FEE_CONFIG",
+    "MINT_CLOSE_AUTHORITY",
+    "DEFAULT_ACCOUNT_STATE",
+    "NON_TRANSFERABLE",
+    "INTEREST_BEARING_CONFIG",
+    "PERMANENT_DELEGATE",
+    "TRANSFER_HOOK",
+    "CONFIDENTIAL_TRANSFER_MINT",
+    "CONFIDENTIAL_TRANSFER_FEE_CONFIG",
+    "SCALED_UI_AMOUNT",
+    "PAUSABLE",
+    "PERMISSIONED_BURN"
+  ]);
 
 /* =========================================================
-   HELPERS
+   RESPONSE
 ========================================================= */
 
 function json(res, status, body) {
@@ -85,6 +78,10 @@ function json(res, status, body) {
     .json(body);
 }
 
+/* =========================================================
+   ADDRESS VALIDATION
+========================================================= */
+
 function isValidSolanaAddress(value) {
   return (
     typeof value === "string" &&
@@ -93,6 +90,10 @@ function isValidSolanaAddress(value) {
     )
   );
 }
+
+/* =========================================================
+   RPC
+========================================================= */
 
 async function rpcCall(
   rpcUrl,
@@ -188,7 +189,7 @@ const BASE58_ALPHABET =
 function bytesToBase58(bytes) {
   if (
     !bytes ||
-    !bytes.length
+    bytes.length === 0
   ) {
     return null;
   }
@@ -255,7 +256,7 @@ function bytesToBase58(bytes) {
 }
 
 /* =========================================================
-   LITTLE-ENDIAN READERS
+   BYTE READERS
 ========================================================= */
 
 function readU16LE(
@@ -276,58 +277,431 @@ function readU16LE(
   );
 }
 
-function readU64LE(
+function readU32LE(
   bytes,
   offset
 ) {
   if (
     !bytes ||
-    offset + 8 >
+    offset + 4 >
       bytes.length
   ) {
     return null;
   }
 
-  let value = 0n;
+  return (
+    bytes[offset] |
+    (bytes[offset + 1] << 8) |
+    (bytes[offset + 2] << 16) |
+    (bytes[offset + 3] << 24)
+  ) >>> 0;
+}
+
+/* =========================================================
+   OPTIONAL PUBKEY
+========================================================= */
+
+function isZeroBytes(bytes) {
+  if (
+    !bytes ||
+    bytes.length !== 32
+  ) {
+    return false;
+  }
+
+  for (const byte of bytes) {
+    if (byte !== 0) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function optionalPubkey(bytes) {
+  if (
+    !bytes ||
+    bytes.length < 32
+  ) {
+    return {
+      value: null,
+      present: false,
+      valid: false
+    };
+  }
+
+  const key =
+    bytes.slice(
+      0,
+      32
+    );
+
+  if (
+    isZeroBytes(key)
+  ) {
+    return {
+      value: null,
+      present: false,
+      valid: true
+    };
+  }
+
+  return {
+    value:
+      bytesToBase58(key),
+
+    present: true,
+
+    valid: true
+  };
+}
+
+/* =========================================================
+   UTF-8
+========================================================= */
+
+function decodeUtf8(bytes) {
+  try {
+    return new TextDecoder(
+      "utf-8",
+      {
+        fatal: false
+      }
+    ).decode(bytes);
+  } catch {
+    return null;
+  }
+}
+
+/* =========================================================
+   BORSH STRING
+========================================================= */
+
+function readBorshString(
+  bytes,
+  cursor
+) {
+  const length =
+    readU32LE(
+      bytes,
+      cursor
+    );
+
+  if (
+    length === null
+  ) {
+    return null;
+  }
+
+  const start =
+    cursor + 4;
+
+  const end =
+    start + length;
+
+  if (
+    end > bytes.length
+  ) {
+    return null;
+  }
+
+  const raw =
+    bytes.slice(
+      start,
+      end
+    );
+
+  const value =
+    decodeUtf8(raw);
+
+  if (
+    value === null
+  ) {
+    return null;
+  }
+
+  return {
+    value,
+    next:
+      end
+  };
+}
+
+/* =========================================================
+   TOKEN METADATA DECODER
+========================================================= */
+
+/*
+ * TokenMetadata is Borsh encoded.
+
+ * Structure:
+
+   update_authority : MaybeNull<Address>
+   mint             : Address
+   name             : String
+   symbol           : String
+   uri              : String
+   additional_metadata : Vec<(String,String)>
+*/
+
+function decodeTokenMetadata(
+  bytes
+) {
+  if (
+    !bytes ||
+    bytes.length < 64
+  ) {
+    return {
+      decoded: false,
+      error:
+        "TokenMetadata data too short."
+    };
+  }
+
+  let cursor = 0;
+
+  /* -------------------------
+     UPDATE AUTHORITY
+  ------------------------- */
+
+  const authorityBytes =
+    bytes.slice(
+      cursor,
+      cursor + 32
+    );
+
+  if (
+    authorityBytes.length !==
+    32
+  ) {
+    return {
+      decoded: false,
+      error:
+        "Invalid update authority."
+    };
+  }
+
+  const updateAuthority =
+    isZeroBytes(
+      authorityBytes
+    )
+      ? null
+      : bytesToBase58(
+          authorityBytes
+        );
+
+  cursor += 32;
+
+  /* -------------------------
+     MINT
+  ------------------------- */
+
+  const mintBytes =
+    bytes.slice(
+      cursor,
+      cursor + 32
+    );
+
+  if (
+    mintBytes.length !== 32
+  ) {
+    return {
+      decoded: false,
+      error:
+        "Invalid metadata mint."
+    };
+  }
+
+  const metadataMint =
+    bytesToBase58(
+      mintBytes
+    );
+
+  cursor += 32;
+
+  /* -------------------------
+     NAME
+  ------------------------- */
+
+  const name =
+    readBorshString(
+      bytes,
+      cursor
+    );
+
+  if (!name) {
+    return {
+      decoded: false,
+      error:
+        "Unable to decode metadata name."
+    };
+  }
+
+  cursor =
+    name.next;
+
+  /* -------------------------
+     SYMBOL
+  ------------------------- */
+
+  const symbol =
+    readBorshString(
+      bytes,
+      cursor
+    );
+
+  if (!symbol) {
+    return {
+      decoded: false,
+      error:
+        "Unable to decode metadata symbol."
+    };
+  }
+
+  cursor =
+    symbol.next;
+
+  /* -------------------------
+     URI
+  ------------------------- */
+
+  const uri =
+    readBorshString(
+      bytes,
+      cursor
+    );
+
+  if (!uri) {
+    return {
+      decoded: false,
+      error:
+        "Unable to decode metadata URI."
+    };
+  }
+
+  cursor =
+    uri.next;
+
+  /* -------------------------
+     ADDITIONAL METADATA
+  ------------------------- */
+
+  const additionalCount =
+    readU32LE(
+      bytes,
+      cursor
+    );
+
+  if (
+    additionalCount === null
+  ) {
+    return {
+      decoded: false,
+      error:
+        "Unable to decode additional metadata count."
+    };
+  }
+
+  cursor += 4;
+
+  const additionalMetadata =
+    [];
+
+  /*
+   * Safety limit.
+   * Prevent malformed on-chain data
+   * from creating excessive work.
+   */
+  const safeCount =
+    Math.min(
+      additionalCount,
+      100
+    );
 
   for (
     let i = 0;
-    i < 8;
+    i < safeCount;
     i++
   ) {
-    value +=
-      BigInt(
-        bytes[
-          offset + i
-        ]
-      ) <<
-      (8n * BigInt(i));
+    const key =
+      readBorshString(
+        bytes,
+        cursor
+      );
+
+    if (!key) {
+      return {
+        decoded: false,
+        error:
+          "Unable to decode additional metadata key."
+      };
+    }
+
+    cursor =
+      key.next;
+
+    const value =
+      readBorshString(
+        bytes,
+        cursor
+      );
+
+    if (!value) {
+      return {
+        decoded: false,
+        error:
+          "Unable to decode additional metadata value."
+      };
+    }
+
+    cursor =
+      value.next;
+
+    additionalMetadata.push({
+      key:
+        key.value,
+
+      value:
+        value.value
+    });
   }
 
-  return value;
+  return {
+    decoded: true,
+
+    updateAuthority,
+
+    metadataMint,
+
+    name:
+      name.value,
+
+    symbol:
+      symbol.value,
+
+    uri:
+      uri.value,
+
+    additionalMetadata,
+
+    additionalMetadataCount:
+      additionalCount,
+
+    bytesConsumed:
+      cursor,
+
+    remainingBytes:
+      Math.max(
+        0,
+        bytes.length -
+          cursor
+      )
+  };
 }
 
 /* =========================================================
    TOKEN-2022 TLV PARSER
 ========================================================= */
-
-/*
- * Token-2022 uses:
-
-   base Mint data
-   ↓
-   padding up to Account::LEN
-   ↓
-   AccountType = Mint
-   ↓
-   TLV entries
-
-   Each TLV entry:
-
-   [2 bytes type]
-   [2 bytes length]
-   [N bytes value]
-*/
 
 function parseToken2022Extensions(
   bytes
@@ -345,15 +719,6 @@ function parseToken2022Extensions(
     };
   }
 
-  /*
-   * AccountType is located immediately
-   * after the 165-byte account boundary
-   * when extensions are present.
-   *
-   * 1 = Mint
-   * 2 = Token Account
-   */
-
   const accountType =
     bytes[165];
 
@@ -362,9 +727,13 @@ function parseToken2022Extensions(
   ) {
     return {
       detected: false,
+
       accountType,
+
       extensions: [],
+
       rawCount: 0,
+
       warnings: [
         "TOKEN_2022_ACCOUNT_TYPE_NOT_MINT"
       ]
@@ -391,10 +760,6 @@ function parseToken2022Extensions(
         offset + 2
       );
 
-    /*
-     * Type 0 is the official
-     * uninitialized/padding marker.
-     */
     if (
       type === null ||
       type === 0
@@ -414,19 +779,20 @@ function parseToken2022Extensions(
     const valueEnd =
       valueStart + length;
 
-    /*
-     * Never read outside the RPC buffer.
-     */
     if (
       valueEnd >
       bytes.length
     ) {
       return {
         detected: true,
+
         accountType,
+
         extensions,
+
         rawCount:
           extensions.length,
+
         warnings: [
           "TOKEN_2022_TLV_TRUNCATED"
         ]
@@ -449,10 +815,12 @@ function parseToken2022Extensions(
       type,
       name,
       length,
+
       securityRelevant:
         SECURITY_RELEVANT_EXTENSIONS.has(
           name
         ),
+
       value
     });
 
@@ -496,137 +864,166 @@ function summarizeExtension(
     securityRelevant
   };
 
-  /*
-   * Transfer Fee Config
-   *
-   * We expose the raw rate fields only
-   * when the expected bytes exist.
-   *
-   * The exact economic interpretation
-   * will be added after validation.
-   */
+  /* -------------------------
+     METADATA POINTER
+  ------------------------- */
+
+  if (
+    name ===
+    "METADATA_POINTER"
+  ) {
+    if (
+      value.length >= 64
+    ) {
+      const authority =
+        optionalPubkey(
+          value.slice(
+            0,
+            32
+          )
+        );
+
+      const metadataAddress =
+        optionalPubkey(
+          value.slice(
+            32,
+            64
+          )
+        );
+
+      result.metadataPointer = {
+        authority:
+          authority.value,
+
+        authorityPresent:
+          authority.present,
+
+        metadataAddress:
+          metadataAddress.value,
+
+        metadataAddressPresent:
+          metadataAddress.present,
+
+        pointerImmutable:
+          !authority.present
+      };
+    }
+  }
+
+  /* -------------------------
+     TOKEN METADATA
+  ------------------------- */
+
+  if (
+    name ===
+    "TOKEN_METADATA"
+  ) {
+    const metadata =
+      decodeTokenMetadata(
+        value
+      );
+
+    result.tokenMetadata =
+      metadata;
+  }
+
+  /* -------------------------
+     TRANSFER FEE
+  ------------------------- */
 
   if (
     name ===
     "TRANSFER_FEE_CONFIG"
   ) {
-    /*
-     * Layout contains authorities,
-     * basis points and maximum fee.
-     *
-     * We intentionally do not invent
-     * a value if the layout is unexpected.
-     */
-
     if (
       value.length >= 108
     ) {
-      const olderTransferFeeBasisPoints =
-        readU16LE(
-          value,
-          104
-        );
-
-      const olderTransferFeeMaximum =
+      const olderMaximum =
         readU64LE(
           value,
           96
         );
 
-      const newerTransferFeeBasisPoints =
+      const olderBasisPoints =
         readU16LE(
           value,
-          106
+          104
         );
 
-      const newerTransferFeeMaximum =
+      const newerMaximum =
         readU64LE(
           value,
           88
         );
 
-      result.transferFee =
-        {
-          olderBasisPoints:
-            olderTransferFeeBasisPoints,
+      const newerBasisPoints =
+        readU16LE(
+          value,
+          106
+        );
 
-          olderMaximum:
-            olderTransferFeeMaximum !==
-            null
-              ? olderTransferFeeMaximum.toString()
-              : null,
+      result.transferFee = {
+        olderBasisPoints,
 
-          newerBasisPoints:
-            newerTransferFeeBasisPoints,
+        olderMaximum:
+          olderMaximum !==
+          null
+            ? olderMaximum.toString()
+            : null,
 
-          newerMaximum:
-            newerTransferFeeMaximum !==
-            null
-              ? newerTransferFeeMaximum.toString()
-              : null
-        };
+        newerBasisPoints,
+
+        newerMaximum:
+          newerMaximum !==
+          null
+            ? newerMaximum.toString()
+            : null
+      };
     }
   }
 
-  /*
-   * Mint Close Authority
-   *
-   * Optional Pubkey.
-   */
+  /* -------------------------
+     MINT CLOSE AUTHORITY
+  ------------------------- */
+
   if (
     name ===
     "MINT_CLOSE_AUTHORITY"
   ) {
-    if (
+    result.closeAuthority =
       value.length >= 32
-    ) {
-      result.closeAuthority =
-        bytesToBase58(
-          value.slice(
-            0,
-            32
+        ? bytesToBase58(
+            value.slice(
+              0,
+              32
+            )
           )
-        );
-    } else {
-      result.closeAuthority =
-        null;
-    }
+        : null;
   }
 
-  /*
-   * Permanent Delegate
-   *
-   * 32-byte optional pubkey.
-   */
+  /* -------------------------
+     PERMANENT DELEGATE
+  ------------------------- */
+
   if (
     name ===
     "PERMANENT_DELEGATE"
   ) {
-    if (
+    result.delegate =
       value.length >= 32
-    ) {
-      result.delegate =
-        bytesToBase58(
-          value.slice(
-            0,
-            32
+        ? bytesToBase58(
+            value.slice(
+              0,
+              32
+            )
           )
-        );
-    } else {
-      result.delegate =
-        null;
-    }
+        : null;
   }
 
-  /*
-   * Transfer Hook
-   *
-   * The extension contains authorities
-   * and the program address.
-   *
-   * We expose a candidate program address
-   * only if enough bytes exist.
-   */
+  /* -------------------------
+     TRANSFER HOOK
+  ------------------------- */
+
   if (
     name ===
     "TRANSFER_HOOK"
@@ -644,14 +1041,10 @@ function summarizeExtension(
     }
   }
 
-  /*
-   * Default Account State
-   *
-   * State values:
-   * 0 = Uninitialized
-   * 1 = Initialized
-   * 2 = Frozen
-   */
+  /* -------------------------
+     DEFAULT ACCOUNT STATE
+  ------------------------- */
+
   if (
     name ===
     "DEFAULT_ACCOUNT_STATE"
@@ -673,9 +1066,10 @@ function summarizeExtension(
     }
   }
 
-  /*
-   * Simple feature flags.
-   */
+  /* -------------------------
+     SIMPLE FLAGS
+  ------------------------- */
+
   if (
     name ===
       "NON_TRANSFERABLE" ||
@@ -699,7 +1093,7 @@ function summarizeExtension(
 }
 
 /* =========================================================
-   SECURITY INTERPRETATION
+   SECURITY FINDINGS
 ========================================================= */
 
 function analyseToken2022(
@@ -725,10 +1119,7 @@ function analyseToken2022(
 
   const findings = [];
 
-  /*
-   * Important:
-   * these are findings, NOT final score penalties.
-   */
+  /* Permanent Delegate */
 
   if (
     names.includes(
@@ -737,12 +1128,16 @@ function analyseToken2022(
   ) {
     findings.push({
       severity: "HIGH",
+
       code:
         "PERMANENT_DELEGATE",
+
       message:
         "Une Permanent Delegate est présente et doit être examinée."
     });
   }
+
+  /* Transfer Hook */
 
   if (
     names.includes(
@@ -751,12 +1146,16 @@ function analyseToken2022(
   ) {
     findings.push({
       severity: "MEDIUM",
+
       code:
         "TRANSFER_HOOK",
+
       message:
         "Un Transfer Hook est présent et peut modifier le comportement des transferts."
     });
   }
+
+  /* Transfer Fee */
 
   if (
     names.includes(
@@ -765,12 +1164,16 @@ function analyseToken2022(
   ) {
     findings.push({
       severity: "MEDIUM",
+
       code:
         "TRANSFER_FEE_CONFIG",
+
       message:
         "Une configuration de frais de transfert est présente."
     });
   }
+
+  /* Mint Close */
 
   if (
     names.includes(
@@ -779,12 +1182,16 @@ function analyseToken2022(
   ) {
     findings.push({
       severity: "MEDIUM",
+
       code:
         "MINT_CLOSE_AUTHORITY",
+
       message:
         "Une Mint Close Authority est présente."
     });
   }
+
+  /* Default Account State */
 
   if (
     names.includes(
@@ -804,13 +1211,17 @@ function analyseToken2022(
     ) {
       findings.push({
         severity: "HIGH",
+
         code:
           "DEFAULT_ACCOUNT_STATE_FROZEN",
+
         message:
           "Les nouveaux comptes peuvent être créés dans l'état Frozen."
       });
     }
   }
+
+  /* Non Transferable */
 
   if (
     names.includes(
@@ -819,12 +1230,16 @@ function analyseToken2022(
   ) {
     findings.push({
       severity: "HIGH",
+
       code:
         "NON_TRANSFERABLE",
+
       message:
         "Le mint possède l'extension NonTransferable."
     });
   }
+
+  /* Pausable */
 
   if (
     names.includes(
@@ -833,12 +1248,16 @@ function analyseToken2022(
   ) {
     findings.push({
       severity: "HIGH",
+
       code:
         "PAUSABLE",
+
       message:
         "Le mint possède une extension permettant la mise en pause des opérations."
     });
   }
+
+  /* Permissioned Burn */
 
   if (
     names.includes(
@@ -847,11 +1266,55 @@ function analyseToken2022(
   ) {
     findings.push({
       severity: "HIGH",
+
       code:
         "PERMISSIONED_BURN",
+
       message:
         "Une extension Permissioned Burn est présente."
     });
+  }
+
+  /* Metadata authority */
+
+  const metadata =
+    summaries.find(
+      (item) =>
+        item.name ===
+        "TOKEN_METADATA"
+    );
+
+  if (
+    metadata?.tokenMetadata
+      ?.decoded
+  ) {
+    const authority =
+      metadata.tokenMetadata
+        .updateAuthority;
+
+    if (
+      authority === null
+    ) {
+      findings.push({
+        severity: "INFO",
+
+        code:
+          "METADATA_IMMUTABLE",
+
+        message:
+          "L'autorité de mise à jour des métadonnées est révoquée."
+      });
+    } else {
+      findings.push({
+        severity: "INFO",
+
+        code:
+          "METADATA_MUTABLE",
+
+        message:
+          "Les métadonnées peuvent encore être modifiées par leur autorité de mise à jour."
+      });
+    }
   }
 
   return {
@@ -868,6 +1331,10 @@ function analyseToken2022(
 
     findings,
 
+    metadata:
+      metadata?.tokenMetadata ||
+      null,
+
     analysisComplete:
       true,
 
@@ -877,7 +1344,7 @@ function analyseToken2022(
 }
 
 /* =========================================================
-   API
+   API HANDLER
 ========================================================= */
 
 export default async function handler(
@@ -968,6 +1435,7 @@ export default async function handler(
           {
             encoding:
               "base64",
+
             commitment:
               "confirmed"
           }
@@ -984,6 +1452,7 @@ export default async function handler(
         404,
         {
           ok: false,
+
           error:
             "Mint introuvable sur Solana."
         }
@@ -1004,7 +1473,7 @@ export default async function handler(
             "PROFITX_TOKEN2022",
 
           version:
-            "1.0.0",
+            "1.1.0",
 
           mint,
 
@@ -1031,6 +1500,7 @@ export default async function handler(
         500,
         {
           ok: false,
+
           error:
             "Impossible de décoder les données du mint."
         }
@@ -1058,7 +1528,7 @@ export default async function handler(
           "PROFITX_TOKEN2022",
 
         version:
-          "1.0.0",
+          "1.1.0",
 
         timestamp:
           new Date().toISOString(),

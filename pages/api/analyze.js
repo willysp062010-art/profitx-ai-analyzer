@@ -1,4 +1,4 @@
-const DEXSCREENER_BASE =
+const DEXSCREENER_URL =
   "https://api.dexscreener.com/latest/dex/tokens";
 
 const PUMP_COIN_URL =
@@ -10,13 +10,13 @@ const PUMP_SOL_PRICE_URL =
 const DEFAULT_RPC =
   "https://api.mainnet-beta.solana.com";
 
-const REQUEST_TIMEOUT_MS = 12000;
+const TIMEOUT = 12000;
 
 /* =========================================================
-   HELPERS
+   BASIC HELPERS
 ========================================================= */
 
-function numberOrNull(value) {
+function num(value) {
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
 }
@@ -33,7 +33,7 @@ function clamp(value, min = 0, max = 100) {
 
 function firstNumber(...values) {
   for (const value of values) {
-    const n = numberOrNull(value);
+    const n = num(value);
 
     if (n !== null) {
       return n;
@@ -43,76 +43,52 @@ function firstNumber(...values) {
   return null;
 }
 
+function validMint(value) {
+  return (
+    typeof value === "string" &&
+    /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value)
+  );
+}
+
 function json(res, status, body) {
   res.setHeader(
     "Cache-Control",
     "no-store"
   );
 
-  res.setHeader(
-    "Content-Type",
-    "application/json; charset=utf-8"
-  );
-
-  return res.status(status).json(body);
-}
-
-function isSolanaMint(value) {
-  return (
-    typeof value === "string" &&
-    /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(
-      value
-    )
-  );
-}
-
-function timestampToMs(value) {
-  const n = numberOrNull(value);
-
-  if (n === null) {
-    return null;
-  }
-
-  return n > 100000000000
-    ? n
-    : n * 1000;
+  return res
+    .status(status)
+    .json(body);
 }
 
 /* =========================================================
-   HTTP
+   FETCH
 ========================================================= */
 
-async function fetchJson(
-  url,
-  options = {}
-) {
+async function fetchJson(url, options = {}) {
   const controller =
     new AbortController();
 
-  const timeout =
-    setTimeout(
-      () => controller.abort(),
-      REQUEST_TIMEOUT_MS
-    );
+  const timer = setTimeout(
+    () => controller.abort(),
+    TIMEOUT
+  );
 
   try {
     const response =
-      await fetch(
-        url,
-        {
-          ...options,
+      await fetch(url, {
+        ...options,
 
-          signal:
-            controller.signal,
+        signal:
+          controller.signal,
 
-          headers: {
-            Accept:
-              "application/json",
+        headers: {
+          Accept:
+            "application/json",
 
-            ...(options.headers || {})
-          }
+          ...(options.headers || {})
         }
-      );
+      });
 
     const text =
       await response.text();
@@ -121,8 +97,7 @@ async function fetchJson(
 
     if (text) {
       try {
-        data =
-          JSON.parse(text);
+        data = JSON.parse(text);
       } catch {
         throw new Error(
           `Réponse JSON invalide (${response.status}).`
@@ -131,370 +106,128 @@ async function fetchJson(
     }
 
     if (!response.ok) {
-      const message =
-        data?.error?.message ||
+      throw new Error(
         data?.error ||
         data?.message ||
-        `HTTP ${response.status}`;
-
-      throw new Error(message);
+        `HTTP ${response.status}`
+      );
     }
 
     return data;
   } finally {
-    clearTimeout(timeout);
+    clearTimeout(timer);
   }
 }
 
 /* =========================================================
-   INTERNAL PROFITX MODULES
+   INTERNAL MODULES
 ========================================================= */
 
-function getBaseUrl(req) {
-  const forwardedHost =
-    req.headers?.["x-forwarded-host"];
-
+function baseUrl(req) {
   const host =
-    forwardedHost ||
+    req.headers?.["x-forwarded-host"] ||
     req.headers?.host ||
     process.env.VERCEL_URL;
-
-  const forwardedProto =
-    req.headers?.["x-forwarded-proto"];
-
-  const protocol =
-    forwardedProto ||
-    (
-      process.env.VERCEL_URL
-        ? "https"
-        : "http"
-    );
 
   if (!host) {
     return null;
   }
 
+  const protocol =
+    req.headers?.["x-forwarded-proto"] ||
+    (process.env.VERCEL_URL
+      ? "https"
+      : "http");
+
   return `${protocol}://${host}`;
 }
 
-async function callModule(
+async function moduleCall(
   req,
-  moduleName,
+  name,
   mint
 ) {
-  const baseUrl =
-    getBaseUrl(req);
+  const base =
+    baseUrl(req);
 
-  if (!baseUrl) {
+  if (!base) {
     return {
       ok: false,
       error:
-        "Impossible de déterminer l'URL interne de ProfitX."
+        "URL interne indisponible."
     };
   }
 
-  const url =
-    `${baseUrl}/api/${moduleName}?mint=${encodeURIComponent(
-      mint
-    )}`;
-
   try {
-    const result =
-      await fetchJson(
-        url,
-        {
-          method: "GET"
-        }
-      );
-
-    return result || {
-      ok: false,
-      error:
-        `Réponse vide du module ${moduleName}.`
-    };
+    return await fetchJson(
+      `${base}/api/${name}?mint=${encodeURIComponent(
+        mint
+      )}`
+    );
   } catch (error) {
     return {
       ok: false,
-
       error:
         error?.message ||
-        `Erreur du module ${moduleName}.`
+        `Erreur ${name}.`
     };
   }
-}
-
-/* =========================================================
-   DEXSCREENER
-========================================================= */
-
-async function getDexScreenerData(
-  mint
-) {
-  const url =
-    `${DEXSCREENER_BASE}/solana/${encodeURIComponent(
-      mint
-    )}`;
-
-  const data =
-    await fetchJson(url);
-
-  const pairs =
-    Array.isArray(data?.pairs)
-      ? data.pairs
-      : [];
-
-  if (!pairs.length) {
-    return {
-      pair: null,
-      pairs: []
-    };
-  }
-
-  const solanaPairs =
-    pairs.filter(
-      (pair) =>
-        pair?.chainId ===
-        "solana"
-    );
-
-  const candidates =
-    solanaPairs.length
-      ? solanaPairs
-      : pairs;
-
-  const sorted =
-    [...candidates].sort(
-      (a, b) => {
-        const liquidityA =
-          numberOrNull(
-            a?.liquidity?.usd
-          ) ?? 0;
-
-        const liquidityB =
-          numberOrNull(
-            b?.liquidity?.usd
-          ) ?? 0;
-
-        return (
-          liquidityB -
-          liquidityA
-        );
-      }
-    );
-
-  return {
-    pair:
-      sorted[0] || null,
-
-    pairs:
-      sorted
-  };
-}
-
-function analyseDexPair(
-  pair
-) {
-  if (!pair) {
-    return null;
-  }
-
-  const liquidityUsd =
-    numberOrNull(
-      pair?.liquidity?.usd
-    );
-
-  const volume24hUsd =
-    numberOrNull(
-      pair?.volume?.h24
-    );
-
-  const buys24h =
-    numberOrNull(
-      pair?.txns?.h24?.buys
-    );
-
-  const sells24h =
-    numberOrNull(
-      pair?.txns?.h24?.sells
-    );
-
-  const transactions24h =
-    buys24h !== null &&
-    sells24h !== null
-      ? buys24h + sells24h
-      : null;
-
-  const priceUsd =
-    numberOrNull(
-      pair?.priceUsd
-    );
-
-  const marketCapUsd =
-    firstNumber(
-      pair?.marketCap,
-      pair?.fdv
-    );
-
-  const pairCreatedAt =
-    numberOrNull(
-      pair?.pairCreatedAt
-    );
-
-  let ageHours = null;
-
-  if (
-    pairCreatedAt !== null
-  ) {
-    ageHours =
-      Math.max(
-        0,
-        (
-          Date.now() -
-          pairCreatedAt
-        ) / 3600000
-      );
-  }
-
-  let maturity = null;
-
-  if (
-    ageHours !== null
-  ) {
-    maturity =
-      clamp(
-        (
-          Math.log10(
-            ageHours + 1
-          ) /
-          Math.log10(
-            24 * 30 + 1
-          )
-        ) * 100
-      );
-  }
-
-  return {
-    liquidityUsd,
-
-    volume24hUsd,
-
-    transactions24h,
-
-    buys24h,
-
-    sells24h,
-
-    priceUsd,
-
-    marketCapUsd,
-
-    pairCreatedAt,
-
-    ageHours,
-
-    maturity,
-
-    pairAddress:
-      pair?.pairAddress ??
-      null,
-
-    dexId:
-      pair?.dexId ??
-      null,
-
-    url:
-      pair?.url ??
-      null,
-
-    name:
-      pair?.baseToken?.name ??
-      null,
-
-    symbol:
-      pair?.baseToken?.symbol ??
-      null
-  };
 }
 
 /* =========================================================
    PUMP.FUN
 ========================================================= */
 
-async function getPumpFunData(
-  mint
-) {
-  const coinUrl =
-    `${PUMP_COIN_URL}/${encodeURIComponent(
-      mint
-    )}`;
-
-  const coinResponse =
+async function pumpData(mint) {
+  const coin =
     await fetchJson(
-      coinUrl,
+      `${PUMP_COIN_URL}/${encodeURIComponent(
+        mint
+      )}`,
       {
-        method: "GET",
-
         headers: {
-          Accept:
-            "application/json",
-
           Origin:
             "https://pump.fun"
         }
       }
     );
 
-  const coin =
-    coinResponse?.data ||
-    coinResponse;
+  const data =
+    coin?.data ||
+    coin;
 
-  if (
-    !coin ||
-    typeof coin !== "object"
-  ) {
-    throw new Error(
-      "Pump.fun n'a pas retourné les données du token."
-    );
-  }
-
-  let solPriceUsd = null;
+  let solPrice = null;
 
   try {
-    const priceResponse =
+    const price =
       await fetchJson(
         PUMP_SOL_PRICE_URL,
         {
-          method: "GET",
-
           headers: {
-            Accept:
-              "application/json",
-
             Origin:
               "https://pump.fun"
           }
         }
       );
 
-    const price =
-      priceResponse?.data ||
-      priceResponse;
+    const value =
+      price?.data ||
+      price;
 
-    solPriceUsd =
+    solPrice =
       firstNumber(
-        price?.solPrice,
-        price?.sol_price,
-        price?.usd,
-        price?.price
+        value?.solPrice,
+        value?.sol_price,
+        value?.price,
+        value?.usd
       );
   } catch {
-    solPriceUsd =
-      null;
+    solPrice = null;
   }
 
   return {
-    coin,
-    solPriceUsd
+    coin: data,
+    solPrice
   };
 }
 
@@ -502,17 +235,15 @@ async function getPumpFunData(
    TOKEN SUPPLY
 ========================================================= */
 
-async function getTokenSupply(
-  mint
-) {
-  const rpcUrl =
+async function tokenSupply(mint) {
+  const rpc =
     process.env.SOLANA_RPC_URL ||
     DEFAULT_RPC;
 
   try {
     const result =
       await fetchJson(
-        rpcUrl,
+        rpc,
         {
           method: "POST",
 
@@ -542,23 +273,19 @@ async function getTokenSupply(
         }
       );
 
+    const value =
+      result?.result?.value;
+
     return {
       amount:
-        result?.result?.value
-          ?.amount ??
+        value?.amount ??
         null,
 
       decimals:
-        numberOrNull(
-          result?.result?.value
-            ?.decimals
-        ),
+        num(value?.decimals),
 
       uiAmount:
-        numberOrNull(
-          result?.result?.value
-            ?.uiAmount
-        )
+        num(value?.uiAmount)
     };
   } catch {
     return {
@@ -570,12 +297,76 @@ async function getTokenSupply(
 }
 
 /* =========================================================
-   PUMP ANALYSIS
+   DEXSCREENER
 ========================================================= */
 
-function analysePumpCoin(
+async function dexData(mint) {
+  try {
+    const result =
+      await fetchJson(
+        `${DEXSCREENER_URL}/solana/${encodeURIComponent(
+          mint
+        )}`
+      );
+
+    const pairs =
+      Array.isArray(result?.pairs)
+        ? result.pairs
+        : [];
+
+    if (!pairs.length) {
+      return {
+        pair: null,
+        error: null
+      };
+    }
+
+    const solana =
+      pairs.filter(
+        p =>
+          p?.chainId ===
+          "solana"
+      );
+
+    const list =
+      solana.length
+        ? solana
+        : pairs;
+
+    list.sort(
+      (a, b) =>
+        (num(
+          b?.liquidity?.usd
+        ) || 0) -
+        (num(
+          a?.liquidity?.usd
+        ) || 0)
+    );
+
+    return {
+      pair:
+        list[0] || null,
+
+      error: null
+    };
+  } catch (error) {
+    return {
+      pair: null,
+
+      error:
+        error?.message ||
+        "DexScreener indisponible."
+    };
+  }
+}
+
+/* =========================================================
+   PUMP METRICS
+========================================================= */
+
+function pumpMetrics(
   coin,
-  solPriceUsd,
+  solPrice,
   supply
 ) {
   if (!coin) {
@@ -583,9 +374,7 @@ function analysePumpCoin(
   }
 
   const marketCapSol =
-    numberOrNull(
-      coin?.market_cap
-    );
+    num(coin?.market_cap);
 
   let marketCapUsd =
     firstNumber(
@@ -596,90 +385,84 @@ function analysePumpCoin(
   if (
     marketCapUsd === null &&
     marketCapSol !== null &&
-    solPriceUsd !== null
+    solPrice !== null
   ) {
     marketCapUsd =
       marketCapSol *
-      solPriceUsd;
+      solPrice;
   }
 
-  const rawVirtualSol =
-    numberOrNull(
+  const virtualSolRaw =
+    num(
       coin?.virtual_sol_reserves
     );
 
-  const rawVirtualToken =
-    numberOrNull(
+  const virtualTokenRaw =
+    num(
       coin?.virtual_token_reserves
     );
 
   const virtualSol =
-    rawVirtualSol !== null
-      ? rawVirtualSol / 1e9
+    virtualSolRaw !== null
+      ? virtualSolRaw / 1e9
       : null;
 
   const virtualToken =
-    rawVirtualToken !== null
-      ? rawVirtualToken / 1e6
+    virtualTokenRaw !== null
+      ? virtualTokenRaw / 1e6
       : null;
 
   let liquidityUsd = null;
 
   if (
     virtualSol !== null &&
-    solPriceUsd !== null
+    solPrice !== null
   ) {
     liquidityUsd =
       virtualSol *
-      solPriceUsd;
+      solPrice;
   }
 
-  const createdAtMs =
-    timestampToMs(
-      coin?.created_timestamp
+  let priceUsd =
+    firstNumber(
+      coin?.price_usd,
+      coin?.priceUsd
     );
+
+  if (
+    priceUsd === null &&
+    marketCapUsd !== null &&
+    supply?.uiAmount > 0
+  ) {
+    priceUsd =
+      marketCapUsd /
+      supply.uiAmount;
+  }
 
   let ageHours = null;
 
-  if (
-    createdAtMs !== null
-  ) {
+  const created =
+    num(
+      coin?.created_timestamp
+    );
+
+  if (created !== null) {
+    const ms =
+      created > 100000000000
+        ? created
+        : created * 1000;
+
     ageHours =
       Math.max(
         0,
-        (
-          Date.now() -
-          createdAtMs
-        ) / 3600000
-      );
-  }
-
-  const lastTradeMs =
-    timestampToMs(
-      coin?.last_trade_timestamp
-    );
-
-  let lastTradeAgeHours =
-    null;
-
-  if (
-    lastTradeMs !== null
-  ) {
-    lastTradeAgeHours =
-      Math.max(
-        0,
-        (
-          Date.now() -
-          lastTradeMs
-        ) / 3600000
+        (Date.now() - ms) /
+          3600000
       );
   }
 
   let maturity = null;
 
-  if (
-    ageHours !== null
-  ) {
+  if (ageHours !== null) {
     maturity =
       clamp(
         (
@@ -693,71 +476,20 @@ function analysePumpCoin(
       );
   }
 
-  /*
-   * IMPORTANT :
-   *
-   * L'activité ne vient plus de last_trade_timestamp.
-   * Elle vient maintenant d'Activity V3.
-   *
-   * On laisse donc activity à null ici.
-   */
-
-  let priceUsd =
-    firstNumber(
-      coin?.price_usd,
-      coin?.priceUsd
-    );
-
-  if (
-    priceUsd === null &&
-    marketCapUsd !== null
-  ) {
-    const supplyUi =
-      firstNumber(
-        supply?.uiAmount
-      );
-
-    if (
-      supplyUi !== null &&
-      supplyUi > 0
-    ) {
-      priceUsd =
-        marketCapUsd /
-        supplyUi;
-    }
-  }
-
   return {
     liquidityUsd,
 
-    volume24hUsd:
-      null,
-
-    transactions24h:
-      null,
-
-    buys24h:
-      null,
-
-    sells24h:
-      null,
+    marketCapUsd,
 
     priceUsd,
 
-    marketCapUsd,
-
-    pairCreatedAt:
-      createdAtMs,
-
     ageHours,
-
-    activity:
-      null,
 
     maturity,
 
-    pumpComplete:
-      coin?.complete === true,
+    complete:
+      coin?.complete ??
+      null,
 
     bondingCurve:
       coin?.bonding_curve ??
@@ -775,11 +507,9 @@ function analysePumpCoin(
       coin?.raydium_pool ??
       null,
 
-    virtualSolReserves:
-      virtualSol,
+    virtualSol,
 
-    virtualTokenReserves:
-      virtualToken,
+    virtualToken,
 
     creator:
       coin?.creator ??
@@ -816,59 +546,120 @@ function analysePumpCoin(
 }
 
 /* =========================================================
-   ACTIVITY NORMALIZATION
+   DEX METRICS
 ========================================================= */
 
-function normalizeActivity(
-  result
-) {
+function dexMetrics(pair) {
+  if (!pair) {
+    return null;
+  }
+
+  const buys =
+    num(
+      pair?.txns?.h24?.buys
+    );
+
+  const sells =
+    num(
+      pair?.txns?.h24?.sells
+    );
+
+  return {
+    liquidityUsd:
+      num(
+        pair?.liquidity?.usd
+      ),
+
+    volume24hUsd:
+      num(
+        pair?.volume?.h24
+      ),
+
+    buys24h:
+      buys,
+
+    sells24h:
+      sells,
+
+    transactions24h:
+      buys !== null &&
+      sells !== null
+        ? buys + sells
+        : null,
+
+    priceUsd:
+      num(pair?.priceUsd),
+
+    marketCapUsd:
+      firstNumber(
+        pair?.marketCap,
+        pair?.fdv
+      ),
+
+    pairCreatedAt:
+      num(pair?.pairCreatedAt),
+
+    pairAddress:
+      pair?.pairAddress ??
+      null,
+
+    dexId:
+      pair?.dexId ??
+      null,
+
+    url:
+      pair?.url ??
+      null,
+
+    name:
+      pair?.baseToken?.name ??
+      null,
+
+    symbol:
+      pair?.baseToken?.symbol ??
+      null
+  };
+}
+
+/* =========================================================
+   ACTIVITY
+========================================================= */
+
+function normalizeActivity(result) {
   if (
     !result ||
     result.ok !== true
   ) {
     return {
-      available:
-        false,
+      available: false,
 
-      volume24hUsd:
-        null,
+      volume24hUsd: null,
 
-      transactions24h:
-        null,
+      transactions24h: null,
 
-      buys24h:
-        null,
+      buys24h: null,
 
-      sells24h:
-        null,
+      sells24h: null,
 
-      uniqueBuyers24h:
-        null,
+      historicalTransactions: null,
 
-      uniqueSellers24h:
-        null,
+      historicalBuys: null,
 
-      historicalTransactions:
-        null,
+      historicalSells: null,
 
-      historicalBuys:
-        null,
+      uniqueBuyers: null,
 
-      historicalSells:
-        null,
-
-      uniqueHistoricalBuyers:
-        null,
-
-      uniqueHistoricalSellers:
-        null,
+      uniqueSellers: null,
 
       status:
-        "UNAVAILABLE"
+        "UNAVAILABLE",
+
+      volumeStatus:
+        "N/D"
     };
   }
 
-  const last24h =
+  const day =
     result?.volume?.last24h;
 
   const observed =
@@ -877,62 +668,44 @@ function normalizeActivity(
   const participants =
     result?.participants;
 
-  const activity =
-    result?.activity;
-
   return {
-    available:
-      true,
+    available: true,
 
     volume24hUsd:
-      numberOrNull(
-        last24h?.volumeUsd
-      ),
+      num(day?.volumeUsd),
 
     transactions24h:
-      numberOrNull(
-        last24h?.transactions
-      ),
+      num(day?.transactions),
 
     buys24h:
-      numberOrNull(
-        last24h?.buys
-      ),
+      num(day?.buys),
 
     sells24h:
-      numberOrNull(
-        last24h?.sells
-      ),
-
-    uniqueBuyers24h:
-      null,
-
-    uniqueSellers24h:
-      null,
+      num(day?.sells),
 
     historicalTransactions:
-      numberOrNull(
+      num(
         observed?.transactions
       ),
 
     historicalBuys:
-      numberOrNull(
+      num(
         observed?.buys
       ),
 
     historicalSells:
-      numberOrNull(
+      num(
         observed?.sells
       ),
 
-    uniqueHistoricalBuyers:
-      numberOrNull(
+    uniqueBuyers:
+      num(
         participants
           ?.uniqueExternalBuyers
       ),
 
-    uniqueHistoricalSellers:
-      numberOrNull(
+    uniqueSellers:
+      num(
         participants
           ?.uniqueExternalSellers
       ),
@@ -942,40 +715,87 @@ function normalizeActivity(
         ?.activityStatus ??
       "UNKNOWN",
 
-    volume24hStatus:
-      last24h
-        ?.volumeUsdStatus ??
+    volumeStatus:
+      day?.volumeUsdStatus ??
       "N/D",
 
     volume7d:
       result?.volume?.last7d ??
-      null,
-
-    observed:
-      observed ??
-      null,
-
-    raw:
-      result
+      null
   };
 }
 
 /* =========================================================
-   DISTRIBUTION SCORE
+   SCORES
 ========================================================= */
 
-function calculateDistributionScore(
-  holders
-) {
+function liquidityScore(value) {
+  if (value === null) {
+    return null;
+  }
+
+  return clamp(
+    Math.log10(
+      Math.max(value, 1)
+    ) * 20
+  );
+}
+
+function activityScore(activity) {
+  if (
+    !activity.available
+  ) {
+    return null;
+  }
+
+  if (
+    activity.transactions24h ===
+    0
+  ) {
+    return 0;
+  }
+
+  if (
+    activity.transactions24h ===
+    null
+  ) {
+    return null;
+  }
+
+  return clamp(
+    Math.log10(
+      activity.transactions24h +
+        1
+    ) * 40
+  );
+}
+
+function volumeScore(value) {
+  if (value === null) {
+    return null;
+  }
+
+  if (value === 0) {
+    return 0;
+  }
+
+  return clamp(
+    Math.log10(
+      Math.max(value, 1)
+    ) * 20
+  );
+}
+
+function distributionScore(holders) {
   const top1 =
-    numberOrNull(
+    num(
       holders
         ?.distribution
         ?.externalTop1Percent
     );
 
   const top10 =
-    numberOrNull(
+    num(
       holders
         ?.distribution
         ?.externalTop10Percent
@@ -988,43 +808,26 @@ function calculateDistributionScore(
     return null;
   }
 
-  const concentration =
-    (
-      (top1 ?? 0) * 0.7
-    ) +
-    (
-      (top10 ?? 0) * 0.3
-    );
-
   return clamp(
     100 -
-    concentration
+      (
+        (top1 || 0) *
+          0.7 +
+        (top10 || 0) *
+          0.3
+      )
   );
 }
 
-/* =========================================================
-   SECURITY SCORE
-========================================================= */
-
-function calculateSecurityScore(
-  security
-) {
-  const value =
-    numberOrNull(
-      security
-        ?.securityScore
-    );
-
-  return value === null
-    ? null
-    : clamp(value);
+function securityScore(security) {
+  return clamp(
+    num(
+      security?.securityScore
+    )
+  );
 }
 
-/* =========================================================
-   TOKEN-2022 ADJUSTMENT
-========================================================= */
-
-function calculateToken2022Score(
+function token2022Score(
   token2022
 ) {
   if (
@@ -1039,9 +842,7 @@ function calculateToken2022Score(
         ?.analysis
         ?.findings
     )
-      ? token2022
-          .analysis
-          .findings
+      ? token2022.analysis.findings
       : [];
 
   let score = 100;
@@ -1054,7 +855,9 @@ function calculateToken2022Score(
       "HIGH"
     ) {
       score -= 20;
-    } else if (
+    }
+
+    if (
       finding?.severity ===
       "MEDIUM"
     ) {
@@ -1062,180 +865,274 @@ function calculateToken2022Score(
     }
   }
 
-  return clamp(
-    score
-  );
+  return clamp(score);
 }
 
 /* =========================================================
-   FINAL SCORE
+   STRUCTURAL SCORE
 ========================================================= */
 
-function calculateScore({
-  liquidityUsd,
+function structuralScore({
+  liquidity,
   distribution,
-  activity,
-  volume24hUsd,
   maturity,
   security
 }) {
   const components = {
-    liquidity: null,
-
-    distribution:
-      distribution ?? null,
-
-    activity:
-      activity ?? null,
-
-    volume:
-      null,
-
-    maturity:
-      maturity ?? null,
-
-    security:
-      security ?? null
+    liquidity,
+    distribution,
+    maturity,
+    security
   };
-
-  if (
-    liquidityUsd !== null &&
-    liquidityUsd !== undefined
-  ) {
-    components.liquidity =
-      clamp(
-        Math.log10(
-          Math.max(
-            liquidityUsd,
-            1
-          )
-        ) * 20
-      );
-  }
-
-  /*
-   * IMPORTANT :
-   *
-   * 0 $ de volume = vraie valeur.
-   * Ce n'est PAS une donnée manquante.
-   */
-
-  if (
-    volume24hUsd !== null &&
-    volume24hUsd !== undefined
-  ) {
-    components.volume =
-      volume24hUsd === 0
-        ? 0
-        : clamp(
-            Math.log10(
-              Math.max(
-                volume24hUsd,
-                1
-              )
-            ) * 20
-          );
-  }
 
   const weights = {
-    liquidity: 20,
-
-    distribution: 20,
-
-    activity: 20,
-
-    volume: 15,
-
-    maturity: 10,
-
-    security: 15
+    liquidity: 30,
+    distribution: 30,
+    maturity: 15,
+    security: 25
   };
 
-  let weightedTotal = 0;
-
-  let availableWeight = 0;
+  let total = 0;
+  let weight = 0;
 
   for (
-    const [key, weight]
-      of Object.entries(
-        weights
-      )
+    const key of Object.keys(
+      weights
+    )
   ) {
-    const value =
-      components[key];
-
     if (
-      value !== null &&
-      Number.isFinite(value)
+      components[key] !==
+        null &&
+      Number.isFinite(
+        components[key]
+      )
     ) {
-      weightedTotal +=
-        value * weight;
+      total +=
+        components[key] *
+        weights[key];
 
-      availableWeight +=
-        weight;
+      weight +=
+        weights[key];
     }
   }
 
-  let total = null;
-
-  /*
-   * Minimum 40 points de données disponibles.
-   */
-
-  if (
-    availableWeight >= 40
-  ) {
-    total =
-      Math.round(
-        weightedTotal /
-        availableWeight
-      );
-  }
-
   return {
-    total,
+    total:
+      weight >= 40
+        ? Math.round(
+            total / weight
+          )
+        : null,
 
     components,
 
-    weights,
-
-    availableWeight
+    availableWeight:
+      weight
   };
 }
 
 /* =========================================================
-   STATUS
+   MARKET SCORE
 ========================================================= */
 
-function buildStatus(
-  pumpCoin,
-  dexPair
-) {
+function marketScore({
+  activity,
+  volume
+}) {
   if (
-    pumpCoin?.complete === true
+    activity === null &&
+    volume === null
   ) {
-    return "GRADUATED";
+    return null;
   }
 
-  if (
-    pumpCoin?.complete === false
-  ) {
-    return "BONDING_CURVE";
-  }
+  const a =
+    activity ?? 0;
 
-  if (dexPair) {
-    return "VALID";
-  }
+  const v =
+    volume ?? 0;
 
-  if (pumpCoin) {
-    return "PUMP_DATA";
-  }
-
-  return "NO_MARKET";
+  return Math.round(
+    a * 0.6 +
+    v * 0.4
+  );
 }
 
 /* =========================================================
-   MAIN
+   CONFIDENCE
+========================================================= */
+
+function confidenceScore({
+  pump,
+  activity,
+  holders,
+  security,
+  token2022,
+  liquidity
+}) {
+  let points = 0;
+
+  let max = 0;
+
+  function check(value) {
+    max++;
+
+    if (value) {
+      points++;
+    }
+  }
+
+  check(Boolean(pump));
+  check(activity.available);
+  check(Boolean(holders));
+  check(Boolean(security));
+  check(Boolean(token2022));
+  check(liquidity !== null);
+
+  return max
+    ? Math.round(
+        (points / max) *
+          100
+      )
+    : 0;
+}
+
+/* =========================================================
+   DIAGNOSTIC
+========================================================= */
+
+function diagnostic({
+  activity,
+  holders,
+  status,
+  structural,
+  market,
+  confidence
+}) {
+  const warnings = [];
+  const positives = [];
+
+  if (
+    activity.transactions24h ===
+      0 &&
+    activity.volume24hUsd ===
+      0
+  ) {
+    warnings.push(
+      "Aucune activité économique détectée sur 24h."
+    );
+  }
+
+  if (
+    activity.uniqueBuyers ===
+      0
+  ) {
+    warnings.push(
+      "Aucun acheteur externe détecté récemment."
+    );
+  }
+
+  const holderCount =
+    num(
+      holders?.uniqueOwners
+    );
+
+  if (
+    holderCount !== null &&
+    holderCount <= 3
+  ) {
+    warnings.push(
+      "Nombre de détenteurs très faible."
+    );
+  }
+
+  if (
+    structural.total !== null &&
+    structural.total >= 70
+  ) {
+    positives.push(
+      "Structure globalement solide selon les données disponibles."
+    );
+  }
+
+  if (
+    status ===
+    "BONDING_CURVE"
+  ) {
+    warnings.push(
+      "Le token est encore sur la bonding curve."
+    );
+  }
+
+  let state =
+    "UNKNOWN";
+
+  let conclusion =
+    "Les données disponibles ne permettent pas encore une conclusion complète.";
+
+  if (
+    activity.transactions24h ===
+      0 &&
+    activity.volume24hUsd ===
+      0
+  ) {
+    state = "INACTIVE";
+
+    conclusion =
+      "Le marché est actuellement inactif. ProfitX observe une structure analysable mais aucun mouvement économique récent.";
+  } else if (
+    market !== null &&
+    market < 25
+  ) {
+    state =
+      "LOW_ACTIVITY";
+
+    conclusion =
+      "Une activité existe, mais elle reste faible.";
+  } else if (
+    market !== null
+  ) {
+    state = "ACTIVE";
+
+    conclusion =
+      "Une activité économique réelle est détectée.";
+  }
+
+  return {
+    version:
+      "4.0.0",
+
+    marketState:
+      state,
+
+    confidence: {
+      score:
+        confidence,
+
+      level:
+        confidence >= 85
+          ? "HIGH"
+          : confidence >= 60
+            ? "MEDIUM"
+            : "LOW"
+    },
+
+    structuralScore:
+      structural.total,
+
+    marketScore:
+      market,
+
+    positives,
+
+    warnings,
+
+    conclusion
+  };
+}
+
+/* =========================================================
+   HANDLER
 ========================================================= */
 
 export default async function handler(
@@ -1246,166 +1143,55 @@ export default async function handler(
     req.method !== "GET" &&
     req.method !== "POST"
   ) {
-    res.setHeader(
-      "Allow",
-      "GET, POST"
-    );
-
     return json(
       res,
       405,
       {
         ok: false,
-
         error:
           "Méthode non autorisée."
       }
     );
   }
 
-  let mint = "";
-
-  if (
+  const mint =
     req.method === "GET"
-  ) {
-    mint =
-      typeof req.query?.mint ===
-      "string"
-        ? req.query.mint.trim()
-        : "";
-  }
+      ? String(
+          req.query?.mint || ""
+        ).trim()
+      : String(
+          req.body?.mint || ""
+        ).trim();
 
-  if (
-    req.method === "POST"
-  ) {
-    mint =
-      typeof req.body?.mint ===
-      "string"
-        ? req.body.mint.trim()
-        : "";
-  }
-
-  if (!mint) {
+  if (!validMint(mint)) {
     return json(
       res,
       400,
       {
         ok: false,
-
-        error:
-          "Adresse mint Solana manquante."
-      }
-    );
-  }
-
-  if (
-    !isSolanaMint(mint)
-  ) {
-    return json(
-      res,
-      400,
-      {
-        ok: false,
-
         error:
           "Adresse mint Solana invalide."
       }
     );
   }
 
-  let dexPair = null;
-
-  let dexMetrics = null;
-
-  let dexError = null;
-
-  let pumpCoin = null;
-
-  let pumpMetrics = null;
-
+  let pump = null;
   let pumpError = null;
 
-  let solPriceUsd = null;
-
-  /* =====================================================
-     1. DEXSCREENER
-  ===================================================== */
-
   try {
-    const dex =
-      await getDexScreenerData(
-        mint
-      );
-
-    dexPair =
-      dex.pair;
-
-    if (dexPair) {
-      dexMetrics =
-        analyseDexPair(
-          dexPair
-        );
-    }
-  } catch (error) {
-    dexError =
-      error?.message ||
-      "Erreur DexScreener.";
-  }
-
-  /* =====================================================
-     2. SUPPLY
-  ===================================================== */
-
-  const supply =
-    await getTokenSupply(
-      mint
-    );
-
-  /* =====================================================
-     3. PUMP.FUN
-  ===================================================== */
-
-  try {
-    const pump =
-      await getPumpFunData(
-        mint
-      );
-
-    pumpCoin =
-      pump.coin;
-
-    solPriceUsd =
-      pump.solPriceUsd;
-
-    const pumpMint =
-      pumpCoin?.mint ??
-      pumpCoin?.address ??
-      null;
-
-    if (
-      pumpMint &&
-      String(pumpMint) ===
-        mint
-    ) {
-      pumpMetrics =
-        analysePumpCoin(
-          pumpCoin,
-          solPriceUsd,
-          supply
-        );
-    } else {
-      pumpError =
-        "Pump.fun n'a pas confirmé ce mint.";
-    }
+    pump =
+      await pumpData(mint);
   } catch (error) {
     pumpError =
       error?.message ||
-      "Erreur Pump.fun.";
+      "Pump.fun indisponible.";
   }
 
-  /* =====================================================
-     4. MODULES PROFITX
-  ===================================================== */
+  const supply =
+    await tokenSupply(mint);
+
+  const dex =
+    await dexData(mint);
 
   const [
     activityResult,
@@ -1414,25 +1200,25 @@ export default async function handler(
     token2022Result
   ] =
     await Promise.all([
-      callModule(
+      moduleCall(
         req,
         "activity",
         mint
       ),
 
-      callModule(
+      moduleCall(
         req,
         "holders",
         mint
       ),
 
-      callModule(
+      moduleCall(
         req,
         "security",
         mint
       ),
 
-      callModule(
+      moduleCall(
         req,
         "token2022",
         mint
@@ -1451,7 +1237,7 @@ export default async function handler(
 
   const security =
     securityResult?.ok === true
-      ? securityResult?.security
+      ? securityResult.security
       : null;
 
   const token2022 =
@@ -1459,103 +1245,77 @@ export default async function handler(
       ? token2022Result
       : null;
 
-  /* =====================================================
-     5. SOURCE PRINCIPALE
-  ===================================================== */
+  const pMetrics =
+    pumpMetrics(
+      pump?.coin,
+      pump?.solPrice,
+      supply
+    );
 
-  let source = null;
-
-  let metrics = null;
-
-  if (dexMetrics) {
-    source =
-      "dexscreener";
-
-    metrics =
-      {
-        ...dexMetrics
-      };
-  } else if (
-    pumpMetrics
-  ) {
-    source =
-      "pumpfun";
-
-    metrics =
-      {
-        ...pumpMetrics
-      };
-  }
+  const dMetrics =
+    dexMetrics(
+      dex?.pair
+    );
 
   /*
-   * Si Pump.fun existe mais aucune paire DEX
-   * n'existe encore, le token reste analysable.
+   * Pump.fun = source principale
+   * tant qu'il n'existe pas de paire DEX.
    */
 
-  if (!metrics) {
-    metrics = {
-      liquidityUsd:
-        null,
+  const metrics =
+    dMetrics
+      ? {
+          ...dMetrics,
 
-      volume24hUsd:
-        activity.volume24hUsd,
+          liquidityUsd:
+            dMetrics.liquidityUsd ??
+            pMetrics?.liquidityUsd,
 
-      transactions24h:
-        activity.transactions24h,
+          maturity:
+            pMetrics?.maturity ??
+            null,
 
-      buys24h:
-        activity.buys24h,
+          ageHours:
+            pMetrics?.ageHours ??
+            null
+        }
+      : {
+          liquidityUsd:
+            pMetrics?.liquidityUsd ??
+            null,
 
-      sells24h:
-        activity.sells24h,
+          volume24hUsd:
+            null,
 
-      priceUsd:
-        null,
+          transactions24h:
+            null,
 
-      marketCapUsd:
-        null,
+          buys24h:
+            null,
 
-      ageHours:
-        null,
+          sells24h:
+            null,
 
-      maturity:
-        null,
+          priceUsd:
+            pMetrics?.priceUsd ??
+            null,
 
-      pumpComplete:
-        pumpCoin?.complete ??
-        null,
+          marketCapUsd:
+            pMetrics?.marketCapUsd ??
+            null,
 
-      pumpSwapPool:
-        pumpCoin?.pump_swap_pool ??
-        null,
+          ageHours:
+            pMetrics?.ageHours ??
+            null,
 
-      raydiumPool:
-        pumpCoin?.raydium_pool ??
-        null,
-
-      virtualSolReserves:
-        null,
-
-      virtualTokenReserves:
-        null
-    };
-
-    source =
-      pumpCoin
-        ? "pumpfun"
-        : null;
-  }
-
-  /* =====================================================
-     6. ACTIVITY V3 = SOURCE DE VÉRITÉ
-  ===================================================== */
+          maturity:
+            pMetrics?.maturity ??
+            null
+        };
 
   /*
-   * Activity V3 possède la priorité sur l'ancien
-   * endpoint Pump.fun trades.
-   *
-   * Si Activity V3 dit 0, on conserve 0.
-   * On ne remplace PAS 0 par une autre valeur.
+   * Activity V3 est prioritaire.
+   * Un zéro reste un zéro.
    */
 
   if (
@@ -1572,245 +1332,156 @@ export default async function handler(
 
     metrics.sells24h =
       activity.sells24h;
-  } else if (
-    source ===
-      "dexscreener"
-  ) {
-    /*
-     * DexScreener devient la source
-     * de secours uniquement si Activity V3
-     * n'est pas disponible.
-     */
   }
 
-  /* =====================================================
-     7. LIQUIDITY / MARKET
-  ===================================================== */
+  const liquidity =
+    num(
+      metrics.liquidityUsd
+    );
 
-  if (
-    metrics.liquidityUsd ===
-      null &&
-    pumpMetrics
-  ) {
-    metrics.liquidityUsd =
-      pumpMetrics.liquidityUsd;
-  }
-
-  /*
-   * Pour un token gradué, DexScreener reste
-   * prioritaire pour la liquidité.
-   */
-
-  if (
-    dexMetrics?.liquidityUsd !==
-      null &&
-    dexMetrics?.liquidityUsd !==
-      undefined
-  ) {
-    metrics.liquidityUsd =
-      dexMetrics.liquidityUsd;
-  }
-
-  /* =====================================================
-     8. DISTRIBUTION
-  ===================================================== */
-
-  const distributionScore =
-    calculateDistributionScore(
+  const distribution =
+    distributionScore(
       holders
     );
 
-  /* =====================================================
-     9. SECURITY
-  ===================================================== */
-
-  const securityBaseScore =
-    calculateSecurityScore(
+  const baseSecurity =
+    securityScore(
       security
     );
 
-  const token2022Score =
-    calculateToken2022Score(
+  const extensionSecurity =
+    token2022Score(
       token2022
     );
 
-  let securityScore = null;
+  let securityFinal = null;
 
   if (
-    securityBaseScore !==
-      null
+    baseSecurity !== null
   ) {
-    securityScore =
-      (
-        securityBaseScore *
-        0.8
-      ) +
-      (
-        token2022Score *
-        0.2
-      );
-  } else if (
-    token2022Score !==
-      null
-  ) {
-    securityScore =
-      token2022Score;
-  }
-
-  securityScore =
-    securityScore === null
-      ? null
-      : clamp(
-          securityScore
-        );
-
-  /* =====================================================
-     10. ACTIVITY SCORE
-  ===================================================== */
-
-  let activityScore =
-    null;
-
-  if (
-    activity.available
-  ) {
-    /*
-     * Aucun mouvement 24h =
-     * activité réelle = 0.
-     */
-
-    if (
-      activity.transactions24h ===
-        0
-    ) {
-      activityScore =
-        0;
-    } else if (
-      activity.transactions24h !==
-        null
-    ) {
-      activityScore =
-        clamp(
-          Math.log10(
-            activity.transactions24h +
-              1
-          ) * 40
-        );
-    }
-  } else if (
-    dexMetrics?.transactions24h !==
-      null &&
-    dexMetrics?.transactions24h !==
-      undefined
-  ) {
-    activityScore =
+    securityFinal =
       clamp(
-        Math.log10(
-          dexMetrics.transactions24h +
-            1
-        ) * 40
+        baseSecurity * 0.8 +
+        extensionSecurity * 0.2
       );
   }
 
-  metrics.activity =
-    activityScore;
+  const activityValue =
+    activityScore(
+      activity
+    );
 
-  /* =====================================================
-     11. MATURITY
-  ===================================================== */
+  const volumeValue =
+    volumeScore(
+      metrics.volume24hUsd
+    );
 
-  if (
-    metrics.maturity ===
-      null &&
-    pumpMetrics?.maturity !==
-      null
-  ) {
-    metrics.maturity =
-      pumpMetrics.maturity;
-  }
+  const maturity =
+    num(metrics.maturity);
 
-  /* =====================================================
-     12. PRICE
-  ===================================================== */
+  const structural =
+    structuralScore({
+      liquidity:
+        liquidityScore(
+          liquidity
+        ),
 
-  if (
-    metrics.priceUsd ===
-      null &&
-    pumpMetrics?.priceUsd !==
-      null
-  ) {
-    metrics.priceUsd =
-      pumpMetrics.priceUsd;
-  }
+      distribution,
 
-  /* =====================================================
-     13. MARKET CAP
-  ===================================================== */
-
-  if (
-    metrics.marketCapUsd ===
-      null &&
-    pumpMetrics?.marketCapUsd !==
-      null
-  ) {
-    metrics.marketCapUsd =
-      pumpMetrics.marketCapUsd;
-  }
-
-  /* =====================================================
-     14. SCORE
-  ===================================================== */
-
-  const score =
-    calculateScore({
-      liquidityUsd:
-        metrics.liquidityUsd,
-
-      distribution:
-        distributionScore,
-
-      activity:
-        activityScore,
-
-      volume24hUsd:
-        metrics.volume24hUsd,
-
-      maturity:
-        metrics.maturity,
+      maturity,
 
       security:
-        securityScore
+        securityFinal
     });
 
-  /* =====================================================
-     15. MISSING DATA
-  ===================================================== */
+  const market =
+    marketScore({
+      activity:
+        activityValue,
+
+      volume:
+        volumeValue
+    });
+
+  /*
+   * Global score :
+   * structure 70 %
+   * marché 30 %
+   */
+
+  let globalScore = null;
+
+  if (
+    structural.total !== null &&
+    market !== null
+  ) {
+    globalScore =
+      Math.round(
+        structural.total *
+          0.7 +
+        market *
+          0.3
+      );
+  } else {
+    globalScore =
+      structural.total;
+  }
+
+  const confidence =
+    confidenceScore({
+      pump:
+        pump?.coin,
+
+      activity,
+
+      holders,
+
+      security,
+
+      token2022,
+
+      liquidity
+    });
+
+  const status =
+    pump?.coin?.complete ===
+      true
+      ? "GRADUATED"
+      : pump?.coin?.complete ===
+          false
+        ? "BONDING_CURVE"
+        : dMetrics
+          ? "VALID"
+          : "NO_MARKET";
+
+  const diag =
+    diagnostic({
+      activity,
+
+      holders,
+
+      status,
+
+      structural,
+
+      market,
+
+      confidence
+    });
 
   const missingData = [];
 
   if (
-    metrics.liquidityUsd ===
-      null ||
-    metrics.liquidityUsd ===
-      undefined
+    liquidity === null
   ) {
     missingData.push(
       "liquidity"
     );
   }
 
-  /*
-   * IMPORTANT :
-   *
-   * 0 est une donnée disponible.
-   * Seul null devient N/D.
-   */
-
   if (
     metrics.volume24hUsd ===
-      null ||
-    metrics.volume24hUsd ===
-      undefined
+      null
   ) {
     missingData.push(
       "volume24h"
@@ -1819,28 +1490,21 @@ export default async function handler(
 
   if (
     metrics.transactions24h ===
-      null ||
-    metrics.transactions24h ===
-      undefined
+      null
   ) {
     missingData.push(
       "transactions24h"
     );
   }
 
-  if (
-    holders === null
-  ) {
+  if (!holders) {
     missingData.push(
       "holders"
     );
   }
 
   if (
-    metrics.maturity ===
-      null ||
-    metrics.maturity ===
-      undefined
+    maturity === null
   ) {
     missingData.push(
       "maturity"
@@ -1848,79 +1512,58 @@ export default async function handler(
   }
 
   if (
-    securityScore ===
-      null
+    securityFinal === null
   ) {
     missingData.push(
       "security"
     );
   }
 
-  /* =====================================================
-     16. STATUS
-  ===================================================== */
-
-  const status =
-    buildStatus(
-      pumpCoin,
-      dexPair
-    );
-
-  /* =====================================================
-     17. TOKEN
-  ===================================================== */
+  const coin =
+    pump?.coin;
 
   const token = {
     name:
-      dexMetrics?.name ??
-      pumpMetrics?.name ??
-      pumpCoin?.name ??
+      dMetrics?.name ??
+      pMetrics?.name ??
+      coin?.name ??
       null,
 
     symbol:
-      dexMetrics?.symbol ??
-      pumpMetrics?.symbol ??
-      pumpCoin?.symbol ??
+      dMetrics?.symbol ??
+      pMetrics?.symbol ??
+      coin?.symbol ??
       null,
 
     imageUri:
-      pumpMetrics?.imageUri ??
-      pumpCoin?.image_uri ??
+      pMetrics?.imageUri ??
       null,
 
     description:
-      pumpMetrics?.description ??
-      pumpCoin?.description ??
+      pMetrics?.description ??
       null,
 
     creator:
-      pumpMetrics?.creator ??
-      pumpCoin?.creator ??
+      pMetrics?.creator ??
+      coin?.creator ??
       null,
 
     website:
-      pumpMetrics?.website ??
-      pumpCoin?.website ??
+      pMetrics?.website ??
       null,
 
     twitter:
-      pumpMetrics?.twitter ??
-      pumpCoin?.twitter ??
+      pMetrics?.twitter ??
       null,
 
     telegram:
-      pumpMetrics?.telegram ??
-      pumpCoin?.telegram ??
+      pMetrics?.telegram ??
       null
   };
 
-  /* =====================================================
-     18. OBSERVED
-  ===================================================== */
-
   const observed = {
     liquidityUsd:
-      metrics.liquidityUsd,
+      liquidity,
 
     volume24hUsd:
       metrics.volume24hUsd,
@@ -1929,12 +1572,10 @@ export default async function handler(
       metrics.transactions24h,
 
     buys24h:
-      metrics.buys24h ??
-      null,
+      metrics.buys24h,
 
     sells24h:
-      metrics.sells24h ??
-      null,
+      metrics.sells24h,
 
     holders:
       holders?.uniqueOwners ??
@@ -1952,54 +1593,42 @@ export default async function handler(
       metrics.ageHours ??
       null,
 
-    maturity:
-      metrics.maturity ??
-      null,
+    maturity,
 
     pumpComplete:
-      metrics.pumpComplete ??
-      pumpCoin?.complete ??
+      coin?.complete ??
       null,
 
     pumpSwapPool:
-      metrics.pumpSwapPool ??
-      pumpCoin?.pump_swap_pool ??
+      coin?.pump_swap_pool ??
       null,
 
     raydiumPool:
-      metrics.raydiumPool ??
-      pumpCoin?.raydium_pool ??
+      coin?.raydium_pool ??
       null,
 
     virtualSolReserves:
-      metrics.virtualSolReserves ??
+      pMetrics?.virtualSol ??
       null,
 
     virtualTokenReserves:
-      metrics.virtualTokenReserves ??
+      pMetrics?.virtualToken ??
       null,
 
     solPriceUsd:
-      solPriceUsd ??
+      pump?.solPrice ??
       null
   };
 
-  /* =====================================================
-     19. DATA
-  ===================================================== */
-
   const data = {
     supply:
-      supply.uiAmount ??
-      null,
+      supply.uiAmount,
 
     supplyRaw:
-      supply.amount ??
-      null,
+      supply.amount,
 
     decimals:
-      supply.decimals ??
-      null,
+      supply.decimals,
 
     holders:
       observed.holders,
@@ -2011,7 +1640,7 @@ export default async function handler(
       observed.volume24hUsd,
 
     activity:
-      activityScore,
+      activityValue,
 
     transactions24h:
       observed.transactions24h,
@@ -2030,10 +1659,6 @@ export default async function handler(
 
     ageHours:
       observed.ageHours,
-
-    pairCreatedAt:
-      metrics.pairCreatedAt ??
-      null,
 
     maturity:
       observed.maturity,
@@ -2057,67 +1682,6 @@ export default async function handler(
       observed.solPriceUsd
   };
 
-  /* =====================================================
-     20. MARKET
-  ===================================================== */
-
-  const market = {
-    pairAddress:
-      dexMetrics?.pairAddress ??
-      null,
-
-    dexId:
-      dexMetrics?.dexId ??
-      null,
-
-    url:
-      dexMetrics?.url ??
-      null
-  };
-
-  /* =====================================================
-     21. PUMP
-  ===================================================== */
-
-  const pump =
-    pumpCoin
-      ? {
-          complete:
-            pumpCoin.complete ??
-            null,
-
-          bondingCurve:
-            pumpCoin.bonding_curve ??
-            null,
-
-          associatedBondingCurve:
-            pumpCoin.associated_bonding_curve ??
-            null,
-
-          pumpSwapPool:
-            pumpCoin.pump_swap_pool ??
-            null,
-
-          raydiumPool:
-            pumpCoin.raydium_pool ??
-            null,
-
-          virtualSolReserves:
-            pumpMetrics
-              ?.virtualSolReserves ??
-            null,
-
-          virtualTokenReserves:
-            pumpMetrics
-              ?.virtualTokenReserves ??
-            null
-        }
-      : null;
-
-  /* =====================================================
-     22. MODULE SUMMARY
-  ===================================================== */
-
   const modules = {
     activity: {
       available:
@@ -2131,7 +1695,7 @@ export default async function handler(
         activity.status,
 
       volume24hStatus:
-        activity.volume24hStatus,
+        activity.volumeStatus,
 
       historicalTransactions:
         activity.historicalTransactions,
@@ -2143,10 +1707,10 @@ export default async function handler(
         activity.historicalSells,
 
       uniqueHistoricalBuyers:
-        activity.uniqueHistoricalBuyers,
+        activity.uniqueBuyers,
 
       uniqueHistoricalSellers:
-        activity.uniqueHistoricalSellers
+        activity.uniqueSellers
     },
 
     holders: {
@@ -2193,8 +1757,7 @@ export default async function handler(
         null,
 
       securityScore:
-        security
-          ?.securityScore ??
+        security?.securityScore ??
         null,
 
       riskLevel:
@@ -2202,13 +1765,11 @@ export default async function handler(
         null,
 
       mintAuthority:
-        security
-          ?.mintAuthority ??
+        security?.mintAuthority ??
         null,
 
       freezeAuthority:
-        security
-          ?.freezeAuthority ??
+        security?.freezeAuthority ??
         null,
 
       warnings:
@@ -2225,8 +1786,7 @@ export default async function handler(
         null,
 
       isToken2022:
-        token2022
-          ?.isToken2022 ??
+        token2022?.isToken2022 ??
         false,
 
       extensionCount:
@@ -2249,10 +1809,6 @@ export default async function handler(
     }
   };
 
-  /* =====================================================
-     23. FINAL RESPONSE
-  ===================================================== */
-
   return json(
     res,
     200,
@@ -2263,7 +1819,7 @@ export default async function handler(
         "PROFITX_ANALYZER",
 
       version:
-        "3.0.0",
+        "4.0.0",
 
       mint,
 
@@ -2272,98 +1828,165 @@ export default async function handler(
 
       status,
 
-      source,
+      source:
+        dMetrics
+          ? "dexscreener"
+          : coin
+            ? "pumpfun"
+            : null,
 
       token,
 
       metrics: {
         liquidity:
-          score
-            .components
+          structural.components
             .liquidity,
 
         distribution:
-          score
-            .components
+          structural.components
             .distribution,
 
         activity:
-          score
-            .components
-            .activity,
+          activityValue,
 
         volume:
-          score
-            .components
-            .volume,
+          volumeValue,
 
         maturity:
-          score
-            .components
-            .maturity
+          maturity,
+
+        security:
+          securityFinal
       },
 
       observed,
 
       data,
 
-      market,
+      market: {
+        pairAddress:
+          dMetrics?.pairAddress ??
+          null,
+
+        dexId:
+          dMetrics?.dexId ??
+          null,
+
+        url:
+          dMetrics?.url ??
+          null
+      },
 
       pair:
-        dexPair
+        dex?.pair
           ? {
               address:
-                dexPair.pairAddress ??
+                dex.pair
+                  .pairAddress ??
                 null,
 
               dexId:
-                dexPair.dexId ??
+                dex.pair
+                  .dexId ??
                 null,
 
               url:
-                dexPair.url ??
+                dex.pair.url ??
                 null,
 
               priceUsd:
-                dexPair.priceUsd ??
+                dex.pair
+                  .priceUsd ??
                 null,
 
               liquidityUsd:
-                dexPair
+                dex.pair
                   ?.liquidity
                   ?.usd ??
                 null,
 
               volume24hUsd:
-                dexPair
+                dex.pair
                   ?.volume
                   ?.h24 ??
                 null,
 
               marketCapUsd:
-                dexPair.marketCap ??
-                dexPair.fdv ??
+                dex.pair
+                  ?.marketCap ??
+                dex.pair?.fdv ??
                 null
             }
           : null,
 
-      pump,
+      pump: coin
+        ? {
+            complete:
+              coin.complete ??
+              null,
+
+            bondingCurve:
+              coin.bonding_curve ??
+              null,
+
+            associatedBondingCurve:
+              coin.associated_bonding_curve ??
+              null,
+
+            pumpSwapPool:
+              coin.pump_swap_pool ??
+              null,
+
+            raydiumPool:
+              coin.raydium_pool ??
+              null,
+
+            virtualSolReserves:
+              pMetrics?.virtualSol ??
+              null,
+
+            virtualTokenReserves:
+              pMetrics?.virtualToken ??
+              null
+          }
+        : null,
 
       modules,
 
-      score,
+      score: {
+        total:
+          globalScore,
+
+        structural:
+          structural.total,
+
+        market,
+
+        activity:
+          activityValue,
+
+        components:
+          structural.components,
+
+        weights: {
+          structural: 70,
+          market: 30
+        },
+
+        availableWeight:
+          structural.availableWeight
+      },
+
+      diagnostic: diag,
 
       missingData,
 
       diagnostics: {
-        requestMethod:
-          req.method,
-
         dexscreenerUsed:
-          Boolean(dexPair),
+          Boolean(dMetrics),
 
         pumpfunUsed:
-          Boolean(pumpCoin),
+          Boolean(coin),
 
         activityV3Used:
           activity.available,
@@ -2378,7 +2001,8 @@ export default async function handler(
           Boolean(token2022),
 
         dexscreenerError:
-          dexError,
+          dex?.error ??
+          null,
 
         pumpfunError:
           pumpError,
@@ -2401,16 +2025,11 @@ export default async function handler(
       },
 
       note:
-        activity.available
-          ? (
-              activity.volume24hStatus ===
-              "ZERO_ACTIVITY"
-                ? "Aucun mouvement économique détecté sur les dernières 24 heures. Les valeurs 0 correspondent à une absence d'activité réelle et ne sont pas des données manquantes."
-                : "Activité et volume 24h calculés prioritairement par le moteur Activity V3."
-            )
-          : dexPair
-            ? "Activity V3 indisponible : les données de marché DexScreener sont utilisées comme secours."
-            : "Données partielles : certaines sources n'ont pas fourni de données exploitables."
+        activity.available &&
+        activity.volumeStatus ===
+          "ZERO_ACTIVITY"
+          ? "Aucun mouvement économique détecté sur les dernières 24 heures. Les valeurs 0 correspondent à une absence d'activité réelle."
+          : "Analyse ProfitX 4.0 basée prioritairement sur les données on-chain et les modules ProfitX."
     }
   );
 }

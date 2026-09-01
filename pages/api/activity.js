@@ -9,9 +9,9 @@ const TOKEN_2022_PROGRAM_ID =
 
 const REQUEST_TIMEOUT_MS = 12000;
 
-const SIGNATURE_LIMIT_PER_ACCOUNT = 40;
+const SIGNATURE_LIMIT_PER_ACCOUNT = 50;
 
-const MAX_TRANSACTIONS = 80;
+const MAX_TRANSACTIONS = 100;
 
 const MAX_CONCURRENT_TX = 6;
 
@@ -84,7 +84,7 @@ async function rpcCall(
 
           body: JSON.stringify({
             jsonrpc: "2.0",
-            id: "profitx-activity",
+            id: "profitx-activity-v2",
             method,
             params
           }),
@@ -144,6 +144,8 @@ async function getPumpCoin(
         )}`,
 
         {
+          method: "GET",
+
           headers: {
             Accept:
               "application/json"
@@ -260,7 +262,7 @@ function bytesToBase58(bytes) {
 }
 
 /* =========================================================
-   TOKEN ACCOUNT DISCOVERY
+   TOKEN ACCOUNTS
 ========================================================= */
 
 async function getTokenAccounts(
@@ -426,7 +428,7 @@ async function getTransaction(
 }
 
 /* =========================================================
-   ACCOUNT KEY
+   ACCOUNT KEYS
 ========================================================= */
 
 function getAccountKeys(
@@ -453,8 +455,10 @@ function getAccountKeys(
         return key;
       }
 
-      return key?.pubkey ||
-        null;
+      return (
+        key?.pubkey ||
+        null
+      );
     }
   );
 }
@@ -533,8 +537,7 @@ function buildTokenBalanceMap(
 
 function getTokenDeltas(
   transaction,
-  mint,
-  knownTokenAccounts
+  mint
 ) {
   const accountKeys =
     getAccountKeys(
@@ -605,11 +608,6 @@ function getTokenDeltas(
       before?.owner ||
       null;
 
-    const known =
-      knownTokenAccounts.has(
-        address
-      );
-
     deltas.push({
       tokenAccount:
         address,
@@ -617,9 +615,7 @@ function getTokenDeltas(
       owner,
 
       delta:
-        delta.toString(),
-
-      known
+        delta.toString()
     });
   }
 
@@ -627,74 +623,269 @@ function getTokenDeltas(
 }
 
 /* =========================================================
-   CLASSIFICATION
+   ADDRESS SET
+========================================================= */
+
+function addAddress(
+  set,
+  value
+) {
+  if (
+    isValidSolanaAddress(
+      value
+    )
+  ) {
+    set.add(value);
+  }
+}
+
+/* =========================================================
+   PUMP ADDRESS MODEL
+========================================================= */
+
+function buildPumpAddressModel(
+  pump
+) {
+  const bondingCurve =
+    new Set();
+
+  const creator =
+    new Set();
+
+  const pools =
+    new Set();
+
+  if (!pump) {
+    return {
+      bondingCurve,
+      creator,
+      pools
+    };
+  }
+
+  addAddress(
+    bondingCurve,
+    pump.bonding_curve
+  );
+
+  addAddress(
+    bondingCurve,
+    pump.bondingCurve
+  );
+
+  addAddress(
+    bondingCurve,
+    pump.associated_bonding_curve
+  );
+
+  addAddress(
+    bondingCurve,
+    pump.associatedBondingCurve
+  );
+
+  addAddress(
+    creator,
+    pump.creator
+  );
+
+  addAddress(
+    creator,
+    pump.creator_address
+  );
+
+  addAddress(
+    creator,
+    pump.creatorAddress
+  );
+
+  addAddress(
+    pools,
+    pump.pump_swap_pool
+  );
+
+  addAddress(
+    pools,
+    pump.pumpSwapPool
+  );
+
+  addAddress(
+    pools,
+    pump.raydium_pool
+  );
+
+  addAddress(
+    pools,
+    pump.raydiumPool
+  );
+
+  return {
+    bondingCurve,
+    creator,
+    pools
+  };
+}
+
+/* =========================================================
+   CLASSIFY OWNER
+========================================================= */
+
+function classifyOwner(
+  owner,
+  tokenAccount,
+  model
+) {
+  if (
+    model.bondingCurve.has(
+      owner
+    ) ||
+    model.bondingCurve.has(
+      tokenAccount
+    )
+  ) {
+    return "BONDING_CURVE";
+  }
+
+  if (
+    model.creator.has(
+      owner
+    ) ||
+    model.creator.has(
+      tokenAccount
+    )
+  ) {
+    return "CREATOR";
+  }
+
+  if (
+    model.pools.has(
+      owner
+    ) ||
+    model.pools.has(
+      tokenAccount
+    )
+  ) {
+    return "POOL";
+  }
+
+  return "EXTERNAL";
+}
+
+/* =========================================================
+   MOVEMENT CLASSIFICATION
 ========================================================= */
 
 function classifyMovement({
   deltas,
-  bondingCurveAccounts,
-  creator,
-  externalOwners
+  model
 }) {
-  const positive =
-    deltas.filter(
-      (item) =>
-        BigInt(
-          item.delta
-        ) > 0n
+  const enriched =
+    deltas.map(
+      (delta) => ({
+        ...delta,
+
+        direction:
+          BigInt(
+            delta.delta
+          ) > 0n
+            ? "IN"
+            : "OUT",
+
+        actor:
+          classifyOwner(
+            delta.owner,
+            delta.tokenAccount,
+            model
+          )
+      })
     );
 
-  const negative =
-    deltas.filter(
+  const curveOut =
+    enriched.some(
       (item) =>
+        item.actor ===
+          "BONDING_CURVE" &&
         BigInt(
           item.delta
         ) < 0n
     );
 
-  const curveOut =
-    negative.some(
-      (item) =>
-        bondingCurveAccounts.has(
-          item.tokenAccount
-        ) ||
-        bondingCurveAccounts.has(
-          item.owner
-        )
-    );
-
   const curveIn =
-    positive.some(
+    enriched.some(
       (item) =>
-        bondingCurveAccounts.has(
-          item.tokenAccount
-        ) ||
-        bondingCurveAccounts.has(
-          item.owner
-        )
+        item.actor ===
+          "BONDING_CURVE" &&
+        BigInt(
+          item.delta
+        ) > 0n
     );
 
   const externalIn =
-    positive.some(
+    enriched.some(
       (item) =>
-        externalOwners.has(
-          item.owner
-        )
+        item.actor ===
+          "EXTERNAL" &&
+        BigInt(
+          item.delta
+        ) > 0n
     );
 
   const externalOut =
-    negative.some(
+    enriched.some(
       (item) =>
-        externalOwners.has(
-          item.owner
-        )
+        item.actor ===
+          "EXTERNAL" &&
+        BigInt(
+          item.delta
+        ) < 0n
+    );
+
+  const creatorIn =
+    enriched.some(
+      (item) =>
+        item.actor ===
+          "CREATOR" &&
+        BigInt(
+          item.delta
+        ) > 0n
+    );
+
+  const creatorOut =
+    enriched.some(
+      (item) =>
+        item.actor ===
+          "CREATOR" &&
+        BigInt(
+          item.delta
+        ) < 0n
+    );
+
+  const poolIn =
+    enriched.some(
+      (item) =>
+        item.actor ===
+          "POOL" &&
+        BigInt(
+          item.delta
+        ) > 0n
+    );
+
+  const poolOut =
+    enriched.some(
+      (item) =>
+        item.actor ===
+          "POOL" &&
+        BigInt(
+          item.delta
+        ) < 0n
     );
 
   /*
-   * Pump.fun bonding curve BUY pattern:
+   * BUY:
    *
-   * Curve loses tokens
-   * External wallet receives tokens
+   * Bonding curve loses PFX
+   * External wallet receives PFX
+   *
+   * Creator is deliberately excluded.
    */
 
   if (
@@ -709,15 +900,15 @@ function classifyMovement({
         "HIGH",
 
       reason:
-        "La bonding curve perd des tokens et un détenteur externe reçoit des PFX."
+        "La bonding curve perd des PFX et un wallet externe reçoit les PFX."
     };
   }
 
   /*
-   * Pump.fun SELL pattern:
+   * SELL:
    *
-   * External wallet loses tokens
-   * Curve receives tokens
+   * External wallet loses PFX
+   * Bonding curve receives PFX.
    */
 
   if (
@@ -732,12 +923,52 @@ function classifyMovement({
         "HIGH",
 
       reason:
-        "Un détenteur externe perd des PFX et la bonding curve reçoit les tokens."
+        "Un wallet externe perd des PFX et la bonding curve reçoit les PFX."
     };
   }
 
   /*
-   * Wallet-to-wallet transfer.
+   * Creator movement.
+   */
+
+  if (
+    creatorIn ||
+    creatorOut
+  ) {
+    return {
+      type:
+        "CREATOR_MOVEMENT",
+
+      confidence:
+        "HIGH",
+
+      reason:
+        "Le créateur intervient dans le mouvement de PFX."
+    };
+  }
+
+  /*
+   * Pool movement.
+   */
+
+  if (
+    poolIn ||
+    poolOut
+  ) {
+    return {
+      type:
+        "POOL_MOVEMENT",
+
+      confidence:
+        "HIGH",
+
+      reason:
+        "Un pool de liquidité intervient dans le mouvement."
+    };
+  }
+
+  /*
+   * External wallet transfer.
    */
 
   if (
@@ -752,49 +983,12 @@ function classifyMovement({
         "MEDIUM",
 
       reason:
-        "Les tokens passent entre détenteurs externes."
+        "Les PFX passent entre wallets externes."
     };
   }
 
   /*
-   * Creator-related movement.
-   */
-
-  const creatorIn =
-    positive.some(
-      (item) =>
-        creator.has(
-          item.owner
-        )
-    );
-
-  const creatorOut =
-    negative.some(
-      (item) =>
-        creator.has(
-          item.owner
-        )
-    );
-
-  if (
-    creatorIn ||
-    creatorOut
-  ) {
-    return {
-      type:
-        "CREATOR_MOVEMENT",
-
-      confidence:
-        "MEDIUM",
-
-      reason:
-        "Le créateur intervient dans le mouvement."
-    };
-  }
-
-  /*
-   * If we cannot prove the nature
-   * of the transaction, don't invent.
+   * Unknown.
    */
 
   return {
@@ -805,8 +999,37 @@ function classifyMovement({
       "LOW",
 
     reason:
-      "Le mouvement de tokens est détecté mais sa nature économique ne peut pas être déterminée avec certitude."
+      "Mouvement détecté mais nature économique non déterminable."
   };
+}
+
+/* =========================================================
+   EXTERNAL ACTOR
+========================================================= */
+
+function getExternalActor(
+  movement
+) {
+  const candidates =
+    movement.tokenDeltas.filter(
+      (delta) =>
+        delta.actor ===
+          "EXTERNAL" &&
+        BigInt(
+          delta.delta
+        ) > 0n
+    );
+
+  if (
+    candidates.length === 0
+  ) {
+    return null;
+  }
+
+  return (
+    candidates[0].owner ||
+    null
+  );
 }
 
 /* =========================================================
@@ -930,7 +1153,7 @@ export default async function handler(
 
   try {
     /* =====================================================
-       1. MINT CHECK
+       1. MINT
     ===================================================== */
 
     const mintResult =
@@ -979,7 +1202,7 @@ export default async function handler(
             "PROFITX_ACTIVITY",
 
           version:
-            "1.0.0",
+            "2.0.0",
 
           mint,
 
@@ -1002,33 +1225,8 @@ export default async function handler(
         mint
       );
 
-    const knownTokenAccounts =
-      new Set(
-        tokenAccounts.map(
-          (item) =>
-            item.tokenAccount
-        )
-      );
-
-    const externalOwners =
-      new Set();
-
-    for (
-      const account of
-        tokenAccounts
-    ) {
-      if (
-        account.amount >
-        0n
-      ) {
-        externalOwners.add(
-          account.owner
-        );
-      }
-    }
-
     /* =====================================================
-       3. PUMP.FUN
+       3. PUMP DATA
     ===================================================== */
 
     const pump =
@@ -1036,73 +1234,78 @@ export default async function handler(
         mint
       );
 
-    const bondingCurveAccounts =
-      new Set();
-
-    const creator =
-      new Set();
-
-    if (pump) {
-      const bonding =
-        [
-          pump.bonding_curve,
-          pump.bondingCurve,
-          pump.associated_bonding_curve,
-          pump.associatedBondingCurve
-        ];
-
-      for (
-        const value of bonding
-      ) {
-        if (
-          isValidSolanaAddress(
-            value
-          )
-        ) {
-          bondingCurveAccounts.add(
-            value
-          );
-        }
-      }
-
-      const creatorValues =
-        [
-          pump.creator,
-          pump.creator_address,
-          pump.creatorAddress
-        ];
-
-      for (
-        const value of
-          creatorValues
-      ) {
-        if (
-          isValidSolanaAddress(
-            value
-          )
-        ) {
-          creator.add(
-            value
-          );
-        }
-      }
-    }
+    const model =
+      buildPumpAddressModel(
+        pump
+      );
 
     /* =====================================================
        4. SIGNATURE DISCOVERY
     ===================================================== */
 
-    const signatureMap =
-      new Map();
+    const addressesToScan =
+      new Set();
+
+    /*
+     * Token accounts
+     */
 
     for (
       const account of
         tokenAccounts
     ) {
+      addressesToScan.add(
+        account.tokenAccount
+      );
+    }
+
+    /*
+     * Pump addresses
+     *
+     * We include the bonding curve
+     * and its associated token account
+     * so historical trade transactions
+     * are easier to recover.
+     */
+
+    for (
+      const address of
+        model.bondingCurve
+    ) {
+      addressesToScan.add(
+        address
+      );
+    }
+
+    for (
+      const address of
+        model.creator
+    ) {
+      addressesToScan.add(
+        address
+      );
+    }
+
+    for (
+      const address of
+        model.pools
+    ) {
+      addressesToScan.add(
+        address
+      );
+    }
+
+    const signatureMap =
+      new Map();
+
+    for (
+      const address of
+        addressesToScan
+    ) {
       const signatures =
         await getSignatures(
           rpcUrl,
-          account.tokenAccount
+          address
         );
 
       for (
@@ -1152,7 +1355,7 @@ export default async function handler(
         );
 
     /* =====================================================
-       5. FETCH TRANSACTIONS
+       5. TRANSACTIONS
     ===================================================== */
 
     const transactions =
@@ -1169,11 +1372,13 @@ export default async function handler(
 
             return {
               ...item,
+
               transaction
             };
           } catch {
             return {
               ...item,
+
               transaction:
                 null
             };
@@ -1184,7 +1389,7 @@ export default async function handler(
       );
 
     /* =====================================================
-       6. ANALYSE
+       6. MOVEMENTS
     ===================================================== */
 
     const movements = [];
@@ -1208,8 +1413,7 @@ export default async function handler(
       const deltas =
         getTokenDeltas(
           transaction,
-          mint,
-          knownTokenAccounts
+          mint
         );
 
       if (
@@ -1222,14 +1426,24 @@ export default async function handler(
         classifyMovement({
           deltas,
 
-          bondingCurveAccounts,
-
-          creator,
-
-          externalOwners
+          model
         });
 
-      movements.push({
+      const enrichedDeltas =
+        deltas.map(
+          (delta) => ({
+            ...delta,
+
+            actor:
+              classifyOwner(
+                delta.owner,
+                delta.tokenAccount,
+                model
+              )
+          })
+        );
+
+      const movement = {
         signature:
           item.signature,
 
@@ -1249,8 +1463,22 @@ export default async function handler(
           classification.reason,
 
         tokenDeltas:
-          deltas
-      });
+          enrichedDeltas
+      };
+
+      if (
+        classification.type ===
+        "BUY_PROBABLE"
+      ) {
+        movement.buyer =
+          getExternalActor(
+            movement
+          );
+      }
+
+      movements.push(
+        movement
+      );
     }
 
     /* =====================================================
@@ -1285,60 +1513,95 @@ export default async function handler(
           "CREATOR_MOVEMENT"
       );
 
+    const poolMovements =
+      movements.filter(
+        (item) =>
+          item.type ===
+          "POOL_MOVEMENT"
+      );
+
+    const unknown =
+      movements.filter(
+        (item) =>
+          item.type ===
+          "UNKNOWN"
+      );
+
     /* =====================================================
-       8. UNIQUE ACTORS
+       8. UNIQUE EXTERNAL BUYERS
     ===================================================== */
 
     const buyers =
       new Set();
 
+    for (
+      const buy of buys
+    ) {
+      if (
+        buy.buyer
+      ) {
+        buyers.add(
+          buy.buyer
+        );
+      }
+    }
+
+    /* =====================================================
+       9. UNIQUE EXTERNAL SELLERS
+    ===================================================== */
+
     const sellers =
       new Set();
 
     for (
-      const movement of
-        buys
+      const sell of sells
     ) {
-      for (
-        const delta of
-          movement.tokenDeltas
-      ) {
-        if (
-          BigInt(
-            delta.delta
-          ) > 0n &&
-          delta.owner
-        ) {
-          buyers.add(
-            delta.owner
-          );
-        }
-      }
-    }
+      const candidates =
+        sell.tokenDeltas.filter(
+          (delta) =>
+            delta.actor ===
+              "EXTERNAL" &&
+            BigInt(
+              delta.delta
+            ) < 0n
+        );
 
-    for (
-      const movement of
-        sells
-    ) {
       for (
-        const delta of
-          movement.tokenDeltas
+        const candidate of
+          candidates
       ) {
         if (
-          BigInt(
-            delta.delta
-          ) < 0n &&
-          delta.owner
+          candidate.owner
         ) {
           sellers.add(
-            delta.owner
+            candidate.owner
           );
         }
       }
     }
 
     /* =====================================================
-       9. LAST MOVEMENT
+       10. BUYER HISTORY
+    ===================================================== */
+
+    const buyerHistory =
+      Array.from(
+        buyers
+      ).map(
+        (wallet) => ({
+          wallet,
+
+          buyCount:
+            buys.filter(
+              (buy) =>
+                buy.buyer ===
+                wallet
+            ).length
+        })
+      );
+
+    /* =====================================================
+       11. LAST MOVEMENT
     ===================================================== */
 
     const sortedMovements =
@@ -1353,7 +1616,7 @@ export default async function handler(
       null;
 
     /* =====================================================
-       10. RESULT
+       12. RESULT
     ===================================================== */
 
     return json(
@@ -1366,7 +1629,7 @@ export default async function handler(
           "PROFITX_ACTIVITY",
 
         version:
-          "1.0.0",
+          "2.0.0",
 
         timestamp:
           new Date().toISOString(),
@@ -1398,10 +1661,17 @@ export default async function handler(
 
           pumpSwapPool:
             pump?.pump_swap_pool ||
+            null,
+
+          raydiumPool:
+            pump?.raydium_pool ||
             null
         },
 
         analysis: {
+          addressesScanned:
+            addressesToScan.size,
+
           tokenAccounts:
             tokenAccounts.length,
 
@@ -1431,20 +1701,30 @@ export default async function handler(
           creatorMovements:
             creatorMovements.length,
 
+          poolMovements:
+            poolMovements.length,
+
           unknown:
-            movements.filter(
-              (item) =>
-                item.type ===
-                "UNKNOWN"
-            ).length
+            unknown.length
         },
 
         participants: {
-          uniqueBuyers:
+          uniqueExternalBuyers:
             buyers.size,
 
-          uniqueSellers:
-            sellers.size
+          uniqueExternalSellers:
+            sellers.size,
+
+          buyerHistory,
+
+          creatorExcludedFromBuyers:
+            true,
+
+          poolsExcludedFromBuyers:
+            true,
+
+          bondingCurveExcludedFromBuyers:
+            true
         },
 
         latestMovement:
@@ -1464,6 +1744,10 @@ export default async function handler(
 
                 blockTime:
                   latest.blockTime,
+
+                buyer:
+                  latest.buyer ||
+                  null,
 
                 reason:
                   latest.reason
@@ -1495,6 +1779,15 @@ export default async function handler(
           economicClassification:
             "HEURISTIC_ON_CHAIN",
 
+          creatorExcluded:
+            true,
+
+          poolsExcluded:
+            true,
+
+          bondingCurveExcluded:
+            true,
+
           noInventedValues:
             true
         }
@@ -1511,7 +1804,7 @@ export default async function handler(
           "PROFITX_ACTIVITY",
 
         version:
-          "1.0.0",
+          "2.0.0",
 
         error:
           error?.message ||

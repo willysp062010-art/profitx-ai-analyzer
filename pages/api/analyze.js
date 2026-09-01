@@ -7,10 +7,17 @@ const PUMP_COIN_URL =
 const PUMP_SOL_PRICE_URL =
   "https://frontend-api-v3.pump.fun/sol-price";
 
+const PUMP_TRADES_URL =
+  "https://frontend-api-v3.pump.fun/trades/all";
+
+const PUMP_HOLDERS_URL =
+  "https://advanced-api-v2.pump.fun/coins/top-holders-and-sol-balance";
+
 const DEFAULT_RPC =
   "https://api.mainnet-beta.solana.com";
 
-const REQUEST_TIMEOUT_MS = 12000;
+const REQUEST_TIMEOUT_MS = 10000;
+const TRADE_LIMIT = 200;
 
 /* =========================================================
    HELPERS
@@ -48,6 +55,28 @@ function isSolanaMint(value) {
   );
 }
 
+function timestampToMs(value) {
+  const n = numberOrNull(value);
+
+  if (n === null) {
+    return null;
+  }
+
+  return n > 100000000000 ? n : n * 1000;
+}
+
+function firstNumber(...values) {
+  for (const value of values) {
+    const n = numberOrNull(value);
+
+    if (n !== null) {
+      return n;
+    }
+  }
+
+  return null;
+}
+
 async function fetchJson(url, options = {}) {
   const controller = new AbortController();
 
@@ -81,6 +110,7 @@ async function fetchJson(url, options = {}) {
 
     if (!response.ok) {
       const message =
+        data?.error?.message ||
         data?.error ||
         data?.message ||
         `HTTP ${response.status}`;
@@ -108,7 +138,7 @@ async function getDexScreenerData(mint) {
     ? data.pairs
     : [];
 
-  if (pairs.length === 0) {
+  if (!pairs.length) {
     return {
       pair: null,
       pairs: []
@@ -116,7 +146,7 @@ async function getDexScreenerData(mint) {
   }
 
   const solanaPairs = pairs.filter(
-    (pair) => pair?.chainId === "solana"
+    pair => pair?.chainId === "solana"
   );
 
   const candidates =
@@ -140,61 +170,6 @@ async function getDexScreenerData(mint) {
   };
 }
 
-/* =========================================================
-   PUMP.FUN
-========================================================= */
-
-async function getPumpFunData(mint) {
-  const coinUrl =
-    `${PUMP_COIN_URL}/${encodeURIComponent(mint)}`;
-
-  const coin = await fetchJson(coinUrl, {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-      Origin: "https://pump.fun"
-    }
-  });
-
-  if (!coin || typeof coin !== "object") {
-    throw new Error(
-      "Pump.fun n'a pas retourné de données."
-    );
-  }
-
-  let solPriceUsd = null;
-
-  try {
-    const price = await fetchJson(
-      PUMP_SOL_PRICE_URL,
-      {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-          Origin: "https://pump.fun"
-        }
-      }
-    );
-
-    solPriceUsd =
-      numberOrNull(price?.solPrice) ??
-      numberOrNull(price?.sol_price) ??
-      numberOrNull(price?.usd) ??
-      null;
-  } catch {
-    solPriceUsd = null;
-  }
-
-  return {
-    coin,
-    solPriceUsd
-  };
-}
-
-/* =========================================================
-   DEX PAIR ANALYSIS
-========================================================= */
-
 function analyseDexPair(pair) {
   if (!pair) {
     return null;
@@ -206,23 +181,25 @@ function analyseDexPair(pair) {
   const volume24hUsd =
     numberOrNull(pair?.volume?.h24);
 
-  const buys =
+  const buys24h =
     numberOrNull(pair?.txns?.h24?.buys);
 
-  const sells =
+  const sells24h =
     numberOrNull(pair?.txns?.h24?.sells);
 
   const transactions24h =
-    buys !== null && sells !== null
-      ? buys + sells
+    buys24h !== null && sells24h !== null
+      ? buys24h + sells24h
       : null;
 
   const priceUsd =
     numberOrNull(pair?.priceUsd);
 
   const marketCapUsd =
-    numberOrNull(pair?.marketCap) ??
-    numberOrNull(pair?.fdv);
+    firstNumber(
+      pair?.marketCap,
+      pair?.fdv
+    );
 
   const pairCreatedAt =
     numberOrNull(pair?.pairCreatedAt);
@@ -259,16 +236,12 @@ function analyseDexPair(pair) {
     liquidityUsd,
     volume24hUsd,
     transactions24h,
-
-    buys24h: buys,
-    sells24h: sells,
-
+    buys24h,
+    sells24h,
     priceUsd,
     marketCapUsd,
-
     pairCreatedAt,
     ageHours,
-
     activity,
     maturity,
 
@@ -296,7 +269,244 @@ function analyseDexPair(pair) {
 }
 
 /* =========================================================
-   PUMP.FUN COIN ANALYSIS
+   PUMP.FUN COIN
+========================================================= */
+
+async function getPumpFunData(mint) {
+  const coinUrl =
+    `${PUMP_COIN_URL}/${encodeURIComponent(mint)}`;
+
+  const coinResponse = await fetchJson(
+    coinUrl,
+    {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        Origin: "https://pump.fun"
+      }
+    }
+  );
+
+  const coin =
+    coinResponse?.data ||
+    coinResponse;
+
+  if (!coin || typeof coin !== "object") {
+    throw new Error(
+      "Pump.fun n'a pas retourné les données du token."
+    );
+  }
+
+  let solPriceUsd = null;
+
+  try {
+    const priceResponse =
+      await fetchJson(
+        PUMP_SOL_PRICE_URL,
+        {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            Origin: "https://pump.fun"
+          }
+        }
+      );
+
+    const price =
+      priceResponse?.data ||
+      priceResponse;
+
+    solPriceUsd =
+      firstNumber(
+        price?.solPrice,
+        price?.sol_price,
+        price?.usd,
+        price?.price
+      );
+  } catch {
+    solPriceUsd = null;
+  }
+
+  return {
+    coin,
+    solPriceUsd
+  };
+}
+
+/* =========================================================
+   PUMP.FUN TRADES 24H
+========================================================= */
+
+async function getPumpTrades24h(
+  mint,
+  solPriceUsd
+) {
+  const url =
+    `${PUMP_TRADES_URL}/${encodeURIComponent(mint)}` +
+    `?limit=${TRADE_LIMIT}&offset=0&minimumSize=0`;
+
+  try {
+    const response =
+      await fetchJson(
+        url,
+        {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            Origin: "https://pump.fun",
+            "User-Agent":
+              "Mozilla/5.0 ProfitX-AI-Analyzer"
+          }
+        }
+      );
+
+    let trades = [];
+
+    if (Array.isArray(response)) {
+      trades = response;
+    } else if (Array.isArray(response?.data)) {
+      trades = response.data;
+    } else if (Array.isArray(response?.trades)) {
+      trades = response.trades;
+    } else if (
+      Array.isArray(response?.data?.trades)
+    ) {
+      trades = response.data.trades;
+    }
+
+    if (!trades.length) {
+      return {
+        volume24hUsd: null,
+        transactions24h: null,
+        buys24h: null,
+        sells24h: null,
+        tradeCountFetched: 0,
+        tradeCoverage: "NO_TRADES"
+      };
+    }
+
+    const now = Date.now();
+    const dayAgo = now - 24 * 60 * 60 * 1000;
+
+    let volumeSol = 0;
+    let transactions = 0;
+    let buys = 0;
+    let sells = 0;
+
+    let oldestTimestamp = null;
+
+    for (const trade of trades) {
+      const timestampMs =
+        timestampToMs(
+          trade?.timestamp ??
+          trade?.created_timestamp ??
+          trade?.createdAt
+        );
+
+      if (timestampMs === null) {
+        continue;
+      }
+
+      if (
+        oldestTimestamp === null ||
+        timestampMs < oldestTimestamp
+      ) {
+        oldestTimestamp = timestampMs;
+      }
+
+      if (timestampMs < dayAgo) {
+        continue;
+      }
+
+      const rawSol =
+        firstNumber(
+          trade?.sol_amount,
+          trade?.solAmount,
+          trade?.amountSol
+        );
+
+      if (rawSol === null) {
+        continue;
+      }
+
+      const solAmount =
+        rawSol > 1000000
+          ? rawSol / 1e9
+          : rawSol;
+
+      volumeSol += Math.abs(solAmount);
+
+      transactions += 1;
+
+      const isBuy =
+        trade?.is_buy === true ||
+        trade?.isBuy === true ||
+        trade?.txType === "buy";
+
+      if (isBuy) {
+        buys += 1;
+      } else {
+        sells += 1;
+      }
+    }
+
+    const volume24hUsd =
+      solPriceUsd !== null
+        ? volumeSol * solPriceUsd
+        : null;
+
+    let tradeCoverage = "FULL_24H_OR_LESS";
+
+    if (
+      oldestTimestamp !== null &&
+      oldestTimestamp > dayAgo
+    ) {
+      tradeCoverage =
+        trades.length >= TRADE_LIMIT
+          ? "PARTIAL_LAST_200_TRADES"
+          : "FULL_24H_OR_LESS";
+    }
+
+    return {
+      volume24hUsd,
+      transactions24h:
+        transactions > 0
+          ? transactions
+          : null,
+
+      buys24h:
+        buys > 0
+          ? buys
+          : transactions > 0
+            ? 0
+            : null,
+
+      sells24h:
+        sells > 0
+          ? sells
+          : transactions > 0
+            ? 0
+            : null,
+
+      tradeCountFetched:
+        trades.length,
+
+      tradeCoverage
+    };
+  } catch {
+    return {
+      volume24hUsd: null,
+      transactions24h: null,
+      buys24h: null,
+      sells24h: null,
+      tradeCountFetched: 0,
+      tradeCoverage: "UNAVAILABLE"
+    };
+  }
+}
+
+/* =========================================================
+   PUMP.FUN ANALYSIS
 ========================================================= */
 
 function analysePumpCoin(
@@ -308,22 +518,23 @@ function analysePumpCoin(
     return null;
   }
 
-  const usdMarketCap =
-    numberOrNull(coin?.usd_market_cap) ??
-    numberOrNull(coin?.usdMarketCap);
-
   const marketCapSol =
-    numberOrNull(coin?.market_cap);
+    numberOrNull(
+      coin?.market_cap
+    );
 
-  let effectiveMarketCapUsd =
-    usdMarketCap;
+  let marketCapUsd =
+    firstNumber(
+      coin?.usd_market_cap,
+      coin?.usdMarketCap
+    );
 
   if (
-    effectiveMarketCapUsd === null &&
+    marketCapUsd === null &&
     marketCapSol !== null &&
     solPriceUsd !== null
   ) {
-    effectiveMarketCapUsd =
+    marketCapUsd =
       marketCapSol * solPriceUsd;
   }
 
@@ -370,17 +581,17 @@ function analysePumpCoin(
       coin?.created_timestamp
     );
 
+  const createdAtMs =
+    timestampToMs(
+      createdTimestamp
+    );
+
   let ageHours = null;
 
-  if (createdTimestamp !== null) {
-    const timestampMs =
-      createdTimestamp > 100000000000
-        ? createdTimestamp
-        : createdTimestamp * 1000;
-
+  if (createdAtMs !== null) {
     ageHours = Math.max(
       0,
-      (Date.now() - timestampMs) / 3600000
+      (Date.now() - createdAtMs) / 3600000
     );
   }
 
@@ -393,17 +604,17 @@ function analysePumpCoin(
       coin?.last_trade_timestamp
     );
 
+  const lastTradeMs =
+    timestampToMs(
+      lastTradeTimestamp
+    );
+
   let lastTradeAgeHours = null;
 
-  if (lastTradeTimestamp !== null) {
-    const timestampMs =
-      lastTradeTimestamp > 100000000000
-        ? lastTradeTimestamp
-        : lastTradeTimestamp * 1000;
-
+  if (lastTradeMs !== null) {
     lastTradeAgeHours = Math.max(
       0,
-      (Date.now() - timestampMs) / 3600000
+      (Date.now() - lastTradeMs) / 3600000
     );
   }
 
@@ -444,38 +655,30 @@ function analysePumpCoin(
 
   /* -------------------------------------------------------
      PRICE
-     
-     Pump.fun peut ne pas fournir priceUsd directement.
-     On calcule alors :
-     
-     market cap / supply
-     
-     afin d'éviter d'afficher 0,00 $.
   ------------------------------------------------------- */
 
   let priceUsd =
-    numberOrNull(coin?.price_usd) ??
-    numberOrNull(coin?.priceUsd);
+    firstNumber(
+      coin?.price_usd,
+      coin?.priceUsd
+    );
 
   if (
     priceUsd === null &&
-    effectiveMarketCapUsd !== null
+    marketCapUsd !== null
   ) {
-    const totalSupply =
-      numberOrNull(
-        supplyData?.uiAmount
-      ) ??
-      numberOrNull(
+    const supply =
+      firstNumber(
+        supplyData?.uiAmount,
         coin?.total_supply
       );
 
     if (
-      totalSupply !== null &&
-      totalSupply > 0
+      supply !== null &&
+      supply > 0
     ) {
       priceUsd =
-        effectiveMarketCapUsd /
-        totalSupply;
+        marketCapUsd / supply;
     }
   }
 
@@ -483,35 +686,31 @@ function analysePumpCoin(
     liquidityUsd,
 
     volume24hUsd: null,
-
     transactions24h: null,
-
     buys24h: null,
-
     sells24h: null,
 
     priceUsd,
-
-    marketCapUsd:
-      effectiveMarketCapUsd,
+    marketCapUsd,
 
     pairCreatedAt:
-      createdTimestamp !== null
-        ? (
-            createdTimestamp > 100000000000
-              ? createdTimestamp
-              : createdTimestamp * 1000
-          )
-        : null,
+      createdAtMs,
 
     ageHours,
 
     activity,
-
     maturity,
 
     pumpComplete:
       coin?.complete === true,
+
+    bondingCurve:
+      coin?.bonding_curve ??
+      null,
+
+    associatedBondingCurve:
+      coin?.associated_bonding_curve ??
+      null,
 
     pumpSwapPool:
       coin?.pump_swap_pool ??
@@ -562,21 +761,185 @@ function analysePumpCoin(
 }
 
 /* =========================================================
+   HOLDERS
+========================================================= */
+
+async function getPumpHolders(mint) {
+  const url =
+    `${PUMP_HOLDERS_URL}/${encodeURIComponent(mint)}`;
+
+  try {
+    const response =
+      await fetchJson(
+        url,
+        {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            Origin: "https://pump.fun",
+            "User-Agent":
+              "Mozilla/5.0 ProfitX-AI-Analyzer"
+          }
+        }
+      );
+
+    /*
+     * On ne considère comme nombre fiable que les
+     * champs qui représentent explicitement un total.
+     *
+     * On ne transforme PAS la longueur d'une liste
+     * de top holders en nombre total de holders.
+     */
+
+    const directTotal =
+      firstNumber(
+        response?.totalHolders,
+        response?.total_holders,
+        response?.holderCount,
+        response?.holder_count,
+        response?.total,
+        response?.pagination?.total,
+        response?.data?.totalHolders,
+        response?.data?.total_holders,
+        response?.data?.holderCount,
+        response?.data?.holder_count,
+        response?.data?.total,
+        response?.data?.pagination?.total
+      );
+
+    if (directTotal !== null) {
+      return {
+        holders: directTotal,
+        source: "pumpfun",
+        raw: response
+      };
+    }
+
+    /*
+     * Certains retours Pump.fun peuvent fournir une
+     * structure contenant explicitement un compteur.
+     */
+
+    const candidates = [
+      response?.holders,
+      response?.data?.holders,
+      response?.result?.holders
+    ];
+
+    for (const candidate of candidates) {
+      if (!Array.isArray(candidate)) {
+        continue;
+      }
+
+      const nestedTotal =
+        firstNumber(
+          candidate?.total,
+          candidate?.pagination?.total
+        );
+
+      if (nestedTotal !== null) {
+        return {
+          holders: nestedTotal,
+          source: "pumpfun",
+          raw: response
+        };
+      }
+    }
+
+    return {
+      holders: null,
+      source: "pumpfun-top-holders-only",
+      raw: response
+    };
+  } catch {
+    return {
+      holders: null,
+      source: "unavailable",
+      raw: null
+    };
+  }
+}
+
+/* =========================================================
+   TOKEN SUPPLY
+========================================================= */
+
+async function getTokenSupply(mint) {
+  const rpcUrl =
+    process.env.SOLANA_RPC_URL ||
+    DEFAULT_RPC;
+
+  try {
+    const result =
+      await fetchJson(
+        rpcUrl,
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: "profitx-supply",
+
+            method:
+              "getTokenSupply",
+
+            params: [
+              mint,
+              {
+                commitment:
+                  "confirmed"
+              }
+            ]
+          })
+        }
+      );
+
+    return {
+      amount:
+        result?.result?.value?.amount ??
+        null,
+
+      decimals:
+        numberOrNull(
+          result?.result?.value?.decimals
+        ),
+
+      uiAmount:
+        numberOrNull(
+          result?.result?.value?.uiAmount
+        )
+    };
+  } catch {
+    return {
+      amount: null,
+      decimals: null,
+      uiAmount: null
+    };
+  }
+}
+
+/* =========================================================
    SCORE
 ========================================================= */
 
-function calculateScore(
-  metrics,
-  source
-) {
+function calculateScore(metrics) {
   const components = {
     liquidity: null,
     distribution: null,
     activity:
-      metrics?.activity ?? null,
+      metrics?.activity ??
+      null,
+
     volume: null,
+
     maturity:
-      metrics?.maturity ?? null
+      metrics?.maturity ??
+      null
   };
 
   if (
@@ -610,8 +973,10 @@ function calculateScore(
   }
 
   /*
-   * Distribution reste N/D tant qu'une source fiable
-   * de holders n'est pas configurée.
+   * Distribution ne doit jamais être inventée.
+   * On la calculera dans une prochaine version
+   * dès qu'une source de holder count fiable est
+   * disponible de façon stable.
    */
 
   components.distribution = null;
@@ -649,18 +1014,18 @@ function calculateScore(
   let total = null;
 
   if (availableWeight >= 40) {
-    total = Math.round(
-      weightedTotal /
-      availableWeight
-    );
+    total =
+      Math.round(
+        weightedTotal /
+        availableWeight
+      );
   }
 
   return {
     total,
     components,
     weights,
-    availableWeight,
-    source
+    availableWeight
   };
 }
 
@@ -711,132 +1076,6 @@ function buildStatus(
 }
 
 /* =========================================================
-   SOLANA TOKEN SUPPLY
-========================================================= */
-
-async function getTokenSupply(mint) {
-  const rpcUrl =
-    process.env.SOLANA_RPC_URL ||
-    DEFAULT_RPC;
-
-  try {
-    const result =
-      await fetchJson(
-        rpcUrl,
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json"
-          },
-
-          body: JSON.stringify({
-            jsonrpc: "2.0",
-            id: "profitx-supply",
-            method:
-              "getTokenSupply",
-
-            params: [
-              mint,
-              {
-                commitment:
-                  "confirmed"
-              }
-            ]
-          })
-        }
-      );
-
-    return {
-      amount:
-        result?.result?.value?.amount ??
-        null,
-
-      decimals:
-        numberOrNull(
-          result?.result?.value?.decimals
-        ),
-
-      uiAmount:
-        numberOrNull(
-          result?.result?.value?.uiAmount
-        )
-    };
-  } catch {
-    return {
-      amount: null,
-      decimals: null,
-      uiAmount: null
-    };
-  }
-}
-
-/* =========================================================
-   HOLDERS
-========================================================= */
-
-async function getHolderEstimate(mint) {
-  /*
-   * Sans indexeur externe, on ne fabrique pas un nombre.
-   *
-   * Si HELIUS_API_KEY existe dans Vercel, on tente
-   * l'API Helius.
-   */
-
-  const apiKey =
-    process.env.HELIUS_API_KEY;
-
-  if (!apiKey) {
-    return null;
-  }
-
-  try {
-    const url =
-      `https://mainnet.helius-rpc.com/?api-key=${encodeURIComponent(
-        apiKey
-      )}`;
-
-    const response =
-      await fetchJson(
-        url,
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json"
-          },
-
-          body: JSON.stringify({
-            jsonrpc: "2.0",
-            id: "profitx-holders",
-            method:
-              "getTokenAccounts",
-
-            params: {
-              mint,
-              limit: 1
-            }
-          })
-        }
-      );
-
-    const total =
-      numberOrNull(
-        response?.result?.total
-      ) ??
-      numberOrNull(
-        response?.result?.pagination?.total
-      );
-
-    return total;
-  } catch {
-    return null;
-  }
-}
-
-/* =========================================================
    MAIN HANDLER
 ========================================================= */
 
@@ -868,16 +1107,14 @@ export default async function handler(
 
   if (req.method === "GET") {
     mint =
-      typeof req.query?.mint ===
-      "string"
+      typeof req.query?.mint === "string"
         ? req.query.mint.trim()
         : "";
   }
 
   if (req.method === "POST") {
     mint =
-      typeof req.body?.mint ===
-      "string"
+      typeof req.body?.mint === "string"
         ? req.body.mint.trim()
         : "";
   }
@@ -906,18 +1143,20 @@ export default async function handler(
     );
   }
 
-  let source = null;
-  let metrics = null;
-  let pumpCoin = null;
-  let solPriceUsd = null;
   let dexPair = null;
+  let dexMetrics = null;
+
+  let pumpCoin = null;
+  let pumpMetrics = null;
+
+  let solPriceUsd = null;
 
   let dexError = null;
   let pumpError = null;
 
-  /* -------------------------------------------------------
+  /* =======================================================
      1. DEXSCREENER
-  ------------------------------------------------------- */
+  ======================================================= */
 
   try {
     const dex =
@@ -925,16 +1164,13 @@ export default async function handler(
         mint
       );
 
-    if (dex.pair) {
-      source =
-        "dexscreener";
+    dexPair =
+      dex.pair;
 
-      dexPair =
-        dex.pair;
-
-      metrics =
+    if (dexPair) {
+      dexMetrics =
         analyseDexPair(
-          dex.pair
+          dexPair
         );
     }
   } catch (error) {
@@ -943,64 +1179,70 @@ export default async function handler(
       "Erreur DexScreener.";
   }
 
-  /* -------------------------------------------------------
+  /* =======================================================
      2. SUPPLY
-     
-     On récupère la supply avant Pump.fun pour pouvoir
-     calculer correctement le prix si nécessaire.
-  ------------------------------------------------------- */
+  ======================================================= */
 
   const supply =
     await getTokenSupply(
       mint
     );
 
-  /* -------------------------------------------------------
+  /* =======================================================
      3. PUMP.FUN
-  ------------------------------------------------------- */
+  ======================================================= */
 
-  if (!metrics) {
-    try {
-      const pump =
-        await getPumpFunData(
-          mint
+  try {
+    const pump =
+      await getPumpFunData(
+        mint
+      );
+
+    pumpCoin =
+      pump.coin;
+
+    solPriceUsd =
+      pump.solPriceUsd;
+
+    const pumpMint =
+      pumpCoin?.mint ??
+      pumpCoin?.address ??
+      null;
+
+    if (
+      pumpMint &&
+      String(pumpMint) === mint
+    ) {
+      pumpMetrics =
+        analysePumpCoin(
+          pumpCoin,
+          solPriceUsd,
+          supply
         );
-
-      pumpCoin =
-        pump.coin;
-
-      solPriceUsd =
-        pump.solPriceUsd;
-
-      if (
-        pumpCoin?.mint &&
-        String(
-          pumpCoin.mint
-        ) === mint
-      ) {
-        source =
-          "pumpfun";
-
-        metrics =
-          analysePumpCoin(
-            pumpCoin,
-            solPriceUsd,
-            supply
-          );
-      } else {
-        pumpError =
-          "Pump.fun n'a pas confirmé ce mint.";
-      }
-    } catch (error) {
+    } else {
       pumpError =
-        error?.message ||
-        "Erreur Pump.fun.";
+        "Pump.fun n'a pas confirmé ce mint.";
     }
+  } catch (error) {
+    pumpError =
+      error?.message ||
+      "Erreur Pump.fun.";
   }
 
-  /* -------------------------------------------------------
-     4. NO MARKET
-  ------------------------------------------------------- */
+  /* =======================================================
+     4. CHOIX DE LA SOURCE PRINCIPALE
+  ======================================================= */
+
+  let source = null;
+  let metrics = null;
+
+  if (dexMetrics) {
+    source = "dexscreener";
+    metrics = dexMetrics;
+  } else if (pumpMetrics) {
+    source = "pumpfun";
+    metrics = pumpMetrics;
+  }
 
   if (!metrics) {
     return json(
@@ -1012,8 +1254,7 @@ export default async function handler(
         mint,
 
         timestamp:
-          new Date()
-            .toISOString(),
+          new Date().toISOString(),
 
         status:
           "NO_MARKET",
@@ -1054,27 +1295,84 @@ export default async function handler(
           liquidityUsd: null,
           volume24hUsd: null,
           transactions24h: null,
-          holders: null
+          buys24h: null,
+          sells24h: null,
+          holders: null,
+          priceUsd: null,
+          marketCapUsd: null,
+          ageHours: null,
+          maturity: null,
+          pumpComplete:
+            pumpCoin?.complete ??
+            null,
+          pumpSwapPool:
+            pumpCoin?.pump_swap_pool ??
+            null,
+          raydiumPool:
+            pumpCoin?.raydium_pool ??
+            null,
+          virtualSolReserves: null,
+          virtualTokenReserves: null,
+          solPriceUsd
         },
 
         data: {
           supply:
-            supply.uiAmount ?? null,
+            supply.uiAmount ??
+            null,
+
+          supplyRaw:
+            supply.amount ??
+            null,
 
           decimals:
-            supply.decimals ?? null,
+            supply.decimals ??
+            null,
 
           holders: null,
 
           liquidityUsd: null,
           volume24hUsd: null,
-          activity: null,
           transactions24h: null,
+          buys24h: null,
+          sells24h: null,
           priceUsd: null,
-          marketCapUsd: null
+          marketCapUsd: null,
+          ageHours: null,
+          maturity: null,
+
+          pumpComplete:
+            pumpCoin?.complete ??
+            null,
+
+          pumpSwapPool:
+            pumpCoin?.pump_swap_pool ??
+            null,
+
+          raydiumPool:
+            pumpCoin?.raydium_pool ??
+            null,
+
+          virtualSolReserves: null,
+          virtualTokenReserves: null,
+          solPriceUsd
         },
 
-        token: null,
+        token: pumpCoin
+          ? {
+              name:
+                pumpCoin?.name ??
+                null,
+
+              symbol:
+                pumpCoin?.symbol ??
+                null,
+
+              creator:
+                pumpCoin?.creator ??
+                null
+            }
+          : null,
 
         market: {
           pairAddress: null,
@@ -1083,25 +1381,44 @@ export default async function handler(
         },
 
         pair: null,
-        pump: null,
+
+        pump: pumpCoin
+          ? {
+              complete:
+                pumpCoin?.complete ??
+                null,
+
+              bondingCurve:
+                pumpCoin?.bonding_curve ??
+                null,
+
+              pumpSwapPool:
+                pumpCoin?.pump_swap_pool ??
+                null,
+
+              raydiumPool:
+                pumpCoin?.raydium_pool ??
+                null
+            }
+          : null,
 
         missingData: [
           "market",
           "liquidity",
           "volume24h",
           "activity",
-          "maturity"
+          "maturity",
+          "holders"
         ],
 
         diagnostics: {
           requestMethod:
             req.method,
 
-          dexscreenerUsed:
-            false,
+          dexscreenerUsed: false,
 
           pumpfunUsed:
-            false,
+            Boolean(pumpCoin),
 
           dexscreenerError:
             dexError,
@@ -1113,18 +1430,66 @@ export default async function handler(
     );
   }
 
-  /* -------------------------------------------------------
-     5. HOLDERS
-  ------------------------------------------------------- */
+  /* =======================================================
+     5. PUMP TRADES
+  ======================================================= */
 
-  const holderCount =
-    await getHolderEstimate(
+  let pumpTrades = {
+    volume24hUsd: null,
+    transactions24h: null,
+    buys24h: null,
+    sells24h: null,
+    tradeCountFetched: 0,
+    tradeCoverage: "UNAVAILABLE"
+  };
+
+  if (pumpMetrics) {
+    pumpTrades =
+      await getPumpTrades24h(
+        mint,
+        solPriceUsd
+      );
+  }
+
+  /*
+   * Si DexScreener possède déjà les données 24h,
+   * elles restent prioritaires pour les tokens gradués.
+   *
+   * Pour Pump.fun bonding curve, le flux Pump.fun
+   * est prioritaire.
+   */
+
+  if (
+    source === "pumpfun"
+  ) {
+    metrics.volume24hUsd =
+      pumpTrades.volume24hUsd;
+
+    metrics.transactions24h =
+      pumpTrades.transactions24h;
+
+    metrics.buys24h =
+      pumpTrades.buys24h;
+
+    metrics.sells24h =
+      pumpTrades.sells24h;
+  }
+
+  /* =======================================================
+     6. HOLDERS
+  ======================================================= */
+
+  const holderResult =
+    await getPumpHolders(
       mint
     );
 
-  /* -------------------------------------------------------
-     6. MISSING DATA
-  ------------------------------------------------------- */
+  const holderCount =
+    holderResult.holders;
+
+  /* =======================================================
+     7. MISSING DATA
+  ======================================================= */
 
   const missingData = [];
 
@@ -1143,6 +1508,15 @@ export default async function handler(
   ) {
     missingData.push(
       "volume24h"
+    );
+  }
+
+  if (
+    metrics.transactions24h === null ||
+    metrics.transactions24h === undefined
+  ) {
+    missingData.push(
+      "transactions24h"
     );
   }
 
@@ -1173,27 +1547,18 @@ export default async function handler(
     );
   }
 
-  /* -------------------------------------------------------
-     7. SCORE
-  ------------------------------------------------------- */
+  /* =======================================================
+     8. SCORE
+  ======================================================= */
 
   const score =
     calculateScore(
-      metrics,
-      source
+      metrics
     );
 
-  if (
-    score.total === null
-  ) {
-    missingData.push(
-      "score"
-    );
-  }
-
-  /* -------------------------------------------------------
-     8. STATUS
-  ------------------------------------------------------- */
+  /* =======================================================
+     9. STATUS
+  ======================================================= */
 
   const status =
     buildStatus(
@@ -1203,9 +1568,9 @@ export default async function handler(
       pumpCoin
     );
 
-  /* -------------------------------------------------------
-     9. FINAL RESPONSE
-  ------------------------------------------------------- */
+  /* =======================================================
+     10. FINAL RESPONSE
+  ======================================================= */
 
   return json(
     res,
@@ -1216,57 +1581,60 @@ export default async function handler(
       mint,
 
       timestamp:
-        new Date()
-          .toISOString(),
+        new Date().toISOString(),
 
       status,
 
       source,
 
+      /* ---------------------------------------------------
+         TOKEN
+      --------------------------------------------------- */
+
       token: {
         name:
-          metrics.name ??
+          metrics?.name ??
           pumpCoin?.name ??
           null,
 
         symbol:
-          metrics.symbol ??
+          metrics?.symbol ??
           pumpCoin?.symbol ??
           null,
 
         imageUri:
-          metrics.imageUri ??
+          metrics?.imageUri ??
           pumpCoin?.image_uri ??
           null,
 
         description:
-          metrics.description ??
+          metrics?.description ??
           pumpCoin?.description ??
           null,
 
         creator:
-          metrics.creator ??
+          metrics?.creator ??
           pumpCoin?.creator ??
           null,
 
         website:
-          metrics.website ??
+          metrics?.website ??
           pumpCoin?.website ??
           null,
 
         twitter:
-          metrics.twitter ??
+          metrics?.twitter ??
           pumpCoin?.twitter ??
           null,
 
         telegram:
-          metrics.telegram ??
+          metrics?.telegram ??
           pumpCoin?.telegram ??
           null
       },
 
       /* ---------------------------------------------------
-         COMPATIBILITÉ AVEC TON index.js
+         COMPATIBILITÉ INDEX.JS
       --------------------------------------------------- */
 
       metrics: {
@@ -1304,6 +1672,10 @@ export default async function handler(
           metrics.maturity
       },
 
+      /* ---------------------------------------------------
+         OBSERVED
+      --------------------------------------------------- */
+
       observed: {
         liquidityUsd:
           metrics.liquidityUsd,
@@ -1314,9 +1686,64 @@ export default async function handler(
         transactions24h:
           metrics.transactions24h,
 
+        buys24h:
+          metrics.buys24h ??
+          null,
+
+        sells24h:
+          metrics.sells24h ??
+          null,
+
         holders:
-          holderCount
+          holderCount,
+
+        priceUsd:
+          metrics.priceUsd ??
+          null,
+
+        marketCapUsd:
+          metrics.marketCapUsd ??
+          null,
+
+        ageHours:
+          metrics.ageHours ??
+          null,
+
+        maturity:
+          metrics.maturity ??
+          null,
+
+        pumpComplete:
+          metrics.pumpComplete ??
+          pumpCoin?.complete ??
+          null,
+
+        pumpSwapPool:
+          metrics.pumpSwapPool ??
+          pumpCoin?.pump_swap_pool ??
+          null,
+
+        raydiumPool:
+          metrics.raydiumPool ??
+          pumpCoin?.raydium_pool ??
+          null,
+
+        virtualSolReserves:
+          metrics.virtualSolReserves ??
+          null,
+
+        virtualTokenReserves:
+          metrics.virtualTokenReserves ??
+          null,
+
+        solPriceUsd:
+          solPriceUsd ??
+          null
       },
+
+      /* ---------------------------------------------------
+         DATA
+      --------------------------------------------------- */
 
       data: {
         supply:
@@ -1402,6 +1829,10 @@ export default async function handler(
           null
       },
 
+      /* ---------------------------------------------------
+         MARKET
+      --------------------------------------------------- */
+
       market: {
         pairAddress:
           metrics.pairAddress ??
@@ -1415,6 +1846,10 @@ export default async function handler(
           metrics.url ??
           null
       },
+
+      /* ---------------------------------------------------
+         PAIR
+      --------------------------------------------------- */
 
       pair: dexPair
         ? {
@@ -1449,6 +1884,10 @@ export default async function handler(
           }
         : null,
 
+      /* ---------------------------------------------------
+         PUMP
+      --------------------------------------------------- */
+
       pump: pumpCoin
         ? {
             complete:
@@ -1457,6 +1896,10 @@ export default async function handler(
 
             bondingCurve:
               pumpCoin.bonding_curve ??
+              null,
+
+            associatedBondingCurve:
+              pumpCoin.associated_bonding_curve ??
               null,
 
             pumpSwapPool:
@@ -1477,26 +1920,71 @@ export default async function handler(
           }
         : null,
 
+      /* ---------------------------------------------------
+         SCORE
+      --------------------------------------------------- */
+
       score,
 
+      /* ---------------------------------------------------
+         MISSING DATA
+      --------------------------------------------------- */
+
       missingData,
+
+      /* ---------------------------------------------------
+         DIAGNOSTICS
+      --------------------------------------------------- */
 
       diagnostics: {
         requestMethod:
           req.method,
 
         dexscreenerUsed:
-          source === "dexscreener",
+          Boolean(dexPair),
 
         pumpfunUsed:
-          source === "pumpfun",
+          Boolean(pumpCoin),
+
+        pumpTradesUsed:
+          Boolean(
+            pumpTrades?.tradeCountFetched > 0
+          ),
+
+        pumpTradeCountFetched:
+          pumpTrades?.tradeCountFetched ??
+          0,
+
+        pumpTradeCoverage:
+          pumpTrades?.tradeCoverage ??
+          "UNAVAILABLE",
+
+        holdersSource:
+          holderResult?.source ??
+          "unavailable",
 
         dexscreenerError:
           dexError,
 
         pumpfunError:
           pumpError
-      }
+      },
+
+      /* ---------------------------------------------------
+         NOTE
+      --------------------------------------------------- */
+
+      note:
+        source === "pumpfun"
+          ? (
+              pumpTrades.tradeCoverage ===
+                "PARTIAL_LAST_200_TRADES"
+                ? "Volume et transactions calculés sur les 200 derniers trades disponibles. Le flux retourné ne permet pas de garantir une couverture complète des dernières 24h."
+                : "Volume et transactions 24h calculés à partir du flux de trades Pump.fun disponible."
+            )
+          : source === "dexscreener"
+            ? "Données de marché issues de DexScreener."
+            : "Données partielles."
     }
   );
 }

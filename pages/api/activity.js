@@ -4,16 +4,27 @@ const DEFAULT_RPC =
 const PUMP_COIN_URL =
   "https://frontend-api-v3.pump.fun/coins-v2";
 
+const PUMP_SOL_PRICE_URL =
+  "https://frontend-api-v3.pump.fun/sol-price";
+
 const TOKEN_2022_PROGRAM_ID =
   "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
 
 const REQUEST_TIMEOUT_MS = 12000;
 
-const SIGNATURE_LIMIT_PER_ACCOUNT = 50;
+const SIGNATURE_LIMIT = 100;
 
 const MAX_TRANSACTIONS = 100;
 
-const MAX_CONCURRENT_TX = 6;
+const MAX_CONCURRENT_TX = 5;
+
+const LAMPORTS_PER_SOL = 1000000000n;
+
+const WINDOW_24H =
+  24 * 60 * 60;
+
+const WINDOW_7D =
+  7 * 24 * 60 * 60;
 
 /* =========================================================
    RESPONSE
@@ -62,8 +73,7 @@ async function rpcCall(
 
   const timeout =
     setTimeout(
-      () =>
-        controller.abort(),
+      () => controller.abort(),
       REQUEST_TIMEOUT_MS
     );
 
@@ -84,7 +94,7 @@ async function rpcCall(
 
           body: JSON.stringify({
             jsonrpc: "2.0",
-            id: "profitx-activity-v2",
+            id: "profitx-activity-v3",
             method,
             params
           }),
@@ -110,10 +120,7 @@ async function rpcCall(
       );
     }
 
-    return (
-      data?.result ??
-      null
-    );
+    return data?.result ?? null;
   } finally {
     clearTimeout(timeout);
   }
@@ -123,29 +130,21 @@ async function rpcCall(
    PUMP.FUN
 ========================================================= */
 
-async function getPumpCoin(
-  mint
-) {
+async function fetchJson(url) {
   const controller =
     new AbortController();
 
   const timeout =
     setTimeout(
-      () =>
-        controller.abort(),
+      () => controller.abort(),
       REQUEST_TIMEOUT_MS
     );
 
   try {
     const response =
       await fetch(
-        `${PUMP_COIN_URL}/${encodeURIComponent(
-          mint
-        )}`,
-
+        url,
         {
-          method: "GET",
-
           headers: {
             Accept:
               "application/json"
@@ -168,21 +167,158 @@ async function getPumpCoin(
   }
 }
 
+async function getPumpCoin(mint) {
+  return fetchJson(
+    `${PUMP_COIN_URL}/${encodeURIComponent(
+      mint
+    )}`
+  );
+}
+
+async function getSolPrice() {
+  const data =
+    await fetchJson(
+      PUMP_SOL_PRICE_URL
+    );
+
+  if (
+    typeof data === "number"
+  ) {
+    return data;
+  }
+
+  if (
+    typeof data?.solPrice ===
+    "number"
+  ) {
+    return data.solPrice;
+  }
+
+  if (
+    typeof data?.price ===
+    "number"
+  ) {
+    return data.price;
+  }
+
+  if (
+    typeof data?.usd ===
+    "number"
+  ) {
+    return data.usd;
+  }
+
+  return null;
+}
+
 /* =========================================================
-   BASE64
+   TOKEN ACCOUNTS
 ========================================================= */
 
-function base64ToBytes(base64) {
-  try {
-    return Uint8Array.from(
-      Buffer.from(
-        base64,
-        "base64"
-      )
+async function getTokenAccounts(
+  rpcUrl,
+  mint
+) {
+  const result =
+    await rpcCall(
+      rpcUrl,
+      "getProgramAccounts",
+      [
+        TOKEN_2022_PROGRAM_ID,
+        {
+          commitment:
+            "confirmed",
+
+          encoding:
+            "base64",
+
+          filters: [
+            {
+              memcmp: {
+                offset: 0,
+                bytes: mint
+              }
+            }
+          ],
+
+          dataSlice: {
+            offset: 32,
+            length: 40
+          }
+        }
+      ]
     );
-  } catch {
-    return null;
-  }
+
+  const accounts =
+    Array.isArray(result)
+      ? result
+      : [];
+
+  return accounts
+    .map(
+      (account) => {
+        const encoded =
+          account?.account
+            ?.data?.[0];
+
+        if (
+          typeof encoded !==
+          "string"
+        ) {
+          return null;
+        }
+
+        try {
+          const bytes =
+            Uint8Array.from(
+              Buffer.from(
+                encoded,
+                "base64"
+              )
+            );
+
+          if (
+            bytes.length < 40
+          ) {
+            return null;
+          }
+
+          const owner =
+            bytesToBase58(
+              bytes.slice(
+                0,
+                32
+              )
+            );
+
+          let amount = 0n;
+
+          for (
+            let i = 0;
+            i < 8;
+            i++
+          ) {
+            amount +=
+              BigInt(
+                bytes[32 + i]
+              ) <<
+              (8n * BigInt(i));
+          }
+
+          return {
+            tokenAccount:
+              account.pubkey,
+
+            owner,
+
+            amount
+          };
+        } catch {
+          return null;
+        }
+      }
+    )
+    .filter(Boolean);
 }
 
 /* =========================================================
@@ -262,116 +398,6 @@ function bytesToBase58(bytes) {
 }
 
 /* =========================================================
-   TOKEN ACCOUNTS
-========================================================= */
-
-async function getTokenAccounts(
-  rpcUrl,
-  mint
-) {
-  const result =
-    await rpcCall(
-      rpcUrl,
-      "getProgramAccounts",
-      [
-        TOKEN_2022_PROGRAM_ID,
-        {
-          commitment:
-            "confirmed",
-
-          encoding:
-            "base64",
-
-          filters: [
-            {
-              memcmp: {
-                offset: 0,
-                bytes: mint
-              }
-            }
-          ],
-
-          dataSlice: {
-            offset: 32,
-            length: 40
-          }
-        }
-      ]
-    );
-
-  const accounts =
-    Array.isArray(result)
-      ? result
-      : [];
-
-  const decoded = [];
-
-  for (
-    const account of accounts
-  ) {
-    const encoded =
-      account?.account
-        ?.data?.[0];
-
-    if (
-      typeof encoded !==
-      "string"
-    ) {
-      continue;
-    }
-
-    const bytes =
-      base64ToBytes(
-        encoded
-      );
-
-    if (
-      !bytes ||
-      bytes.length < 40
-    ) {
-      continue;
-    }
-
-    const owner =
-      bytesToBase58(
-        bytes.slice(
-          0,
-          32
-        )
-      );
-
-    let amount = 0n;
-
-    for (
-      let i = 0;
-      i < 8;
-      i++
-    ) {
-      amount +=
-        BigInt(
-          bytes[32 + i]
-        ) <<
-        (8n * BigInt(i));
-    }
-
-    if (!owner) {
-      continue;
-    }
-
-    decoded.push({
-      tokenAccount:
-        account.pubkey,
-
-      owner,
-
-      amount
-    });
-  }
-
-  return decoded;
-}
-
-/* =========================================================
    SIGNATURES
 ========================================================= */
 
@@ -387,7 +413,7 @@ async function getSignatures(
         address,
         {
           limit:
-            SIGNATURE_LIMIT_PER_ACCOUNT,
+            SIGNATURE_LIMIT,
 
           commitment:
             "confirmed"
@@ -401,7 +427,7 @@ async function getSignatures(
 }
 
 /* =========================================================
-   TRANSACTION
+   TRANSACTIONS
 ========================================================= */
 
 async function getTransaction(
@@ -431,32 +457,33 @@ async function getTransaction(
    ACCOUNT KEYS
 ========================================================= */
 
-function getAccountKeys(
+function getAccountKeyObjects(
   transaction
 ) {
-  const keys =
+  return (
     transaction
       ?.transaction
       ?.message
-      ?.accountKeys;
+      ?.accountKeys || []
+  );
+}
 
-  if (
-    !Array.isArray(keys)
-  ) {
-    return [];
-  }
-
-  return keys.map(
-    (key) => {
+function getAccountKeys(
+  transaction
+) {
+  return getAccountKeyObjects(
+    transaction
+  ).map(
+    (item) => {
       if (
-        typeof key ===
+        typeof item ===
         "string"
       ) {
-        return key;
+        return item;
       }
 
       return (
-        key?.pubkey ||
+        item?.pubkey ||
         null
       );
     }
@@ -576,22 +603,16 @@ function getTokenDeltas(
     const address of addresses
   ) {
     const before =
-      pre.get(
-        address
-      );
+      pre.get(address);
 
     const after =
-      post.get(
-        address
-      );
+      post.get(address);
 
     const beforeAmount =
-      before?.amount ||
-      0n;
+      before?.amount || 0n;
 
     const afterAmount =
-      after?.amount ||
-      0n;
+      after?.amount || 0n;
 
     const delta =
       afterAmount -
@@ -603,16 +624,14 @@ function getTokenDeltas(
       continue;
     }
 
-    const owner =
-      after?.owner ||
-      before?.owner ||
-      null;
-
     deltas.push({
       tokenAccount:
         address,
 
-      owner,
+      owner:
+        after?.owner ||
+        before?.owner ||
+        null,
 
       delta:
         delta.toString()
@@ -623,7 +642,79 @@ function getTokenDeltas(
 }
 
 /* =========================================================
-   ADDRESS SET
+   SOL BALANCE DELTAS
+========================================================= */
+
+function getSolDeltas(
+  transaction
+) {
+  const pre =
+    transaction?.meta
+      ?.preBalances;
+
+  const post =
+    transaction?.meta
+      ?.postBalances;
+
+  const keys =
+    getAccountKeys(
+      transaction
+    );
+
+  if (
+    !Array.isArray(pre) ||
+    !Array.isArray(post)
+  ) {
+    return [];
+  }
+
+  const result = [];
+
+  const length =
+    Math.min(
+      pre.length,
+      post.length,
+      keys.length
+    );
+
+  for (
+    let i = 0;
+    i < length;
+    i++
+  ) {
+    const before =
+      BigInt(
+        pre[i] || 0
+      );
+
+    const after =
+      BigInt(
+        post[i] || 0
+      );
+
+    const delta =
+      after - before;
+
+    if (
+      delta === 0n
+    ) {
+      continue;
+    }
+
+    result.push({
+      address:
+        keys[i],
+
+      delta:
+        delta.toString()
+    });
+  }
+
+  return result;
+}
+
+/* =========================================================
+   PUMP MODEL
 ========================================================= */
 
 function addAddress(
@@ -639,11 +730,7 @@ function addAddress(
   }
 }
 
-/* =========================================================
-   PUMP ADDRESS MODEL
-========================================================= */
-
-function buildPumpAddressModel(
+function buildPumpModel(
   pump
 ) {
   const bondingCurve =
@@ -726,7 +813,7 @@ function buildPumpAddressModel(
 }
 
 /* =========================================================
-   CLASSIFY OWNER
+   OWNER CLASSIFICATION
 ========================================================= */
 
 function classifyOwner(
@@ -774,21 +861,14 @@ function classifyOwner(
    MOVEMENT CLASSIFICATION
 ========================================================= */
 
-function classifyMovement({
+function classifyMovement(
   deltas,
   model
-}) {
+) {
   const enriched =
     deltas.map(
       (delta) => ({
         ...delta,
-
-        direction:
-          BigInt(
-            delta.delta
-          ) > 0n
-            ? "IN"
-            : "OUT",
 
         actor:
           classifyOwner(
@@ -801,92 +881,67 @@ function classifyMovement({
 
   const curveOut =
     enriched.some(
-      (item) =>
-        item.actor ===
+      (x) =>
+        x.actor ===
           "BONDING_CURVE" &&
-        BigInt(
-          item.delta
-        ) < 0n
+        BigInt(x.delta) < 0n
     );
 
   const curveIn =
     enriched.some(
-      (item) =>
-        item.actor ===
+      (x) =>
+        x.actor ===
           "BONDING_CURVE" &&
-        BigInt(
-          item.delta
-        ) > 0n
+        BigInt(x.delta) > 0n
     );
 
   const externalIn =
     enriched.some(
-      (item) =>
-        item.actor ===
+      (x) =>
+        x.actor ===
           "EXTERNAL" &&
-        BigInt(
-          item.delta
-        ) > 0n
+        BigInt(x.delta) > 0n
     );
 
   const externalOut =
     enriched.some(
-      (item) =>
-        item.actor ===
+      (x) =>
+        x.actor ===
           "EXTERNAL" &&
-        BigInt(
-          item.delta
-        ) < 0n
+        BigInt(x.delta) < 0n
     );
 
   const creatorIn =
     enriched.some(
-      (item) =>
-        item.actor ===
+      (x) =>
+        x.actor ===
           "CREATOR" &&
-        BigInt(
-          item.delta
-        ) > 0n
+        BigInt(x.delta) > 0n
     );
 
   const creatorOut =
     enriched.some(
-      (item) =>
-        item.actor ===
+      (x) =>
+        x.actor ===
           "CREATOR" &&
-        BigInt(
-          item.delta
-        ) < 0n
+        BigInt(x.delta) < 0n
     );
 
   const poolIn =
     enriched.some(
-      (item) =>
-        item.actor ===
+      (x) =>
+        x.actor ===
           "POOL" &&
-        BigInt(
-          item.delta
-        ) > 0n
+        BigInt(x.delta) > 0n
     );
 
   const poolOut =
     enriched.some(
-      (item) =>
-        item.actor ===
+      (x) =>
+        x.actor ===
           "POOL" &&
-        BigInt(
-          item.delta
-        ) < 0n
+        BigInt(x.delta) < 0n
     );
-
-  /*
-   * BUY:
-   *
-   * Bonding curve loses PFX
-   * External wallet receives PFX
-   *
-   * Creator is deliberately excluded.
-   */
 
   if (
     curveOut &&
@@ -904,13 +959,6 @@ function classifyMovement({
     };
   }
 
-  /*
-   * SELL:
-   *
-   * External wallet loses PFX
-   * Bonding curve receives PFX.
-   */
-
   if (
     curveIn &&
     externalOut
@@ -927,10 +975,6 @@ function classifyMovement({
     };
   }
 
-  /*
-   * Creator movement.
-   */
-
   if (
     creatorIn ||
     creatorOut
@@ -943,13 +987,9 @@ function classifyMovement({
         "HIGH",
 
       reason:
-        "Le créateur intervient dans le mouvement de PFX."
+        "Le créateur intervient dans le mouvement."
     };
   }
-
-  /*
-   * Pool movement.
-   */
 
   if (
     poolIn ||
@@ -963,13 +1003,9 @@ function classifyMovement({
         "HIGH",
 
       reason:
-        "Un pool de liquidité intervient dans le mouvement."
+        "Un pool intervient dans le mouvement."
     };
   }
-
-  /*
-   * External wallet transfer.
-   */
 
   if (
     externalIn &&
@@ -987,10 +1023,6 @@ function classifyMovement({
     };
   }
 
-  /*
-   * Unknown.
-   */
-
   return {
     type:
       "UNKNOWN",
@@ -999,36 +1031,212 @@ function classifyMovement({
       "LOW",
 
     reason:
-      "Mouvement détecté mais nature économique non déterminable."
+      "Mouvement détecté mais nature économique indéterminée."
   };
 }
 
 /* =========================================================
-   EXTERNAL ACTOR
+   EXTERNAL BUYER
 ========================================================= */
 
-function getExternalActor(
-  movement
+function getBuyer(
+  deltas
 ) {
-  const candidates =
-    movement.tokenDeltas.filter(
-      (delta) =>
-        delta.actor ===
+  const candidate =
+    deltas.find(
+      (x) =>
+        x.actor ===
           "EXTERNAL" &&
-        BigInt(
-          delta.delta
-        ) > 0n
+        BigInt(x.delta) > 0n
+    );
+
+  return (
+    candidate?.owner ||
+    null
+  );
+}
+
+/* =========================================================
+   EXTERNAL SELLER
+========================================================= */
+
+function getSeller(
+  deltas
+) {
+  const candidate =
+    deltas.find(
+      (x) =>
+        x.actor ===
+          "EXTERNAL" &&
+        BigInt(x.delta) < 0n
+    );
+
+  return (
+    candidate?.owner ||
+    null
+  );
+}
+
+/* =========================================================
+   TOKEN AMOUNT
+========================================================= */
+
+function getExternalTokenAmount(
+  deltas,
+  direction
+) {
+  const external =
+    deltas.filter(
+      (x) =>
+        x.actor ===
+        "EXTERNAL"
     );
 
   if (
-    candidates.length === 0
+    external.length === 0
+  ) {
+    return 0n;
+  }
+
+  let total = 0n;
+
+  for (
+    const item of external
+  ) {
+    const delta =
+      BigInt(item.delta);
+
+    if (
+      direction === "IN" &&
+      delta > 0n
+    ) {
+      total += delta;
+    }
+
+    if (
+      direction === "OUT" &&
+      delta < 0n
+    ) {
+      total += -delta;
+    }
+  }
+
+  return total;
+}
+
+/* =========================================================
+   SOL AMOUNT
+========================================================= */
+
+function getCurveSolMovement(
+  transaction,
+  model,
+  type
+) {
+  const solDeltas =
+    getSolDeltas(
+      transaction
+    );
+
+  let total = 0n;
+
+  for (
+    const item of solDeltas
+  ) {
+    const address =
+      item.address;
+
+    const delta =
+      BigInt(item.delta);
+
+    if (
+      !model.bondingCurve.has(
+        address
+      )
+    ) {
+      continue;
+    }
+
+    if (
+      type ===
+        "BUY_PROBABLE" &&
+      delta > 0n
+    ) {
+      total += delta;
+    }
+
+    if (
+      type ===
+        "SELL_PROBABLE" &&
+      delta < 0n
+    ) {
+      total += -delta;
+    }
+  }
+
+  return total;
+}
+
+/* =========================================================
+   NUMBER FORMAT
+========================================================= */
+
+function bigintToDecimal(
+  value,
+  decimals
+) {
+  const negative =
+    value < 0n;
+
+  const absolute =
+    negative
+      ? -value
+      : value;
+
+  const text =
+    absolute
+      .toString()
+      .padStart(
+        decimals + 1,
+        "0"
+      );
+
+  const split =
+    text.length -
+    decimals;
+
+  const result =
+    `${text.slice(
+      0,
+      split
+    )}.${text.slice(
+      split
+    )}`;
+
+  return negative
+    ? `-${result}`
+    : result;
+}
+
+function round(
+  value,
+  decimals = 2
+) {
+  if (
+    typeof value !==
+      "number" ||
+    !Number.isFinite(value)
   ) {
     return null;
   }
 
+  const factor =
+    10 ** decimals;
+
   return (
-    candidates[0].owner ||
-    null
+    Math.round(
+      value * factor
+    ) / factor
   );
 }
 
@@ -1036,7 +1244,7 @@ function getExternalActor(
    CONCURRENCY
 ========================================================= */
 
-async function processInBatches(
+async function processBatches(
   items,
   worker,
   batchSize
@@ -1054,15 +1262,13 @@ async function processInBatches(
         i + batchSize
       );
 
-    const batchResults =
+    const output =
       await Promise.all(
-        batch.map(
-          worker
-        )
+        batch.map(worker)
       );
 
     results.push(
-      ...batchResults
+      ...output
     );
   }
 
@@ -1107,11 +1313,7 @@ export default async function handler(
       "string"
         ? req.query.mint.trim()
         : "";
-  }
-
-  if (
-    req.method === "POST"
-  ) {
+  } else {
     mint =
       typeof req.body?.mint ===
       "string"
@@ -1156,7 +1358,7 @@ export default async function handler(
        1. MINT
     ===================================================== */
 
-    const mintResult =
+    const mintInfo =
       await rpcCall(
         rpcUrl,
         "getAccountInfo",
@@ -1172,11 +1374,9 @@ export default async function handler(
         ]
       );
 
-    const mintAccount =
-      mintResult?.value ??
-      null;
-
-    if (!mintAccount) {
+    if (
+      !mintInfo?.value
+    ) {
       return json(
         res,
         404,
@@ -1189,7 +1389,7 @@ export default async function handler(
     }
 
     if (
-      mintAccount.owner !==
+      mintInfo.value.owner !==
       TOKEN_2022_PROGRAM_ID
     ) {
       return json(
@@ -1202,15 +1402,12 @@ export default async function handler(
             "PROFITX_ACTIVITY",
 
           version:
-            "2.0.0",
+            "3.0.0",
 
           mint,
 
           isToken2022:
-            false,
-
-          message:
-            "Le mint n'utilise pas Token-2022."
+            false
         }
       );
     }
@@ -1226,7 +1423,7 @@ export default async function handler(
       );
 
     /* =====================================================
-       3. PUMP DATA
+       3. PUMP
     ===================================================== */
 
     const pump =
@@ -1235,44 +1432,38 @@ export default async function handler(
       );
 
     const model =
-      buildPumpAddressModel(
+      buildPumpModel(
         pump
       );
 
     /* =====================================================
-       4. SIGNATURE DISCOVERY
+       4. SOL PRICE
     ===================================================== */
 
-    const addressesToScan =
-      new Set();
+    const solPrice =
+      await getSolPrice();
 
-    /*
-     * Token accounts
-     */
+    /* =====================================================
+       5. ADDRESSES
+    ===================================================== */
+
+    const addresses =
+      new Set();
 
     for (
       const account of
         tokenAccounts
     ) {
-      addressesToScan.add(
+      addresses.add(
         account.tokenAccount
       );
     }
-
-    /*
-     * Pump addresses
-     *
-     * We include the bonding curve
-     * and its associated token account
-     * so historical trade transactions
-     * are easier to recover.
-     */
 
     for (
       const address of
         model.bondingCurve
     ) {
-      addressesToScan.add(
+      addresses.add(
         address
       );
     }
@@ -1281,7 +1472,7 @@ export default async function handler(
       const address of
         model.creator
     ) {
-      addressesToScan.add(
+      addresses.add(
         address
       );
     }
@@ -1290,17 +1481,20 @@ export default async function handler(
       const address of
         model.pools
     ) {
-      addressesToScan.add(
+      addresses.add(
         address
       );
     }
+
+    /* =====================================================
+       6. SIGNATURES
+    ===================================================== */
 
     const signatureMap =
       new Map();
 
     for (
-      const address of
-        addressesToScan
+      const address of addresses
     ) {
       const signatures =
         await getSignatures(
@@ -1309,32 +1503,26 @@ export default async function handler(
         );
 
       for (
-        const signatureInfo of
-          signatures
+        const item of signatures
       ) {
         if (
-          !signatureInfo?.signature
-        ) {
-          continue;
-        }
-
-        if (
-          signatureInfo.err
+          !item?.signature ||
+          item.err
         ) {
           continue;
         }
 
         signatureMap.set(
-          signatureInfo.signature,
+          item.signature,
           {
             signature:
-              signatureInfo.signature,
+              item.signature,
 
             slot:
-              signatureInfo.slot,
+              item.slot,
 
             blockTime:
-              signatureInfo.blockTime
+              item.blockTime
           }
         );
       }
@@ -1355,11 +1543,11 @@ export default async function handler(
         );
 
     /* =====================================================
-       5. TRANSACTIONS
+       7. FETCH TRANSACTIONS
     ===================================================== */
 
-    const transactions =
-      await processInBatches(
+    const fetched =
+      await processBatches(
         signatures,
 
         async (item) => {
@@ -1389,48 +1577,44 @@ export default async function handler(
       );
 
     /* =====================================================
-       6. MOVEMENTS
+       8. BUILD MOVEMENTS
     ===================================================== */
 
     const movements = [];
 
     for (
-      const item of transactions
+      const item of fetched
     ) {
       const transaction =
         item.transaction;
 
-      if (!transaction) {
-        continue;
-      }
-
       if (
+        !transaction ||
         transaction.meta?.err
       ) {
         continue;
       }
 
-      const deltas =
+      const tokenDeltas =
         getTokenDeltas(
           transaction,
           mint
         );
 
       if (
-        deltas.length === 0
+        tokenDeltas.length === 0
       ) {
         continue;
       }
 
       const classification =
-        classifyMovement({
-          deltas,
-
+        classifyMovement(
+          tokenDeltas,
           model
-        });
+        );
 
-      const enrichedDeltas =
-        deltas.map(
+      const classified =
+        tokenDeltas.map(
           (delta) => ({
             ...delta,
 
@@ -1463,7 +1647,7 @@ export default async function handler(
           classification.reason,
 
         tokenDeltas:
-          enrichedDeltas
+          classified
       };
 
       if (
@@ -1471,9 +1655,85 @@ export default async function handler(
         "BUY_PROBABLE"
       ) {
         movement.buyer =
-          getExternalActor(
-            movement
+          getBuyer(
+            classified
           );
+
+        const tokenAmount =
+          getExternalTokenAmount(
+            classified,
+            "IN"
+          );
+
+        const solAmount =
+          getCurveSolMovement(
+            transaction,
+            model,
+            "BUY_PROBABLE"
+          );
+
+        movement.tokenAmountRaw =
+          tokenAmount.toString();
+
+        movement.solAmount =
+          Number(
+            solAmount
+          ) /
+          Number(
+            LAMPORTS_PER_SOL
+          );
+
+        movement.volumeUsd =
+          solPrice !== null
+            ? round(
+                movement.solAmount *
+                  solPrice,
+                2
+              )
+            : null;
+      }
+
+      if (
+        classification.type ===
+        "SELL_PROBABLE"
+      ) {
+        movement.seller =
+          getSeller(
+            classified
+          );
+
+        const tokenAmount =
+          getExternalTokenAmount(
+            classified,
+            "OUT"
+          );
+
+        const solAmount =
+          getCurveSolMovement(
+            transaction,
+            model,
+            "SELL_PROBABLE"
+          );
+
+        movement.tokenAmountRaw =
+          tokenAmount.toString();
+
+        movement.solAmount =
+          Number(
+            solAmount
+          ) /
+          Number(
+            LAMPORTS_PER_SOL
+          );
+
+        movement.volumeUsd =
+          solPrice !== null
+            ? round(
+                movement.solAmount *
+                  solPrice,
+                2
+              )
+            : null;
       }
 
       movements.push(
@@ -1482,8 +1742,56 @@ export default async function handler(
     }
 
     /* =====================================================
-       7. COUNTERS
+       9. TIME
     ===================================================== */
+
+    const now =
+      Math.floor(
+        Date.now() / 1000
+      );
+
+    const cutoff24h =
+      now - WINDOW_24H;
+
+    const cutoff7d =
+      now - WINDOW_7D;
+
+    const validTimedMovements =
+      movements.filter(
+        (item) =>
+          Number.isFinite(
+            Number(
+              item.blockTime
+            )
+          )
+      );
+
+    const last24h =
+      validTimedMovements.filter(
+        (item) =>
+          Number(
+            item.blockTime
+          ) >= cutoff24h
+      );
+
+    const last7d =
+      validTimedMovements.filter(
+        (item) =>
+          Number(
+            item.blockTime
+          ) >= cutoff7d
+      );
+
+    /* =====================================================
+       10. ECONOMIC MOVEMENTS
+    ===================================================== */
+
+    const isEconomic =
+      (item) =>
+        item.type ===
+          "BUY_PROBABLE" ||
+        item.type ===
+          "SELL_PROBABLE";
 
     const buys =
       movements.filter(
@@ -1528,60 +1836,143 @@ export default async function handler(
       );
 
     /* =====================================================
-       8. UNIQUE EXTERNAL BUYERS
+       11. UNIQUE PARTICIPANTS
     ===================================================== */
 
     const buyers =
       new Set();
 
     for (
-      const buy of buys
+      const item of buys
     ) {
       if (
-        buy.buyer
+        item.buyer
       ) {
         buyers.add(
-          buy.buyer
+          item.buyer
         );
       }
     }
-
-    /* =====================================================
-       9. UNIQUE EXTERNAL SELLERS
-    ===================================================== */
 
     const sellers =
       new Set();
 
     for (
-      const sell of sells
+      const item of sells
     ) {
-      const candidates =
-        sell.tokenDeltas.filter(
-          (delta) =>
-            delta.actor ===
-              "EXTERNAL" &&
-            BigInt(
-              delta.delta
-            ) < 0n
-        );
-
-      for (
-        const candidate of
-          candidates
+      if (
+        item.seller
       ) {
-        if (
-          candidate.owner
-        ) {
-          sellers.add(
-            candidate.owner
-          );
-        }
+        sellers.add(
+          item.seller
+        );
       }
     }
 
     /* =====================================================
-       10. BUYER HISTORY
+       12. VOLUME
+    ===================================================== */
+
+    function calculateVolume(
+      list
+    ) {
+      const economic =
+        list.filter(
+          isEconomic
+        );
+
+      let volumeSol = 0;
+
+      let volumeUsd = 0;
+
+      let volumeUsdKnown =
+        true;
+
+      for (
+        const item of economic
+      ) {
+        if (
+          Number.isFinite(
+            item.solAmount
+          )
+        ) {
+          volumeSol +=
+            item.solAmount;
+        }
+
+        if (
+          Number.isFinite(
+            item.volumeUsd
+          )
+        ) {
+          volumeUsd +=
+            item.volumeUsd;
+        } else {
+          volumeUsdKnown =
+            false;
+        }
+      }
+
+      return {
+        transactions:
+          economic.length,
+
+        buys:
+          list.filter(
+            (item) =>
+              item.type ===
+              "BUY_PROBABLE"
+          ).length,
+
+        sells:
+          list.filter(
+            (item) =>
+              item.type ===
+              "SELL_PROBABLE"
+          ).length,
+
+        volumeSol:
+          round(
+            volumeSol,
+            6
+          ),
+
+        volumeUsd:
+          economic.length === 0
+            ? 0
+            : volumeUsdKnown
+              ? round(
+                  volumeUsd,
+                  2
+                )
+              : null,
+
+        volumeUsdStatus:
+          economic.length === 0
+            ? "ZERO_ACTIVITY"
+            : volumeUsdKnown
+              ? "ESTIMATED"
+              : "N/D"
+      };
+    }
+
+    const volume24h =
+      calculateVolume(
+        last24h
+      );
+
+    const volume7d =
+      calculateVolume(
+        last7d
+      );
+
+    const volumeObserved =
+      calculateVolume(
+        movements
+      );
+
+    /* =====================================================
+       13. BUYER HISTORY
     ===================================================== */
 
     const buyerHistory =
@@ -1593,18 +1984,18 @@ export default async function handler(
 
           buyCount:
             buys.filter(
-              (buy) =>
-                buy.buyer ===
+              (item) =>
+                item.buyer ===
                 wallet
             ).length
         })
       );
 
     /* =====================================================
-       11. LAST MOVEMENT
+       14. LAST ACTIVITY
     ===================================================== */
 
-    const sortedMovements =
+    const sorted =
       [...movements].sort(
         (a, b) =>
           (b.blockTime || 0) -
@@ -1612,11 +2003,34 @@ export default async function handler(
       );
 
     const latest =
-      sortedMovements[0] ||
-      null;
+      sorted[0] || null;
 
     /* =====================================================
-       12. RESULT
+       15. ACTIVITY STATUS
+    ===================================================== */
+
+    let activityStatus =
+      "NO_ACTIVITY";
+
+    if (
+      last24h.length > 0
+    ) {
+      activityStatus =
+        "ACTIVE_24H";
+    } else if (
+      last7d.length > 0
+    ) {
+      activityStatus =
+        "ACTIVE_7D";
+    } else if (
+      movements.length > 0
+    ) {
+      activityStatus =
+        "HISTORICAL_ACTIVITY";
+    }
+
+    /* =====================================================
+       16. RESULT
     ===================================================== */
 
     return json(
@@ -1629,7 +2043,7 @@ export default async function handler(
           "PROFITX_ACTIVITY",
 
         version:
-          "2.0.0",
+          "3.0.0",
 
         timestamp:
           new Date().toISOString(),
@@ -1668,9 +2082,19 @@ export default async function handler(
             null
         },
 
+        marketData: {
+          solPriceUsd:
+            solPrice,
+
+          solPriceStatus:
+            solPrice !== null
+              ? "AVAILABLE"
+              : "N/D"
+        },
+
         analysis: {
           addressesScanned:
-            addressesToScan.size,
+            addresses.size,
 
           tokenAccounts:
             tokenAccounts.length,
@@ -1679,13 +2103,15 @@ export default async function handler(
             signatures.length,
 
           transactionsFetched:
-            transactions.filter(
+            fetched.filter(
               (item) =>
                 item.transaction
             ).length,
 
           movementsDetected:
-            movements.length
+            movements.length,
+
+          activityStatus
         },
 
         activity: {
@@ -1727,6 +2153,17 @@ export default async function handler(
             true
         },
 
+        volume: {
+          last24h:
+            volume24h,
+
+          last7d:
+            volume7d,
+
+          observed:
+            volumeObserved
+        },
+
         latestMovement:
           latest
             ? {
@@ -1739,9 +2176,6 @@ export default async function handler(
                 signature:
                   latest.signature,
 
-                slot:
-                  latest.slot,
-
                 blockTime:
                   latest.blockTime,
 
@@ -1749,16 +2183,23 @@ export default async function handler(
                   latest.buyer ||
                   null,
 
-                reason:
-                  latest.reason
+                seller:
+                  latest.seller ||
+                  null,
+
+                volumeSol:
+                  latest.solAmount ??
+                  null,
+
+                volumeUsd:
+                  latest.volumeUsd ??
+                  null
               }
             : null,
 
         movements:
-          movements.slice(
-            0,
-            50
-          ),
+          movements
+            .slice(0, 50),
 
         dataQuality: {
           tokenAccounts:
@@ -1770,14 +2211,23 @@ export default async function handler(
             0,
 
           transactions:
-            transactions.length >
+            fetched.length >
             0,
 
           activity:
             true,
 
+          volume24h:
+            true,
+
+          volume7d:
+            true,
+
           economicClassification:
             "HEURISTIC_ON_CHAIN",
+
+          volumeUsdMethod:
+            "SOL_BALANCE_DELTA_X_CURRENT_SOL_PRICE",
 
           creatorExcluded:
             true,
@@ -1804,11 +2254,11 @@ export default async function handler(
           "PROFITX_ACTIVITY",
 
         version:
-          "2.0.0",
+          "3.0.0",
 
         error:
           error?.message ||
-          "Erreur pendant l'analyse de l'activité."
+          "Erreur pendant l'analyse."
       }
     );
   }

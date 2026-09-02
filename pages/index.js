@@ -325,7 +325,7 @@ export default function Home() {
 
 
       {/* =====================================================
-          PFX OFFICIEL
+          PFX OFFICIEL — VISIBILITÉ V3
       ===================================================== */}
 
       <section className="panel">
@@ -362,20 +362,68 @@ export default function Home() {
         </div>
 
 
-        <div className="search">
+        {/* PUMP.FUN — ACCÈS PRINCIPAL */}
 
+        <div
+          style={{
+            marginTop: "26px",
+            marginBottom: "14px"
+          }}
+        >
           <a
             href={`https://pump.fun/coin/${DEFAULT_MINT}`}
             target="_blank"
             rel="noreferrer"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "100%",
+              boxSizing: "border-box",
+              padding: "17px 20px",
+              border: "1px solid #00ff88",
+              borderRadius: "12px",
+              background:
+                "linear-gradient(135deg, #00ff88 0%, #00d975 100%)",
+              color: "#00150c",
+              textDecoration: "none",
+              fontWeight: 900,
+              fontSize: "17px",
+              letterSpacing: "0.5px",
+              textAlign: "center",
+              boxShadow:
+                "0 0 22px rgba(0, 255, 136, 0.18)"
+            }}
           >
-            Voir PFX sur Pump.fun
+            PUMP.FUN • VOIR / ACHETER PFX
           </a>
+        </div>
+
+
+        {/* RÉSEAUX OFFICIELS */}
+
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "10px",
+            marginBottom: "18px"
+          }}
+        >
 
           <a
             href="https://x.com/IVAR4019"
             target="_blank"
             rel="noreferrer"
+            style={{
+              padding: "11px 15px",
+              border: "1px solid #00ff88",
+              borderRadius: "10px",
+              background: "#06100b",
+              color: "#00ff88",
+              textDecoration: "none",
+              fontWeight: 700
+            }}
           >
             X • @IVAR4019
           </a>
@@ -384,6 +432,15 @@ export default function Home() {
             href="https://www.tiktok.com/@pfx_profitx"
             target="_blank"
             rel="noreferrer"
+            style={{
+              padding: "11px 15px",
+              border: "1px solid #00ff88",
+              borderRadius: "10px",
+              background: "#06100b",
+              color: "#00ff88",
+              textDecoration: "none",
+              fontWeight: 700
+            }}
           >
             TikTok • @pfx_profitx
           </a>
@@ -392,6 +449,15 @@ export default function Home() {
             href="https://www.facebook.com/profile.php?id=61591572038365"
             target="_blank"
             rel="noreferrer"
+            style={{
+              padding: "11px 15px",
+              border: "1px solid #00ff88",
+              borderRadius: "10px",
+              background: "#06100b",
+              color: "#00ff88",
+              textDecoration: "none",
+              fontWeight: 700
+            }}
           >
             Facebook • PROFITX
           </a>
@@ -400,6 +466,15 @@ export default function Home() {
             href="https://www.youtube.com/@IVAR4019"
             target="_blank"
             rel="noreferrer"
+            style={{
+              padding: "11px 15px",
+              border: "1px solid #00ff88",
+              borderRadius: "10px",
+              background: "#06100b",
+              color: "#00ff88",
+              textDecoration: "none",
+              fontWeight: 700
+            }}
           >
             YouTube • PROFITX Crypto
           </a>

@@ -298,6 +298,56 @@ export default function Home() {
 
 
       {/* =====================================================
+          PFX OFFICIEL
+      ===================================================== */}
+
+      <section className="panel">
+        <div className="eyebrow">
+          PFX • OFFICIAL PROFITX TOKEN
+        </div>
+
+        <h2>PFX — le token officiel de ProfitX AI</h2>
+
+        <p className="intro">
+          ProfitX AI est un moteur d’analyse Solana en développement.
+          PFX est le token officiel associé au projet. Vérifiez toujours
+          l’adresse mint avant toute interaction.
+        </p>
+
+        <div className="pairGrid">
+          <div>
+            <span>Mint officiel</span>
+            <strong>{shortAddress(DEFAULT_MINT, 12, 12)}</strong>
+          </div>
+
+          <div>
+            <span>Réseau</span>
+            <strong>Solana</strong>
+          </div>
+
+          <div>
+            <span>Statut</span>
+            <strong>PFX OFFICIEL</strong>
+          </div>
+        </div>
+
+        <div className="search">
+          <a
+            href={`https://pump.fun/coin/${DEFAULT_MINT}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Voir PFX sur Pump.fun
+          </a>
+        </div>
+
+        <div className="hint">
+          Le token PFX est spéculatif et n’accorde aucune garantie de rendement.
+        </div>
+      </section>
+
+
+      {/* =====================================================
           HERO
       ===================================================== */}
 
@@ -347,7 +397,6 @@ export default function Home() {
               ? "Analyse..."
               : "Analyser"}
           </button>
-
         </div>
 
         <div className="hint">
@@ -439,6 +488,8 @@ export default function Home() {
             </div>
 
           </div>
+
+
           {/* =================================================
               ÉTAT DU MARCHÉ
           ================================================= */}
@@ -797,6 +848,7 @@ export default function Home() {
                       ).toFixed(1)} h`}
                 </strong>
               </div>
+
               <div>
                 <span>Maturité</span>
 
@@ -927,8 +979,7 @@ export default function Home() {
             </h2>
 
             <div className="observed">
-
-              <div>
+                          <div>
                 <span>Holders détectés</span>
 
                 <strong>
@@ -1384,8 +1435,6 @@ export default function Home() {
             </div>
 
           )}
-
-
           {/* =================================================
               DIAGNOSTIC
           ================================================= */}

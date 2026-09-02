@@ -786,6 +786,10 @@ function volumeScore(value) {
   );
 }
 
+/* =========================================================
+   DISTRIBUTION SCORE — CORRIGÉ
+========================================================= */
+
 function distributionScore(holders) {
   const top1 =
     num(
@@ -801,22 +805,107 @@ function distributionScore(holders) {
         ?.externalTop10Percent
     );
 
+  const externalHolders =
+    num(
+      holders?.externalHolders
+    );
+
+  const uniqueOwners =
+    num(
+      holders?.uniqueOwners
+    );
+
+  /*
+   * Une distribution ne peut pas être considérée
+   * comme excellente simplement parce que les
+   * pourcentages de concentration sont faibles.
+   *
+   * Le nombre réel de détenteurs externes est
+   * également pris en compte.
+   */
+
   if (
+    externalHolders === null &&
+    uniqueOwners === null &&
     top1 === null &&
     top10 === null
   ) {
     return null;
   }
 
-  return clamp(
-    100 -
-      (
-        (top1 || 0) *
-          0.7 +
-        (top10 || 0) *
-          0.3
-      )
-  );
+  let holderScore = 100;
+
+  if (
+    externalHolders !== null
+  ) {
+    if (externalHolders <= 1) {
+      holderScore = 0;
+    } else if (externalHolders <= 2) {
+      holderScore = 15;
+    } else if (externalHolders <= 5) {
+      holderScore = 30;
+    } else if (externalHolders <= 10) {
+      holderScore = 45;
+    } else if (externalHolders <= 20) {
+      holderScore = 60;
+    } else if (externalHolders <= 50) {
+      holderScore = 75;
+    } else if (externalHolders <= 100) {
+      holderScore = 85;
+    } else {
+      holderScore = 100;
+    }
+  } else if (
+    uniqueOwners !== null
+  ) {
+    if (uniqueOwners <= 1) {
+      holderScore = 0;
+    } else if (uniqueOwners <= 3) {
+      holderScore = 20;
+    } else if (uniqueOwners <= 10) {
+      holderScore = 40;
+    } else if (uniqueOwners <= 25) {
+      holderScore = 60;
+    } else if (uniqueOwners <= 50) {
+      holderScore = 75;
+    } else if (uniqueOwners <= 100) {
+      holderScore = 85;
+    } else {
+      holderScore = 100;
+    }
+  }
+
+  let concentrationScore = null;
+
+  if (
+    top1 !== null ||
+    top10 !== null
+  ) {
+    concentrationScore =
+      clamp(
+        100 -
+          (
+            (top1 || 0) * 0.7 +
+            (top10 || 0) * 0.3
+          )
+      );
+  }
+
+  /*
+   * Le nombre de détenteurs compte autant que
+   * la concentration.
+   */
+
+  if (
+    concentrationScore !== null
+  ) {
+    return Math.round(
+      holderScore * 0.6 +
+      concentrationScore * 0.4
+    );
+  }
+
+  return holderScore;
 }
 
 function securityScore(security) {

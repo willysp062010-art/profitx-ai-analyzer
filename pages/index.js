@@ -1,12 +1,15 @@
 import { useState } from "react";
 
+
 const DEFAULT_MINT =
   "6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump";
+
 
 function isNumber(value) {
   const n = Number(value);
   return Number.isFinite(n);
 }
+
 
 function fmtUsd(value) {
   if (value == null || !isNumber(value)) return "N/D";
@@ -20,6 +23,7 @@ function fmtUsd(value) {
   }).format(n);
 }
 
+
 function fmtNumber(value) {
   if (value == null || !isNumber(value)) return "N/D";
 
@@ -28,11 +32,13 @@ function fmtNumber(value) {
   }).format(Number(value));
 }
 
+
 function fmtPercent(value) {
   if (value == null || !isNumber(value)) return "N/D";
 
   return `${Math.round(Number(value))}/100`;
 }
+
 
 function fmtDecimal(value, digits = 2) {
   if (value == null || !isNumber(value)) return "N/D";
@@ -41,6 +47,7 @@ function fmtDecimal(value, digits = 2) {
     maximumFractionDigits: digits
   });
 }
+
 
 function fmtDate(value) {
   if (!value) return "N/D";
@@ -52,6 +59,7 @@ function fmtDate(value) {
   return date.toLocaleString("fr-FR");
 }
 
+
 function shortAddress(value, start = 8, end = 8) {
   if (!value || typeof value !== "string") return "N/D";
 
@@ -59,6 +67,7 @@ function shortAddress(value, start = 8, end = 8) {
 
   return `${value.slice(0, start)}...${value.slice(-end)}`;
 }
+
 
 function statusLabel(status) {
   switch (status) {
@@ -81,6 +90,7 @@ function statusLabel(status) {
       return status || "N/D";
   }
 }
+
 
 function getActivityState(observed, activity) {
   const volume = Number(observed?.volume24hUsd ?? 0);
@@ -119,6 +129,7 @@ function getActivityState(observed, activity) {
   };
 }
 
+
 function getMarketState(data, observed) {
   if (observed?.pumpComplete === false) {
     return "BONDING CURVE";
@@ -134,6 +145,7 @@ function getMarketState(data, observed) {
 
   return statusLabel(data?.status);
 }
+
 
 function ScoreBar({ value }) {
   if (value == null || !isNumber(value)) {
@@ -160,11 +172,13 @@ function ScoreBar({ value }) {
   );
 }
 
+
 export default function Home() {
   const [mint, setMint] = useState(DEFAULT_MINT);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
 
   async function analyze() {
     const cleanMint = mint.trim();
@@ -215,6 +229,7 @@ export default function Home() {
       }
 
       setData(result);
+
     } catch (e) {
       console.error("ProfitX analyse error:", e);
 
@@ -222,10 +237,12 @@ export default function Home() {
         e?.message ||
           "Une erreur est survenue pendant l'analyse."
       );
+
     } finally {
       setLoading(false);
     }
   }
+
 
   const score = data?.score || {};
   const components = score?.components || {};
@@ -242,6 +259,7 @@ export default function Home() {
   const token2022 = modules?.token2022 || {};
   const metadata = modules?.metadata || {};
 
+
   const activityState = getActivityState(
     observed,
     activity
@@ -252,8 +270,10 @@ export default function Home() {
     observed
   );
 
+
   const availableWeight =
     score?.availableWeight ?? 0;
+
 
   const securityScore =
     security?.securityScore ??
@@ -261,23 +281,30 @@ export default function Home() {
     components?.security ??
     null;
 
+
   const activityScore =
     score?.activity ?? data?.metrics?.activity ?? null;
+
 
   const distributionScore =
     components?.distribution ?? null;
 
+
   const liquidityScore =
     components?.liquidity ?? null;
+
 
   const volumeScore =
     data?.metrics?.volume ?? null;
 
+
   const maturityScore =
     components?.maturity ?? null;
 
+
   return (
     <main className="shell">
+
 
       {/* =====================================================
           HEADER
@@ -302,6 +329,7 @@ export default function Home() {
       ===================================================== */}
 
       <section className="panel">
+
         <div className="eyebrow">
           PFX • OFFICIAL PROFITX TOKEN
         </div>
@@ -315,6 +343,7 @@ export default function Home() {
         </p>
 
         <div className="pairGrid">
+
           <div>
             <span>Mint officiel</span>
             <strong>{shortAddress(DEFAULT_MINT, 12, 12)}</strong>
@@ -329,9 +358,12 @@ export default function Home() {
             <span>Statut</span>
             <strong>PFX OFFICIEL</strong>
           </div>
+
         </div>
 
+
         <div className="search">
+
           <a
             href={`https://pump.fun/coin/${DEFAULT_MINT}`}
             target="_blank"
@@ -339,11 +371,46 @@ export default function Home() {
           >
             Voir PFX sur Pump.fun
           </a>
+
+          <a
+            href="https://x.com/IVAR4019"
+            target="_blank"
+            rel="noreferrer"
+          >
+            X • @IVAR4019
+          </a>
+
+          <a
+            href="https://www.tiktok.com/@pfx_profitx"
+            target="_blank"
+            rel="noreferrer"
+          >
+            TikTok • @pfx_profitx
+          </a>
+
+          <a
+            href="https://www.facebook.com/profile.php?id=61591572038365"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Facebook • PROFITX
+          </a>
+
+          <a
+            href="https://www.youtube.com/@IVAR4019"
+            target="_blank"
+            rel="noreferrer"
+          >
+            YouTube • PROFITX Crypto
+          </a>
+
         </div>
+
 
         <div className="hint">
           Le token PFX est spéculatif et n’accorde aucune garantie de rendement.
         </div>
+
       </section>
 
 
@@ -397,8 +464,8 @@ export default function Home() {
               ? "Analyse..."
               : "Analyser"}
           </button>
-        </div>
 
+        </div>
         <div className="hint">
           Les données observées sont affichées telles
           quelles. Un zéro réel reste un zéro et n'est
@@ -979,7 +1046,8 @@ export default function Home() {
             </h2>
 
             <div className="observed">
-                          <div>
+
+              <div>
                 <span>Holders détectés</span>
 
                 <strong>
@@ -1223,6 +1291,7 @@ export default function Home() {
                   )}
                 </strong>
               </div>
+
               <div>
                 <span>
                   Mint authority
@@ -1334,8 +1403,6 @@ export default function Home() {
                 </div>
 
               </div>
-
-
               {Array.isArray(
                 token2022.findings
               ) &&
@@ -1435,6 +1502,8 @@ export default function Home() {
             </div>
 
           )}
+
+
           {/* =================================================
               DIAGNOSTIC
           ================================================= */}

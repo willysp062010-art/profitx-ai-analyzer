@@ -12,11 +12,11 @@ const TOKEN_2022_PROGRAM_ID =
 
 const REQUEST_TIMEOUT_MS = 12000;
 
-const SIGNATURE_LIMIT = 100;
+const SIGNATURE_LIMIT = 50;
 
-const MAX_TRANSACTIONS = 100;
+const MAX_TRANSACTIONS = 80;
 
-const MAX_CONCURRENT_TX = 5;
+const MAX_CONCURRENT_TX = 10;
 
 const LAMPORTS_PER_SOL = 1000000000n;
 
@@ -25,6 +25,8 @@ const WINDOW_24H =
 
 const WINDOW_7D =
   7 * 24 * 60 * 60;
+
+const MAX_CONCURRENT_SIGNATURES = 8;
 
 /* =========================================================
    RESPONSE
@@ -1493,17 +1495,30 @@ export default async function handler(
     const signatureMap =
       new Map();
 
-    for (
-      const address of addresses
-    ) {
-      const signatures =
-        await getSignatures(
-          rpcUrl,
-          address
-        );
+    const signatureResults =
+      await processBatches(
+        Array.from(addresses),
 
+        async (address) => {
+          try {
+            return await getSignatures(
+              rpcUrl,
+              address
+            );
+          } catch {
+            return [];
+          }
+        },
+
+        MAX_CONCURRENT_SIGNATURES
+      );
+
+    for (
+      const signaturesForAddress of
+        signatureResults
+    ) {
       for (
-        const item of signatures
+        const item of signaturesForAddress
       ) {
         if (
           !item?.signature ||

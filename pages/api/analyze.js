@@ -11,7 +11,7 @@ const DEFAULT_RPC =
   "https://api.mainnet-beta.solana.com";
 
 const TIMEOUT = 12000;
-const VERSION = "4.4.0";
+const VERSION = "4.4.1";
 
 /* =========================================================
    BASIC HELPERS
@@ -32,6 +32,15 @@ function num(value) {
 }
 
 function clamp(value, min = 0, max = 100) {
+  if (
+    value === null ||
+    value === undefined ||
+    value === "" ||
+    typeof value === "boolean"
+  ) {
+    return null;
+  }
+
   const n = Number(value);
 
   if (!Number.isFinite(n)) {
@@ -755,7 +764,10 @@ function liquidityScore(value) {
   );
 }
 
-function activityScore(activity, fallbackTransactions = null) {
+function activityScore(
+  activity,
+  fallbackTransactions = null
+) {
   const transactions =
     firstNumber(
       activity?.transactions24h,
@@ -794,7 +806,7 @@ function volumeScore(value) {
 }
 
 /* =========================================================
-   DISTRIBUTION SCORE — CORRIGÉ
+   DISTRIBUTION SCORE
 ========================================================= */
 
 function distributionScore(holders) {
@@ -821,15 +833,6 @@ function distributionScore(holders) {
     num(
       holders?.uniqueOwners
     );
-
-  /*
-   * Une distribution ne peut pas être considérée
-   * comme excellente simplement parce que les
-   * pourcentages de concentration sont faibles.
-   *
-   * Le nombre réel de détenteurs externes est
-   * également pris en compte.
-   */
 
   if (
     externalHolders === null &&
@@ -892,13 +895,19 @@ function distributionScore(holders) {
     let concentrationWeight = 0;
 
     if (top1 !== null) {
-      concentration += top1 * 0.7;
-      concentrationWeight += 0.7;
+      concentration +=
+        top1 * 0.7;
+
+      concentrationWeight +=
+        0.7;
     }
 
     if (top10 !== null) {
-      concentration += top10 * 0.3;
-      concentrationWeight += 0.3;
+      concentration +=
+        top10 * 0.3;
+
+      concentrationWeight +=
+        0.3;
     }
 
     concentrationScore =
@@ -910,11 +919,6 @@ function distributionScore(holders) {
           )
         : null;
   }
-
-  /*
-   * Le nombre de détenteurs compte autant que
-   * la concentration.
-   */
 
   if (
     concentrationScore !== null
@@ -1028,12 +1032,6 @@ function structuralScore({
     }
   }
 
-  /*
-   * Le score structurel n'est plus renormalisé à 100
-   * lorsque des composantes importantes sont absentes.
-   * Une donnée inconnue réduit donc le score final au lieu
-   * de produire artificiellement un 100/100.
-   */
   return {
     total:
       availableWeight >= 40
@@ -1060,17 +1058,23 @@ function marketScore({
   let weight = 0;
 
   if (activity !== null) {
-    total += activity * 0.6;
+    total +=
+      activity * 0.6;
+
     weight += 0.6;
   }
 
   if (volume !== null) {
-    total += volume * 0.4;
+    total +=
+      volume * 0.4;
+
     weight += 0.4;
   }
 
   return weight > 0
-    ? Math.round(total / weight)
+    ? Math.round(
+        total / weight
+      )
     : null;
 }
 
@@ -1089,16 +1093,23 @@ function confidenceScore({
 }) {
   const tokenStandardAvailable =
     token2022 !== null &&
-    token2022?.isToken2022 !== undefined &&
-    token2022?.isToken2022 !== null;
+    token2022?.isToken2022 !==
+      undefined &&
+    token2022?.isToken2022 !==
+      null;
 
   const checks = [
     liquidity !== null,
+
     volume24h !== null ||
       transactions24h !== null,
+
     maturity !== null,
+
     distribution !== null,
+
     security !== null,
+
     tokenStandardAvailable
   ];
 
@@ -1106,7 +1117,8 @@ function confidenceScore({
     checks.filter(Boolean).length;
 
   return Math.round(
-    (points / checks.length) * 100
+    (points / checks.length) *
+      100
   );
 }
 
@@ -1138,8 +1150,7 @@ function diagnostic({
   }
 
   if (
-    activity.uniqueBuyers ===
-      0
+    activity.uniqueBuyers === 0
   ) {
     warnings.push(
       "Aucun acheteur externe détecté récemment."
@@ -1191,7 +1202,9 @@ function diagnostic({
     );
   }
 
-  if (distribution === null) {
+  if (
+    distribution === null
+  ) {
     warnings.push(
       "Distribution des détenteurs indisponible."
     );
@@ -1218,7 +1231,8 @@ function diagnostic({
     activity.volume24hUsd ===
       0
   ) {
-    state = "INACTIVE";
+    state =
+      "INACTIVE";
 
     conclusion =
       "Le marché est actuellement inactif. ProfitX observe une structure analysable mais aucun mouvement économique récent.";
@@ -1234,7 +1248,8 @@ function diagnostic({
   } else if (
     market !== null
   ) {
-    state = "ACTIVE";
+    state =
+      "ACTIVE";
 
     conclusion =
       "Une activité économique réelle est détectée.";
@@ -1409,11 +1424,6 @@ export default async function handler(
       dexAgeHours
     );
 
-  /*
-   * Pump.fun = source principale
-   * tant qu'il n'existe pas de paire DEX.
-   */
-
   const metrics =
     dMetrics
       ? {
@@ -1465,30 +1475,37 @@ export default async function handler(
             null
         };
 
-  /*
-   * Activity V3 est prioritaire.
-   * Un zéro reste un zéro.
-   */
-
   if (
     activity.available
   ) {
-    if (activity.volume24hUsd !== null) {
+    if (
+      activity.volume24hUsd !==
+      null
+    ) {
       metrics.volume24hUsd =
         activity.volume24hUsd;
     }
 
-    if (activity.transactions24h !== null) {
+    if (
+      activity.transactions24h !==
+      null
+    ) {
       metrics.transactions24h =
         activity.transactions24h;
     }
 
-    if (activity.buys24h !== null) {
+    if (
+      activity.buys24h !==
+      null
+    ) {
       metrics.buys24h =
         activity.buys24h;
     }
 
-    if (activity.sells24h !== null) {
+    if (
+      activity.sells24h !==
+      null
+    ) {
       metrics.sells24h =
         activity.sells24h;
     }
@@ -1544,7 +1561,9 @@ export default async function handler(
     );
 
   const maturity =
-    num(metrics.maturity);
+    num(
+      metrics.maturity
+    );
 
   const structural =
     structuralScore({
@@ -1570,12 +1589,6 @@ export default async function handler(
         volumeValue
     });
 
-  /*
-   * Global score :
-   * structure 70 %
-   * marché 30 %
-   */
-
   let globalScore = null;
 
   if (
@@ -1597,49 +1610,86 @@ export default async function handler(
   const holdersAvailable =
     Boolean(holders) &&
     (
-      num(holders?.uniqueOwners) !== null ||
-      num(holders?.externalHolders) !== null ||
-      num(holders?.distribution?.externalTop1Percent) !== null ||
-      num(holders?.distribution?.externalTop10Percent) !== null
+      num(
+        holders?.uniqueOwners
+      ) !== null ||
+      num(
+        holders?.externalHolders
+      ) !== null ||
+      num(
+        holders
+          ?.distribution
+          ?.externalTop1Percent
+      ) !== null ||
+      num(
+        holders
+          ?.distribution
+          ?.externalTop10Percent
+      ) !== null
     );
 
   const activityModuleUsable =
     activity.available &&
     (
-      activity.volume24hUsd !== null ||
-      activity.transactions24h !== null ||
-      activity.historicalTransactions !== null ||
-      activity.uniqueBuyers !== null ||
-      activity.uniqueSellers !== null
+      activity.volume24hUsd !==
+        null ||
+      activity.transactions24h !==
+        null ||
+      activity.historicalTransactions !==
+        null ||
+      activity.uniqueBuyers !==
+        null ||
+      activity.uniqueSellers !==
+        null
     );
 
   const hasDexMarket =
     Boolean(dMetrics) &&
     (
-      num(dMetrics?.liquidityUsd) !== null ||
-      num(dMetrics?.volume24hUsd) !== null ||
-      num(dMetrics?.priceUsd) !== null
+      num(
+        dMetrics?.liquidityUsd
+      ) !== null ||
+      num(
+        dMetrics?.volume24hUsd
+      ) !== null ||
+      num(
+        dMetrics?.priceUsd
+      ) !== null
     );
 
   const hasPumpReserveData =
-    num(pump?.coin?.virtual_sol_reserves) !== null ||
-    num(pump?.coin?.virtual_token_reserves) !== null;
+    num(
+      pump?.coin
+        ?.virtual_sol_reserves
+    ) !== null ||
+    num(
+      pump?.coin
+        ?.virtual_token_reserves
+    ) !== null;
 
   const hasPumpPoolData =
-    Boolean(pump?.coin?.pump_swap_pool) ||
-    Boolean(pump?.coin?.raydium_pool);
+    Boolean(
+      pump?.coin
+        ?.pump_swap_pool
+    ) ||
+    Boolean(
+      pump?.coin
+        ?.raydium_pool
+    );
 
   const pumpMarketDetected =
     hasPumpReserveData ||
     hasPumpPoolData;
 
   const hasRealPumpBondingCurve =
-    pump?.coin?.complete === false &&
+    pump?.coin?.complete ===
+      false &&
     hasPumpReserveData &&
     !hasDexMarket;
 
   const hasRealPumpGraduation =
-    pump?.coin?.complete === true &&
+    pump?.coin?.complete ===
+      true &&
     pumpMarketDetected;
 
   const status =
@@ -1656,10 +1706,14 @@ export default async function handler(
       liquidity,
 
       volume24h:
-        num(metrics.volume24hUsd),
+        num(
+          metrics.volume24hUsd
+        ),
 
       transactions24h:
-        num(metrics.transactions24h),
+        num(
+          metrics.transactions24h
+        ),
 
       maturity,
 
@@ -1716,13 +1770,17 @@ export default async function handler(
     );
   }
 
-  if (!holdersAvailable) {
+  if (
+    !holdersAvailable
+  ) {
     missingData.push(
       "holders"
     );
   }
 
-  if (distribution === null) {
+  if (
+    distribution === null
+  ) {
     missingData.push(
       "distribution"
     );
@@ -1822,32 +1880,38 @@ export default async function handler(
 
     pumpComplete:
       pumpMarketDetected
-        ? coin?.complete ?? null
+        ? coin?.complete ??
+          null
         : null,
 
     pumpSwapPool:
       pumpMarketDetected
-        ? coin?.pump_swap_pool ?? null
+        ? coin?.pump_swap_pool ??
+          null
         : null,
 
     raydiumPool:
       pumpMarketDetected
-        ? coin?.raydium_pool ?? null
+        ? coin?.raydium_pool ??
+          null
         : null,
 
     virtualSolReserves:
       pumpMarketDetected
-        ? pMetrics?.virtualSol ?? null
+        ? pMetrics?.virtualSol ??
+          null
         : null,
 
     virtualTokenReserves:
       pumpMarketDetected
-        ? pMetrics?.virtualToken ?? null
+        ? pMetrics?.virtualToken ??
+          null
         : null,
 
     solPriceUsd:
       pumpMarketDetected
-        ? pump?.solPrice ?? null
+        ? pump?.solPrice ??
+          null
         : null
   };
 
@@ -2055,7 +2119,8 @@ export default async function handler(
       mint,
 
       timestamp:
-        new Date().toISOString(),
+        new Date()
+          .toISOString(),
 
       status,
 
@@ -2070,11 +2135,13 @@ export default async function handler(
 
       metrics: {
         liquidity:
-          structural.components
+          structural
+            .components
             .liquidity,
 
         distribution:
-          structural.components
+          structural
+            .components
             .distribution,
 
         activity:
@@ -2083,8 +2150,7 @@ export default async function handler(
         volume:
           volumeValue,
 
-        maturity:
-          maturity,
+        maturity,
 
         security:
           securityFinal
@@ -2122,7 +2188,8 @@ export default async function handler(
                 null,
 
               url:
-                dex.pair.url ??
+                dex.pair
+                  .url ??
                 null,
 
               priceUsd:
@@ -2150,37 +2217,41 @@ export default async function handler(
             }
           : null,
 
-      pump: pumpMarketDetected
-        ? {
-            complete:
-              coin.complete ??
-              null,
+      pump:
+        pumpMarketDetected
+          ? {
+              complete:
+                coin?.complete ??
+                null,
 
-            bondingCurve:
-              coin.bonding_curve ??
-              null,
+              bondingCurve:
+                coin?.bonding_curve ??
+                null,
 
-            associatedBondingCurve:
-              coin.associated_bonding_curve ??
-              null,
+              associatedBondingCurve:
+                coin
+                  ?.associated_bonding_curve ??
+                null,
 
-            pumpSwapPool:
-              coin.pump_swap_pool ??
-              null,
+              pumpSwapPool:
+                coin?.pump_swap_pool ??
+                null,
 
-            raydiumPool:
-              coin.raydium_pool ??
-              null,
+              raydiumPool:
+                coin?.raydium_pool ??
+                null,
 
-            virtualSolReserves:
-              pMetrics?.virtualSol ??
-              null,
+              virtualSolReserves:
+                pMetrics
+                  ?.virtualSol ??
+                null,
 
-            virtualTokenReserves:
-              pMetrics?.virtualToken ??
-              null
-          }
-        : null,
+              virtualTokenReserves:
+                pMetrics
+                  ?.virtualToken ??
+                null
+            }
+          : null,
 
       modules,
 
@@ -2205,10 +2276,12 @@ export default async function handler(
         },
 
         availableWeight:
-          structural.availableWeight
+          structural
+            .availableWeight
       },
 
-      diagnostic: diag,
+      diagnostic:
+        diag,
 
       missingData,
 

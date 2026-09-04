@@ -2228,7 +2228,126 @@ export default function Home() {
             </div>
 
           </div>
+          <div className="panel">
 
+            <div className="eyebrow">
+              MÉTHODE PROFITX • LECTURE DU SCORE
+            </div>
+
+            <h2>
+              Comment ProfitX analyse un token
+            </h2>
+
+            <p className="intro">
+              ProfitX sépare la structure du token et
+              l'activité récente du marché. Le score global
+              combine 70% de score structurel et 30% de score
+              marché lorsque ces données sont disponibles.
+            </p>
+
+            <div
+              className="observed"
+              style={{
+                marginTop: "18px"
+              }}
+            >
+
+              <div>
+                <span>
+                  Liquidité • 30% structure
+                </span>
+                <strong>
+                  Profondeur financière observée
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  Distribution • 30% structure
+                </span>
+                <strong>
+                  Répartition des holders
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  Maturité • 15% structure
+                </span>
+                <strong>
+                  Ancienneté du marché
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  Sécurité • 25% structure
+                </span>
+                <strong>
+                  Autorités et signaux de risque
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  Activité • 60% marché
+                </span>
+                <strong>
+                  Transactions récentes
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  Volume • 40% marché
+                </span>
+                <strong>
+                  Volume économique récent
+                </strong>
+              </div>
+
+            </div>
+
+            <div
+              style={{
+                marginTop: "22px",
+                padding: "18px",
+                border: "1px solid rgba(0, 255, 136, 0.22)",
+                borderRadius: "12px",
+                background: "rgba(0, 255, 136, 0.035)"
+              }}
+            >
+              <strong
+                style={{
+                  display: "block",
+                  marginBottom: "10px"
+                }}
+              >
+                0 réel ≠ N/D
+              </strong>
+
+              <p
+                className="intro"
+                style={{
+                  marginBottom: 0
+                }}
+              >
+                Une valeur 0 signifie que ProfitX a réellement
+                observé zéro pour l'indicateur concerné. N/D
+                signifie que la donnée est indisponible, non
+                suffisamment fiable ou non exploitable. ProfitX
+                ne transforme jamais une donnée manquante en zéro.
+              </p>
+            </div>
+
+            <div className="hint">
+              Les scores ProfitX décrivent les données observées
+              au moment de l'analyse. Ils ne prédisent pas le prix
+              futur d'un token et ne constituent pas une
+              recommandation d'achat ou de vente.
+            </div>
+
+          </div>
 
           {data.note && (
             <div className="note">

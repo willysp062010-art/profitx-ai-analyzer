@@ -11,7 +11,7 @@ const DEFAULT_RPC =
   "https://api.mainnet-beta.solana.com";
 
 const TIMEOUT = 12000;
-const VERSION = "4.4.2";
+const VERSION = "4.5.0";
 
 /* =========================================================
    BASIC HELPERS
@@ -94,9 +94,53 @@ function maturityScoreFromAge(ageHours) {
 }
 
 function validMint(value) {
+  if (
+    typeof value !== "string" ||
+    !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value)
+  ) {
+    return false;
+  }
+
+  const alphabet =
+    "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+
+  let n = 0n;
+
+  for (const char of value) {
+    const index =
+      alphabet.indexOf(char);
+
+    if (index < 0) {
+      return false;
+    }
+
+    n =
+      n * 58n +
+      BigInt(index);
+  }
+
+  let decodedLength = 0;
+  let current = n;
+
+  while (current > 0n) {
+    decodedLength += 1;
+    current >>= 8n;
+  }
+
+  let leadingZeroBytes = 0;
+
+  for (const char of value) {
+    if (char !== "1") {
+      break;
+    }
+
+    leadingZeroBytes += 1;
+  }
+
   return (
-    typeof value === "string" &&
-    /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value)
+    decodedLength +
+      leadingZeroBytes ===
+    32
   );
 }
 
@@ -246,6 +290,26 @@ async function pumpData(mint) {
     coin?.data ||
     coin;
 
+  const returnedMint =
+    typeof data?.mint === "string"
+      ? data.mint
+      : typeof data?.token_mint === "string"
+        ? data.token_mint
+        : typeof data?.tokenMint === "string"
+          ? data.tokenMint
+          : typeof data?.address === "string"
+            ? data.address
+            : null;
+
+  if (returnedMint !== mint) {
+    return {
+      coin: null,
+      solPrice: null,
+      returnedMint,
+      identityVerified: false
+    };
+  }
+
   let solPrice = null;
 
   try {
@@ -277,7 +341,9 @@ async function pumpData(mint) {
 
   return {
     coin: data,
-    solPrice
+    solPrice,
+    returnedMint,
+    identityVerified: true
   };
 }
 
@@ -371,8 +437,23 @@ async function dexData(mint) {
       };
     }
 
-    const solana =
+    const matchingPairs =
       pairs.filter(
+        p =>
+          p?.baseToken?.address === mint ||
+          p?.quoteToken?.address === mint
+      );
+
+    if (!matchingPairs.length) {
+      return {
+        pair: null,
+        error:
+          "Aucune paire DexScreener ne correspond exactement au mint demandé."
+      };
+    }
+
+    const solana =
+      matchingPairs.filter(
         p =>
           p?.chainId ===
           "solana"
@@ -381,7 +462,7 @@ async function dexData(mint) {
     const list =
       solana.length
         ? solana
-        : pairs;
+        : matchingPairs;
 
     list.sort(
       (a, b) =>
@@ -572,8 +653,30 @@ function pumpMetrics(
    DEX METRICS
 ========================================================= */
 
-function dexMetrics(pair) {
+function dexMetrics(
+  pair,
+  mint,
+  supply
+) {
   if (!pair) {
+    return null;
+  }
+
+  const baseAddress =
+    pair?.baseToken?.address ??
+    null;
+
+  const quoteAddress =
+    pair?.quoteToken?.address ??
+    null;
+
+  const isBase =
+    baseAddress === mint;
+
+  const isQuote =
+    quoteAddress === mint;
+
+  if (!isBase && !isQuote) {
     return null;
   }
 
@@ -586,6 +689,49 @@ function dexMetrics(pair) {
     num(
       pair?.txns?.h24?.sells
     );
+
+  const basePriceUsd =
+    num(pair?.priceUsd);
+
+  const priceNative =
+    num(pair?.priceNative);
+
+  let analyzedPriceUsd = null;
+  let analyzedMarketCapUsd = null;
+
+  if (isBase) {
+    analyzedPriceUsd =
+      basePriceUsd;
+
+    analyzedMarketCapUsd =
+      firstNumber(
+        pair?.marketCap,
+        pair?.fdv
+      );
+  } else if (
+    basePriceUsd !== null &&
+    priceNative !== null &&
+    priceNative > 0
+  ) {
+    analyzedPriceUsd =
+      basePriceUsd /
+      priceNative;
+
+    if (
+      supply?.uiAmount !== null &&
+      supply?.uiAmount !== undefined &&
+      supply.uiAmount > 0
+    ) {
+      analyzedMarketCapUsd =
+        analyzedPriceUsd *
+        supply.uiAmount;
+    }
+  }
+
+  const tokenInfo =
+    isBase
+      ? pair?.baseToken
+      : pair?.quoteToken;
 
   return {
     liquidityUsd:
@@ -611,13 +757,10 @@ function dexMetrics(pair) {
         : null,
 
     priceUsd:
-      num(pair?.priceUsd),
+      analyzedPriceUsd,
 
     marketCapUsd:
-      firstNumber(
-        pair?.marketCap,
-        pair?.fdv
-      ),
+      analyzedMarketCapUsd,
 
     pairCreatedAt:
       num(pair?.pairCreatedAt),
@@ -634,12 +777,17 @@ function dexMetrics(pair) {
       pair?.url ??
       null,
 
+    tokenSide:
+      isBase
+        ? "base"
+        : "quote",
+
     name:
-      pair?.baseToken?.name ??
+      tokenInfo?.name ??
       null,
 
     symbol:
-      pair?.baseToken?.symbol ??
+      tokenInfo?.symbol ??
       null
   };
 }
@@ -803,7 +951,7 @@ function volumeScore(value) {
 }
 
 /* =========================================================
-   DISTRIBUTION SCORE — v4.4.2
+   DISTRIBUTION SCORE — CORRIGÉ
 ========================================================= */
 
 function distributionScore(holders) {
@@ -844,15 +992,6 @@ function distributionScore(holders) {
     num(
       holders?.uniqueOwners
     );
-
-  /*
-   * Priorité à la concentration externe exacte
-   * lorsqu'elle est disponible (PFX / RPC exact).
-   *
-   * Si la source ne peut pas certifier quels comptes
-   * sont externes (RugCheck), la concentration totale
-   * réellement observée est utilisée.
-   */
 
   const top1 =
     externalTop1 !== null
@@ -1061,13 +1200,6 @@ function structuralScore({
         weights[key];
     }
   }
-
-  /*
-   * Le score structurel n'est pas renormalisé à 100
-   * lorsque des composantes importantes sont absentes.
-   * Une donnée inconnue réduit donc le score final au lieu
-   * de produire artificiellement un 100/100.
-   */
 
   return {
     total:
@@ -1408,7 +1540,8 @@ export default async function handler(
     );
 
   const holders =
-    holdersResult?.ok === true
+    holdersResult?.ok === true &&
+    holdersResult?.dataQuality?.holders !== false
       ? holdersResult
       : null;
 
@@ -1431,7 +1564,9 @@ export default async function handler(
 
   const dMetrics =
     dexMetrics(
-      dex?.pair
+      dex?.pair,
+      mint,
+      supply
     );
 
   const dexAgeHours =
@@ -1443,11 +1578,6 @@ export default async function handler(
     maturityScoreFromAge(
       dexAgeHours
     );
-
-  /*
-   * Pump.fun = source principale
-   * tant qu'il n'existe pas de paire DEX.
-   */
 
   const metrics =
     dMetrics
@@ -1499,11 +1629,6 @@ export default async function handler(
             pMetrics?.maturity ??
             null
         };
-
-  /*
-   * Activity V3 est prioritaire.
-   * Un zéro reste un zéro.
-   */
 
   if (
     activity.available
@@ -1605,12 +1730,6 @@ export default async function handler(
         volumeValue
     });
 
-  /*
-   * Global score :
-   * structure 70 %
-   * marché 30 %
-   */
-
   let globalScore = null;
 
   if (
@@ -1634,26 +1753,10 @@ export default async function handler(
     (
       num(holders?.uniqueOwners) !== null ||
       num(holders?.externalHolders) !== null ||
-      num(
-        holders
-          ?.distribution
-          ?.externalTop1Percent
-      ) !== null ||
-      num(
-        holders
-          ?.distribution
-          ?.externalTop10Percent
-      ) !== null ||
-      num(
-        holders
-          ?.distribution
-          ?.totalTop1Percent
-      ) !== null ||
-      num(
-        holders
-          ?.distribution
-          ?.totalTop10Percent
-      ) !== null
+      num(holders?.distribution?.externalTop1Percent) !== null ||
+      num(holders?.distribution?.externalTop10Percent) !== null ||
+      num(holders?.distribution?.totalTop1Percent) !== null ||
+      num(holders?.distribution?.totalTop10Percent) !== null
     );
 
   const activityModuleUsable =
@@ -1675,28 +1778,12 @@ export default async function handler(
     );
 
   const hasPumpReserveData =
-    num(
-      pump
-        ?.coin
-        ?.virtual_sol_reserves
-    ) !== null ||
-    num(
-      pump
-        ?.coin
-        ?.virtual_token_reserves
-    ) !== null;
+    num(pump?.coin?.virtual_sol_reserves) !== null ||
+    num(pump?.coin?.virtual_token_reserves) !== null;
 
   const hasPumpPoolData =
-    Boolean(
-      pump
-        ?.coin
-        ?.pump_swap_pool
-    ) ||
-    Boolean(
-      pump
-        ?.coin
-        ?.raydium_pool
-    );
+    Boolean(pump?.coin?.pump_swap_pool) ||
+    Boolean(pump?.coin?.raydium_pool);
 
   const pumpMarketDetected =
     hasPumpReserveData ||
@@ -1725,14 +1812,10 @@ export default async function handler(
       liquidity,
 
       volume24h:
-        num(
-          metrics.volume24hUsd
-        ),
+        num(metrics.volume24hUsd),
 
       transactions24h:
-        num(
-          metrics.transactions24h
-        ),
+        num(metrics.transactions24h),
 
       maturity,
 
@@ -2146,8 +2229,7 @@ export default async function handler(
       mint,
 
       timestamp:
-        new Date()
-          .toISOString(),
+        new Date().toISOString(),
 
       status,
 
@@ -2162,13 +2244,11 @@ export default async function handler(
 
       metrics: {
         liquidity:
-          structural
-            .components
+          structural.components
             .liquidity,
 
         distribution:
-          structural
-            .components
+          structural.components
             .distribution,
 
         activity:
@@ -2206,92 +2286,75 @@ export default async function handler(
         dex?.pair
           ? {
               address:
-                dex
-                  .pair
+                dex.pair
                   .pairAddress ??
                 null,
 
               dexId:
-                dex
-                  .pair
+                dex.pair
                   .dexId ??
                 null,
 
               url:
-                dex
-                  .pair
-                  .url ??
+                dex.pair.url ??
                 null,
 
               priceUsd:
-                dex
-                  .pair
+                dex.pair
                   .priceUsd ??
                 null,
 
               liquidityUsd:
-                dex
-                  .pair
+                dex.pair
                   ?.liquidity
                   ?.usd ??
                 null,
 
               volume24hUsd:
-                dex
-                  .pair
+                dex.pair
                   ?.volume
                   ?.h24 ??
                 null,
 
               marketCapUsd:
-                dex
-                  .pair
+                dex.pair
                   ?.marketCap ??
-                dex
-                  ?.pair
-                  ?.fdv ??
+                dex.pair?.fdv ??
                 null
             }
           : null,
 
-      pump:
-        pumpMarketDetected
-          ? {
-              complete:
-                coin?.complete ??
-                null,
+      pump: pumpMarketDetected
+        ? {
+            complete:
+              coin.complete ??
+              null,
 
-              bondingCurve:
-                coin
-                  ?.bonding_curve ??
-                null,
+            bondingCurve:
+              coin.bonding_curve ??
+              null,
 
-              associatedBondingCurve:
-                coin
-                  ?.associated_bonding_curve ??
-                null,
+            associatedBondingCurve:
+              coin.associated_bonding_curve ??
+              null,
 
-              pumpSwapPool:
-                coin
-                  ?.pump_swap_pool ??
-                null,
+            pumpSwapPool:
+              coin.pump_swap_pool ??
+              null,
 
-              raydiumPool:
-                coin
-                  ?.raydium_pool ??
-                null,
+            raydiumPool:
+              coin.raydium_pool ??
+              null,
 
-              virtualSolReserves:
-                pMetrics
-                  ?.virtualSol ??
-                null,
+            virtualSolReserves:
+              pMetrics?.virtualSol ??
+              null,
 
-              virtualTokenReserves:
-                pMetrics
-                  ?.virtualToken ??
-                null
-            }
-          : null,
+            virtualTokenReserves:
+              pMetrics?.virtualToken ??
+              null
+          }
+        : null,
 
       modules,
 
@@ -2319,8 +2382,7 @@ export default async function handler(
           structural.availableWeight
       },
 
-      diagnostic:
-        diag,
+      diagnostic: diag,
 
       missingData,
 

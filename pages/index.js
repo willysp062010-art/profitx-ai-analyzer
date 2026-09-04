@@ -173,18 +173,140 @@ function ScoreBar({ value }) {
 }
 
 
+function buildProfitxDiagnostic({
+  totalScore,
+  liquidityScore,
+  distributionScore,
+  activityScore,
+  volumeScore,
+  maturityScore,
+  securityScore,
+  activityState,
+  missingData
+}) {
+  const numericTotal =
+    isNumber(totalScore) ? Number(totalScore) : null;
+
+  let level = "Analyse partielle";
+  let summary =
+    "Le score global ne peut pas être interprété complètement avec les données actuellement disponibles.";
+
+  if (numericTotal !== null) {
+    if (numericTotal >= 90) {
+      level = "Structure très solide";
+      summary =
+        "Les indicateurs disponibles décrivent une structure globalement très solide selon le modèle ProfitX.";
+    } else if (numericTotal >= 75) {
+      level = "Structure solide";
+      summary =
+        "Les indicateurs disponibles décrivent une structure globalement solide, avec quelques éléments qui peuvent encore réduire le score.";
+    } else if (numericTotal >= 55) {
+      level = "Structure intermédiaire";
+      summary =
+        "Le profil observé est intermédiaire : plusieurs indicateurs sont satisfaisants, mais certains points limitent encore nettement le score.";
+    } else if (numericTotal >= 35) {
+      level = "Structure fragile";
+      summary =
+        "Plusieurs indicateurs observés limitent actuellement la solidité du profil analysé.";
+    } else {
+      level = "Structure très fragile";
+      summary =
+        "Le profil présente actuellement plusieurs indicateurs faibles ou insuffisants selon le modèle ProfitX.";
+    }
+  }
+
+  const metrics = [
+    { label: "Liquidité", value: liquidityScore },
+    { label: "Distribution", value: distributionScore },
+    { label: "Activité", value: activityScore },
+    { label: "Volume", value: volumeScore },
+    { label: "Maturité", value: maturityScore },
+    { label: "Sécurité", value: securityScore }
+  ].filter(
+    (item) =>
+      item.value != null &&
+      isNumber(item.value)
+  );
+
+  const strengths = metrics
+    .filter((item) => Number(item.value) >= 80)
+    .sort(
+      (a, b) =>
+        Number(b.value) - Number(a.value)
+    );
+
+  const watch = metrics
+    .filter((item) => Number(item.value) < 60)
+    .sort(
+      (a, b) =>
+        Number(a.value) - Number(b.value)
+    );
+
+  const intermediate = metrics
+    .filter(
+      (item) =>
+        Number(item.value) >= 60 &&
+        Number(item.value) < 80
+    )
+    .sort(
+      (a, b) =>
+        Number(a.value) - Number(b.value)
+    );
+
+  let marketMessage =
+    "L'état récent du marché n'est pas disponible.";
+
+  if (activityState?.label === "INACTIF") {
+    marketMessage =
+      "Aucun mouvement économique n'est détecté sur les dernières 24 heures. Les zéros de volume et de transactions sont traités comme de vrais zéros, pas comme des données manquantes.";
+  } else if (
+    activityState?.label === "FAIBLE ACTIVITÉ"
+  ) {
+    marketMessage =
+      "Une activité récente est détectée, mais elle reste faible sur les dernières 24 heures.";
+  } else if (
+    activityState?.label === "ACTIF"
+  ) {
+    marketMessage =
+      "Une activité économique récente est détectée sur les dernières 24 heures.";
+  }
+
+  return {
+    level,
+    summary,
+    marketMessage,
+    strengths,
+    watch,
+    intermediate,
+    missingCount:
+      Array.isArray(missingData)
+        ? missingData.length
+        : 0
+  };
+}
+
+
 export default function Home() {
-  const [mint, setMint] = useState(DEFAULT_MINT);
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [mint, setMint] =
+    useState(DEFAULT_MINT);
+
+  const [data, setData] =
+    useState(null);
+
+  const [loading, setLoading] =
+    useState(false);
+
+  const [error, setError] =
+    useState("");
 
 
   async function analyze() {
     const cleanMint = mint.trim();
 
     if (!cleanMint) {
-      setError("Veuillez entrer une adresse mint Solana.");
+      setError(
+        "Veuillez entrer une adresse mint Solana."
+      );
       return;
     }
 
@@ -193,23 +315,31 @@ export default function Home() {
     setData(null);
 
     try {
-      const response = await fetch("/api/analyze", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json"
-        },
-        body: JSON.stringify({
-          mint: cleanMint
-        })
-      });
+      const response = await fetch(
+        "/api/analyze",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+            Accept: "application/json"
+          },
+          body: JSON.stringify({
+            mint: cleanMint
+          })
+        }
+      );
 
-      const text = await response.text();
+      const text =
+        await response.text();
 
       let result;
 
       try {
-        result = text ? JSON.parse(text) : null;
+        result =
+          text
+            ? JSON.parse(text)
+            : null;
       } catch {
         throw new Error(
           `Le serveur a retourné une réponse invalide (${response.status}).`
@@ -225,13 +355,18 @@ export default function Home() {
       }
 
       if (!result) {
-        throw new Error("Le serveur n'a retourné aucune donnée.");
+        throw new Error(
+          "Le serveur n'a retourné aucune donnée."
+        );
       }
 
       setData(result);
 
     } catch (e) {
-      console.error("ProfitX analyse error:", e);
+      console.error(
+        "ProfitX analyse error:",
+        e
+      );
 
       setError(
         e?.message ||
@@ -244,31 +379,51 @@ export default function Home() {
   }
 
 
-  const score = data?.score || {};
-  const components = score?.components || {};
+  const score =
+    data?.score || {};
 
-  const observed = data?.data || {};
-  const token = data?.token || {};
-  const market = data?.market || {};
+  const components =
+    score?.components || {};
 
-  const modules = data?.modules || {};
+  const observed =
+    data?.data || {};
 
-  const activity = modules?.activity || {};
-  const holders = modules?.holders || {};
-  const security = modules?.security || {};
-  const token2022 = modules?.token2022 || {};
-  const metadata = modules?.metadata || {};
+  const token =
+    data?.token || {};
+
+  const market =
+    data?.market || {};
+
+  const modules =
+    data?.modules || {};
+
+  const activity =
+    modules?.activity || {};
+
+  const holders =
+    modules?.holders || {};
+
+  const security =
+    modules?.security || {};
+
+  const token2022 =
+    modules?.token2022 || {};
+
+  const metadata =
+    modules?.metadata || {};
 
 
-  const activityState = getActivityState(
-    observed,
-    activity
-  );
+  const activityState =
+    getActivityState(
+      observed,
+      activity
+    );
 
-  const marketState = getMarketState(
-    data,
-    observed
-  );
+  const marketState =
+    getMarketState(
+      data,
+      observed
+    );
 
 
   const availableWeight =
@@ -283,23 +438,44 @@ export default function Home() {
 
 
   const activityScore =
-    score?.activity ?? data?.metrics?.activity ?? null;
+    score?.activity ??
+    data?.metrics?.activity ??
+    null;
 
 
   const distributionScore =
-    components?.distribution ?? null;
+    components?.distribution ??
+    null;
 
 
   const liquidityScore =
-    components?.liquidity ?? null;
+    components?.liquidity ??
+    null;
 
 
   const volumeScore =
-    data?.metrics?.volume ?? null;
+    data?.metrics?.volume ??
+    null;
 
 
   const maturityScore =
-    components?.maturity ?? null;
+    components?.maturity ??
+    null;
+
+
+  const profitxDiagnostic =
+    buildProfitxDiagnostic({
+      totalScore: score?.total,
+      liquidityScore,
+      distributionScore,
+      activityScore,
+      volumeScore,
+      maturityScore,
+      securityScore,
+      activityState,
+      missingData:
+        data?.missingData
+    });
 
 
   return (
@@ -325,7 +501,7 @@ export default function Home() {
 
 
       {/* =====================================================
-          PFX OFFICIEL — VISIBILITÉ V3
+          PFX OFFICIEL
       ===================================================== */}
 
       <section className="panel">
@@ -334,11 +510,14 @@ export default function Home() {
           PFX • OFFICIAL PROFITX TOKEN
         </div>
 
-        <h2>PFX — le token officiel de ProfitX AI</h2>
+        <h2>
+          PFX — le token officiel de ProfitX AI
+        </h2>
 
         <p className="intro">
-          ProfitX AI est un moteur d’analyse Solana en développement.
-          PFX est le token officiel associé au projet. Vérifiez toujours
+          ProfitX AI est un moteur d’analyse Solana
+          en développement. PFX est le token officiel
+          associé au projet. Vérifiez toujours
           l’adresse mint avant toute interaction.
         </p>
 
@@ -346,7 +525,13 @@ export default function Home() {
 
           <div>
             <span>Mint officiel</span>
-            <strong>{shortAddress(DEFAULT_MINT, 12, 12)}</strong>
+            <strong>
+              {shortAddress(
+                DEFAULT_MINT,
+                12,
+                12
+              )}
+            </strong>
           </div>
 
           <div>
@@ -361,8 +546,6 @@ export default function Home() {
 
         </div>
 
-
-        {/* PUMP.FUN — ACCÈS PRINCIPAL */}
 
         <div
           style={{
@@ -381,7 +564,8 @@ export default function Home() {
               width: "100%",
               boxSizing: "border-box",
               padding: "17px 20px",
-              border: "1px solid #00ff88",
+              border:
+                "1px solid #00ff88",
               borderRadius: "12px",
               background:
                 "linear-gradient(135deg, #00ff88 0%, #00d975 100%)",
@@ -400,8 +584,6 @@ export default function Home() {
         </div>
 
 
-        {/* RÉSEAUX OFFICIELS */}
-
         <div
           style={{
             display: "flex",
@@ -417,7 +599,8 @@ export default function Home() {
             rel="noreferrer"
             style={{
               padding: "11px 15px",
-              border: "1px solid #00ff88",
+              border:
+                "1px solid #00ff88",
               borderRadius: "10px",
               background: "#06100b",
               color: "#00ff88",
@@ -434,7 +617,8 @@ export default function Home() {
             rel="noreferrer"
             style={{
               padding: "11px 15px",
-              border: "1px solid #00ff88",
+              border:
+                "1px solid #00ff88",
               borderRadius: "10px",
               background: "#06100b",
               color: "#00ff88",
@@ -451,7 +635,8 @@ export default function Home() {
             rel="noreferrer"
             style={{
               padding: "11px 15px",
-              border: "1px solid #00ff88",
+              border:
+                "1px solid #00ff88",
               borderRadius: "10px",
               background: "#06100b",
               color: "#00ff88",
@@ -468,7 +653,8 @@ export default function Home() {
             rel="noreferrer"
             style={{
               padding: "11px 15px",
-              border: "1px solid #00ff88",
+              border:
+                "1px solid #00ff88",
               borderRadius: "10px",
               background: "#06100b",
               color: "#00ff88",
@@ -483,7 +669,8 @@ export default function Home() {
 
 
         <div className="hint">
-          Le token PFX est spéculatif et n’accorde aucune garantie de rendement.
+          Le token PFX est spéculatif et n’accorde
+          aucune garantie de rendement.
         </div>
 
       </section>
@@ -508,8 +695,8 @@ export default function Home() {
         <p className="intro">
           Un moteur conçu pour séparer les données
           observables, l’activité réelle du marché,
-          les signaux de risque et le score structurel.
-          Pas de promesse de rendement.
+          les signaux de risque et le score
+          structurel. Pas de promesse de rendement.
         </p>
 
         <div className="search">
@@ -532,7 +719,8 @@ export default function Home() {
           <button
             onClick={analyze}
             disabled={
-              loading || !mint.trim()
+              loading ||
+              !mint.trim()
             }
           >
             {loading
@@ -541,18 +729,15 @@ export default function Home() {
           </button>
 
         </div>
+
         <div className="hint">
           Les données observées sont affichées telles
-          quelles. Un zéro réel reste un zéro et n'est
-          jamais transformé en donnée manquante.
+          quelles. Un zéro réel reste un zéro et
+          n'est jamais transformé en donnée manquante.
         </div>
 
       </section>
 
-
-      {/* =====================================================
-          ERROR
-      ===================================================== */}
 
       {error && (
         <div className="error">
@@ -561,18 +746,12 @@ export default function Home() {
       )}
 
 
-      {/* =====================================================
-          RESULTS
-      ===================================================== */}
-
       {data && (
 
         <section className="results">
 
 
-          {/* =================================================
-              SCORE PRINCIPAL
-          ================================================= */}
+          {/* SCORE PRINCIPAL */}
 
           <div className="scoreCard">
 
@@ -595,7 +774,9 @@ export default function Home() {
                   data.status || ""
                 }`}
               >
-                {statusLabel(data.status)}
+                {statusLabel(
+                  data.status
+                )}
               </div>
 
             </div>
@@ -605,25 +786,27 @@ export default function Home() {
 
               <div>
                 <span>Mint</span>
-
                 <strong>
-                  {shortAddress(data.mint)}
+                  {shortAddress(
+                    data.mint
+                  )}
                 </strong>
               </div>
 
               <div>
                 <span>Source</span>
-
                 <strong>
-                  {data.source || "N/D"}
+                  {data.source ||
+                    "N/D"}
                 </strong>
               </div>
 
               <div>
                 <span>Horodatage</span>
-
                 <strong>
-                  {fmtDate(data.timestamp)}
+                  {fmtDate(
+                    data.timestamp
+                  )}
                 </strong>
               </div>
 
@@ -632,9 +815,7 @@ export default function Home() {
           </div>
 
 
-          {/* =================================================
-              ÉTAT DU MARCHÉ
-          ================================================= */}
+          {/* ÉTAT DU MARCHÉ */}
 
           <div className="panel">
 
@@ -646,7 +827,6 @@ export default function Home() {
 
               <div>
                 <span>Statut</span>
-
                 <strong>
                   {activityState.label}
                 </strong>
@@ -654,7 +834,6 @@ export default function Home() {
 
               <div>
                 <span>Marché</span>
-
                 <strong>
                   {marketState}
                 </strong>
@@ -662,7 +841,6 @@ export default function Home() {
 
               <div>
                 <span>Volume 24h</span>
-
                 <strong>
                   {fmtUsd(
                     observed.volume24hUsd
@@ -671,8 +849,9 @@ export default function Home() {
               </div>
 
               <div>
-                <span>Transactions 24h</span>
-
+                <span>
+                  Transactions 24h
+                </span>
                 <strong>
                   {fmtNumber(
                     observed.transactions24h
@@ -689,11 +868,10 @@ export default function Home() {
           </div>
 
 
-          {/* =================================================
-              TOKEN
-          ================================================= */}
+          {/* TOKEN */}
 
-          {(token.name || token.symbol) && (
+          {(token.name ||
+            token.symbol) && (
 
             <div className="panel">
 
@@ -705,23 +883,22 @@ export default function Home() {
 
                 <div>
                   <span>Nom</span>
-
                   <strong>
-                    {token.name || "N/D"}
+                    {token.name ||
+                      "N/D"}
                   </strong>
                 </div>
 
                 <div>
                   <span>Symbole</span>
-
                   <strong>
-                    {token.symbol || "N/D"}
+                    {token.symbol ||
+                      "N/D"}
                   </strong>
                 </div>
 
                 <div>
                   <span>Créateur</span>
-
                   <strong>
                     {shortAddress(
                       token.creator
@@ -740,7 +917,9 @@ export default function Home() {
                     <>
                       Site :{" "}
                       <a
-                        href={token.website}
+                        href={
+                          token.website
+                        }
                         target="_blank"
                         rel="noreferrer"
                       >
@@ -758,7 +937,9 @@ export default function Home() {
                     <>
                       X :{" "}
                       <a
-                        href={token.twitter}
+                        href={
+                          token.twitter
+                        }
                         target="_blank"
                         rel="noreferrer"
                       >
@@ -776,9 +957,7 @@ export default function Home() {
           )}
 
 
-          {/* =================================================
-              SCORES
-          ================================================= */}
+          {/* SCORES */}
 
           <div className="metrics">
 
@@ -786,70 +965,59 @@ export default function Home() {
               <div className="label">
                 LIQUIDITÉ
               </div>
-
               <strong>
                 {fmtPercent(
                   liquidityScore
                 )}
               </strong>
-
               <ScoreBar
                 value={
                   liquidityScore
                 }
               />
             </div>
-
 
             <div className="metric">
               <div className="label">
                 DISTRIBUTION
               </div>
-
               <strong>
                 {fmtPercent(
                   distributionScore
                 )}
               </strong>
-
               <ScoreBar
                 value={
                   distributionScore
                 }
               />
             </div>
-
 
             <div className="metric">
               <div className="label">
                 ACTIVITÉ
               </div>
-
               <strong>
                 {fmtPercent(
                   activityScore
                 )}
               </strong>
-
               <ScoreBar
                 value={
                   activityScore
                 }
               />
             </div>
-
 
             <div className="metric">
               <div className="label">
                 VOLUME
               </div>
-
               <strong>
                 {fmtPercent(
                   volumeScore
                 )}
               </strong>
-
               <ScoreBar
                 value={
                   volumeScore
@@ -857,18 +1025,15 @@ export default function Home() {
               />
             </div>
 
-
             <div className="metric">
               <div className="label">
                 MATURITÉ
               </div>
-
               <strong>
                 {fmtPercent(
                   maturityScore
                 )}
               </strong>
-
               <ScoreBar
                 value={
                   maturityScore
@@ -879,9 +1044,7 @@ export default function Home() {
           </div>
 
 
-          {/* =================================================
-              DONNÉES OBSERVÉES
-          ================================================= */}
+          {/* DONNÉES OBSERVÉES */}
 
           <div className="panel">
 
@@ -893,7 +1056,6 @@ export default function Home() {
 
               <div>
                 <span>Liquidité</span>
-
                 <strong>
                   {fmtUsd(
                     observed.liquidityUsd
@@ -901,10 +1063,8 @@ export default function Home() {
                 </strong>
               </div>
 
-
               <div>
                 <span>Volume 24h</span>
-
                 <strong>
                   {fmtUsd(
                     observed.volume24hUsd
@@ -912,10 +1072,10 @@ export default function Home() {
                 </strong>
               </div>
 
-
               <div>
-                <span>Transactions 24h</span>
-
+                <span>
+                  Transactions 24h
+                </span>
                 <strong>
                   {fmtNumber(
                     observed.transactions24h
@@ -923,10 +1083,10 @@ export default function Home() {
                 </strong>
               </div>
 
-
               <div>
-                <span>Acheteurs 24h</span>
-
+                <span>
+                  Acheteurs 24h
+                </span>
                 <strong>
                   {fmtNumber(
                     observed.buys24h
@@ -934,10 +1094,10 @@ export default function Home() {
                 </strong>
               </div>
 
-
               <div>
-                <span>Vendeurs 24h</span>
-
+                <span>
+                  Vendeurs 24h
+                </span>
                 <strong>
                   {fmtNumber(
                     observed.sells24h
@@ -945,10 +1105,8 @@ export default function Home() {
                 </strong>
               </div>
 
-
               <div>
                 <span>Holders</span>
-
                 <strong>
                   {fmtNumber(
                     observed.holders
@@ -956,10 +1114,8 @@ export default function Home() {
                 </strong>
               </div>
 
-
               <div>
                 <span>Prix USD</span>
-
                 <strong>
                   {fmtUsd(
                     observed.priceUsd
@@ -967,10 +1123,8 @@ export default function Home() {
                 </strong>
               </div>
 
-
               <div>
                 <span>Market Cap</span>
-
                 <strong>
                   {fmtUsd(
                     observed.marketCapUsd
@@ -978,12 +1132,13 @@ export default function Home() {
                 </strong>
               </div>
 
-
               <div>
-                <span>Âge du marché</span>
-
+                <span>
+                  Âge du marché
+                </span>
                 <strong>
-                  {observed.ageHours == null
+                  {observed.ageHours ==
+                  null
                     ? "N/D"
                     : `${Number(
                         observed.ageHours
@@ -993,7 +1148,6 @@ export default function Home() {
 
               <div>
                 <span>Maturité</span>
-
                 <strong>
                   {fmtPercent(
                     observed.maturity
@@ -1007,7 +1161,8 @@ export default function Home() {
             {Array.isArray(
               data.missingData
             ) &&
-              data.missingData.length > 0 && (
+              data.missingData.length >
+                0 && (
 
                 <div className="missing">
                   Données manquantes :{" "}
@@ -1021,9 +1176,7 @@ export default function Home() {
           </div>
 
 
-          {/* =================================================
-              ACTIVITÉ
-          ================================================= */}
+          {/* ACTIVITÉ */}
 
           <div className="panel">
 
@@ -1035,15 +1188,15 @@ export default function Home() {
 
               <div>
                 <span>État 24h</span>
-
                 <strong>
                   {activityState.label}
                 </strong>
               </div>
 
               <div>
-                <span>Score activité</span>
-
+                <span>
+                  Score activité
+                </span>
                 <strong>
                   {fmtPercent(
                     activityScore
@@ -1053,7 +1206,6 @@ export default function Home() {
 
               <div>
                 <span>Acheteurs</span>
-
                 <strong>
                   {fmtNumber(
                     observed.buys24h
@@ -1063,7 +1215,6 @@ export default function Home() {
 
               <div>
                 <span>Vendeurs</span>
-
                 <strong>
                   {fmtNumber(
                     observed.sells24h
@@ -1073,7 +1224,6 @@ export default function Home() {
 
               <div>
                 <span>Transactions</span>
-
                 <strong>
                   {fmtNumber(
                     observed.transactions24h
@@ -1083,7 +1233,6 @@ export default function Home() {
 
               <div>
                 <span>Volume</span>
-
                 <strong>
                   {fmtUsd(
                     observed.volume24hUsd
@@ -1110,9 +1259,7 @@ export default function Home() {
           </div>
 
 
-          {/* =================================================
-              DISTRIBUTION / HOLDERS
-          ================================================= */}
+          {/* DISTRIBUTION / HOLDERS */}
 
           <div className="panel">
 
@@ -1123,8 +1270,9 @@ export default function Home() {
             <div className="observed">
 
               <div>
-                <span>Holders détectés</span>
-
+                <span>
+                  Holders détectés
+                </span>
                 <strong>
                   {fmtNumber(
                     observed.holders
@@ -1132,10 +1280,10 @@ export default function Home() {
                 </strong>
               </div>
 
-
               <div>
-                <span>Score distribution</span>
-
+                <span>
+                  Score distribution
+                </span>
                 <strong>
                   {fmtPercent(
                     distributionScore
@@ -1143,13 +1291,13 @@ export default function Home() {
                 </strong>
               </div>
 
-
               {holders?.uniqueOwners !=
                 null && (
 
                 <div>
-                  <span>Owners uniques</span>
-
+                  <span>
+                    Owners uniques
+                  </span>
                   <strong>
                     {fmtNumber(
                       holders.uniqueOwners
@@ -1159,13 +1307,13 @@ export default function Home() {
 
               )}
 
-
               {holders?.externalHolders !=
                 null && (
 
                 <div>
-                  <span>Holders externes</span>
-
+                  <span>
+                    Holders externes
+                  </span>
                   <strong>
                     {fmtNumber(
                       holders.externalHolders
@@ -1175,13 +1323,13 @@ export default function Home() {
 
               )}
 
-
               {holders?.externalTop1Percent !=
                 null && (
 
                 <div>
-                  <span>Top holder externe</span>
-
+                  <span>
+                    Top holder externe
+                  </span>
                   <strong>
                     {fmtDecimal(
                       holders.externalTop1Percent,
@@ -1196,11 +1344,15 @@ export default function Home() {
             </div>
 
 
-            {holders?.concentration?.label && (
+            {holders?.concentration
+              ?.label && (
 
               <div className="hint">
                 Concentration :{" "}
-                {holders.concentration.label}
+                {
+                  holders.concentration
+                    .label
+                }
               </div>
 
             )}
@@ -1208,9 +1360,7 @@ export default function Home() {
           </div>
 
 
-          {/* =================================================
-              MARCHÉ
-          ================================================= */}
+          {/* MARCHÉ */}
 
           <div className="panel">
 
@@ -1222,17 +1372,14 @@ export default function Home() {
 
               <div>
                 <span>DEX</span>
-
                 <strong>
                   {market.dexId ||
                     "N/D"}
                 </strong>
               </div>
 
-
               <div>
                 <span>Paire</span>
-
                 <strong>
                   {shortAddress(
                     market.pairAddress
@@ -1240,10 +1387,10 @@ export default function Home() {
                 </strong>
               </div>
 
-
               <div>
-                <span>Statut Pump.fun</span>
-
+                <span>
+                  Statut Pump.fun
+                </span>
                 <strong>
                   {observed.pumpComplete ==
                   null
@@ -1254,10 +1401,10 @@ export default function Home() {
                 </strong>
               </div>
 
-
               <div>
-                <span>PumpSwap Pool</span>
-
+                <span>
+                  PumpSwap Pool
+                </span>
                 <strong>
                   {shortAddress(
                     observed.pumpSwapPool
@@ -1265,10 +1412,10 @@ export default function Home() {
                 </strong>
               </div>
 
-
               <div>
-                <span>Raydium Pool</span>
-
+                <span>
+                  Raydium Pool
+                </span>
                 <strong>
                   {shortAddress(
                     observed.raydiumPool
@@ -1281,9 +1428,7 @@ export default function Home() {
           </div>
 
 
-          {/* =================================================
-              RÉSERVES
-          ================================================= */}
+          {/* RÉSERVES */}
 
           <div className="panel">
 
@@ -1297,7 +1442,6 @@ export default function Home() {
                 <span>
                   Réserves SOL virtuelles
                 </span>
-
                 <strong>
                   {observed.virtualSolReserves ==
                   null
@@ -1309,12 +1453,10 @@ export default function Home() {
                 </strong>
               </div>
 
-
               <div>
                 <span>
                   Réserves tokens virtuelles
                 </span>
-
                 <strong>
                   {observed.virtualTokenReserves ==
                   null
@@ -1325,12 +1467,8 @@ export default function Home() {
                 </strong>
               </div>
 
-
               <div>
-                <span>
-                  Prix SOL
-                </span>
-
+                <span>Prix SOL</span>
                 <strong>
                   {fmtUsd(
                     observed.solPriceUsd
@@ -1343,9 +1481,7 @@ export default function Home() {
           </div>
 
 
-          {/* =================================================
-              SÉCURITÉ
-          ================================================= */}
+          {/* SÉCURITÉ */}
 
           <div className="panel">
 
@@ -1359,7 +1495,6 @@ export default function Home() {
                 <span>
                   Score sécurité
                 </span>
-
                 <strong>
                   {fmtPercent(
                     securityScore
@@ -1371,7 +1506,6 @@ export default function Home() {
                 <span>
                   Mint authority
                 </span>
-
                 <strong>
                   {security?.mintAuthority ==
                   null
@@ -1380,12 +1514,10 @@ export default function Home() {
                 </strong>
               </div>
 
-
               <div>
                 <span>
                   Freeze authority
                 </span>
-
                 <strong>
                   {security?.freezeAuthority ==
                   null
@@ -1394,12 +1526,8 @@ export default function Home() {
                 </strong>
               </div>
 
-
               <div>
-                <span>
-                  Risque
-                </span>
-
+                <span>Risque</span>
                 <strong>
                   {security?.riskLevel ||
                     "N/D"}
@@ -1412,7 +1540,8 @@ export default function Home() {
             {Array.isArray(
               security?.warnings
             ) &&
-              security.warnings.length > 0 && (
+              security.warnings.length >
+                0 && (
 
                 <div className="missing">
                   {security.warnings.join(
@@ -1425,9 +1554,7 @@ export default function Home() {
           </div>
 
 
-          {/* =================================================
-              TOKEN 2022
-          ================================================= */}
+          {/* TOKEN 2022 */}
 
           {token2022?.available && (
 
@@ -1443,7 +1570,6 @@ export default function Home() {
                   <span>
                     Token-2022 détecté
                   </span>
-
                   <strong>
                     {token2022.isToken2022
                       ? "OUI"
@@ -1451,12 +1577,10 @@ export default function Home() {
                   </strong>
                 </div>
 
-
                 <div>
                   <span>
                     Extensions
                   </span>
-
                   <strong>
                     {fmtNumber(
                       token2022.extensionCount
@@ -1464,12 +1588,10 @@ export default function Home() {
                   </strong>
                 </div>
 
-
                 <div>
                   <span>
                     Analyse complète
                   </span>
-
                   <strong>
                     {token2022.analysisComplete
                       ? "OUI"
@@ -1478,15 +1600,21 @@ export default function Home() {
                 </div>
 
               </div>
+
+
               {Array.isArray(
                 token2022.findings
               ) &&
-                token2022.findings.length > 0 && (
+                token2022.findings
+                  .length > 0 && (
 
                   <div className="hint">
 
                     {token2022.findings.map(
-                      (finding, index) => (
+                      (
+                        finding,
+                        index
+                      ) => (
 
                         <div key={index}>
                           {finding?.message ||
@@ -1506,9 +1634,7 @@ export default function Home() {
           )}
 
 
-          {/* =================================================
-              METADATA
-          ================================================= */}
+          {/* METADATA */}
 
           {metadata?.available && (
 
@@ -1521,10 +1647,7 @@ export default function Home() {
               <div className="observed">
 
                 <div>
-                  <span>
-                    Nom
-                  </span>
-
+                  <span>Nom</span>
                   <strong>
                     {metadata.name ||
                       token.name ||
@@ -1532,12 +1655,10 @@ export default function Home() {
                   </strong>
                 </div>
 
-
                 <div>
                   <span>
                     Symbole
                   </span>
-
                   <strong>
                     {metadata.symbol ||
                       token.symbol ||
@@ -1545,12 +1666,10 @@ export default function Home() {
                   </strong>
                 </div>
 
-
                 <div>
                   <span>
                     Metadata décodée
                   </span>
-
                   <strong>
                     {metadata.decoded
                       ? "OUI"
@@ -1558,12 +1677,10 @@ export default function Home() {
                   </strong>
                 </div>
 
-
                 <div>
                   <span>
                     Update authority
                   </span>
-
                   <strong>
                     {metadata.updateAuthority ==
                     null
@@ -1579,9 +1696,7 @@ export default function Home() {
           )}
 
 
-          {/* =================================================
-              DIAGNOSTIC
-          ================================================= */}
+          {/* DIAGNOSTIC MOTEUR */}
 
           <div className="panel">
 
@@ -1595,7 +1710,6 @@ export default function Home() {
                 <span>
                   DexScreener utilisé
                 </span>
-
                 <strong>
                   {data.diagnostics
                     ?.dexscreenerUsed
@@ -1604,12 +1718,10 @@ export default function Home() {
                 </strong>
               </div>
 
-
               <div>
                 <span>
                   Pump.fun utilisé
                 </span>
-
                 <strong>
                   {data.diagnostics
                     ?.pumpfunUsed
@@ -1618,12 +1730,10 @@ export default function Home() {
                 </strong>
               </div>
 
-
               <div>
                 <span>
                   Activité utilisée
                 </span>
-
                 <strong>
                   {data.diagnostics
                     ?.activityV3Used
@@ -1632,12 +1742,10 @@ export default function Home() {
                 </strong>
               </div>
 
-
               <div>
                 <span>
                   Holders utilisés
                 </span>
-
                 <strong>
                   {data.diagnostics
                     ?.holdersV2Used
@@ -1646,12 +1754,10 @@ export default function Home() {
                 </strong>
               </div>
 
-
               <div>
                 <span>
                   Sécurité utilisée
                 </span>
-
                 <strong>
                   {data.diagnostics
                     ?.securityV1Used
@@ -1660,12 +1766,10 @@ export default function Home() {
                 </strong>
               </div>
 
-
               <div>
                 <span>
                   Données disponibles
                 </span>
-
                 <strong>
                   {availableWeight}%
                 </strong>
@@ -1676,34 +1780,288 @@ export default function Home() {
           </div>
 
 
-          {/* =================================================
-              NOTE AUTOMATIQUE
+          {/* ================================================
+              DIAGNOSTIC PROFITX
           ================================================= */}
 
           <div className="panel">
+
+            <div className="eyebrow">
+              LECTURE AUTOMATIQUE • DONNÉES OBSERVÉES
+            </div>
 
             <h2>
               Diagnostic ProfitX
             </h2>
 
-            <p className="intro">
+            <div
+              style={{
+                marginTop: "18px",
+                padding: "18px",
+                border:
+                  "1px solid rgba(0, 255, 136, 0.22)",
+                borderRadius: "12px",
+                background:
+                  "rgba(0, 255, 136, 0.035)"
+              }}
+            >
 
-              {activityState.label ===
-              "INACTIF"
-                ? "ProfitX ne détecte actuellement aucun mouvement économique sur les dernières 24 heures. Les valeurs nulles de volume et de transactions correspondent à une absence d'activité observée et non à des données manquantes."
-                : activityState.label ===
-                  "FAIBLE ACTIVITÉ"
-                ? "ProfitX détecte une activité récente mais encore faible. Les données observées doivent être interprétées avec prudence tant que le marché n'a pas développé une activité plus importante."
-                : "ProfitX détecte une activité économique récente. Les données de volume, transactions, acheteurs et vendeurs peuvent être utilisées pour compléter l'analyse structurelle."}
+              <span>
+                Lecture du score
+              </span>
 
-            </p>
+              <strong
+                style={{
+                  display: "block",
+                  marginTop: "7px",
+                  fontSize: "20px"
+                }}
+              >
+                {profitxDiagnostic.level}
+              </strong>
+
+              <p
+                className="intro"
+                style={{
+                  marginBottom: 0
+                }}
+              >
+                {profitxDiagnostic.summary}
+              </p>
+
+            </div>
+
+
+            <div
+              className="pairGrid"
+              style={{
+                marginTop: "18px"
+              }}
+            >
+
+              <div>
+                <span>
+                  Score global
+                </span>
+                <strong>
+                  {fmtPercent(
+                    score?.total
+                  )}
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  État 24h
+                </span>
+                <strong>
+                  {activityState.label}
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  Données disponibles
+                </span>
+                <strong>
+                  {availableWeight}%
+                </strong>
+              </div>
+
+            </div>
+
+
+            <div
+              style={{
+                marginTop: "22px"
+              }}
+            >
+
+              <span>
+                Lecture du marché
+              </span>
+
+              <p className="intro">
+                {
+                  profitxDiagnostic
+                    .marketMessage
+                }
+              </p>
+
+            </div>
+
+
+            {profitxDiagnostic
+              .strengths.length > 0 && (
+
+              <div
+                style={{
+                  marginTop: "20px"
+                }}
+              >
+
+                <span>
+                  Points solides
+                </span>
+
+                <div
+                  className="observed"
+                  style={{
+                    marginTop: "10px"
+                  }}
+                >
+
+                  {profitxDiagnostic
+                    .strengths.map(
+                      (item) => (
+
+                        <div
+                          key={`strength-${item.label}`}
+                        >
+                          <span>
+                            {item.label}
+                          </span>
+                          <strong>
+                            {fmtPercent(
+                              item.value
+                            )}
+                          </strong>
+                        </div>
+
+                      )
+                    )}
+
+                </div>
+
+              </div>
+
+            )}
+
+
+            {profitxDiagnostic
+              .intermediate.length >
+              0 && (
+
+              <div
+                style={{
+                  marginTop: "20px"
+                }}
+              >
+
+                <span>
+                  Indicateurs intermédiaires
+                </span>
+
+                <div
+                  className="observed"
+                  style={{
+                    marginTop: "10px"
+                  }}
+                >
+
+                  {profitxDiagnostic
+                    .intermediate.map(
+                      (item) => (
+
+                        <div
+                          key={`intermediate-${item.label}`}
+                        >
+                          <span>
+                            {item.label}
+                          </span>
+                          <strong>
+                            {fmtPercent(
+                              item.value
+                            )}
+                          </strong>
+                        </div>
+
+                      )
+                    )}
+
+                </div>
+
+              </div>
+
+            )}
+
+
+            {profitxDiagnostic
+              .watch.length > 0 && (
+
+              <div
+                style={{
+                  marginTop: "20px"
+                }}
+              >
+
+                <span>
+                  Points à surveiller
+                </span>
+
+                <div
+                  className="observed"
+                  style={{
+                    marginTop: "10px"
+                  }}
+                >
+
+                  {profitxDiagnostic
+                    .watch.map(
+                      (item) => (
+
+                        <div
+                          key={`watch-${item.label}`}
+                        >
+                          <span>
+                            {item.label}
+                          </span>
+                          <strong>
+                            {fmtPercent(
+                              item.value
+                            )}
+                          </strong>
+                        </div>
+
+                      )
+                    )}
+
+                </div>
+
+              </div>
+
+            )}
+
+
+            {profitxDiagnostic
+              .missingCount > 0 && (
+
+              <div className="missing">
+                Le diagnostic est calculé
+                uniquement à partir des données
+                disponibles.{" "}
+                {
+                  profitxDiagnostic
+                    .missingCount
+                }{" "}
+                donnée(s) reste(nt)
+                indisponible(s).
+              </div>
+
+            )}
+
+
+            <div className="hint">
+              Cette lecture explique les indicateurs
+              calculés par ProfitX. Elle ne constitue
+              pas une recommandation d'achat ou de
+              vente.
+            </div>
 
           </div>
 
 
-          {/* =================================================
-              NOTE BACKEND
-          ================================================= */}
+          {/* NOTE BACKEND */}
 
           {data.note && (
 
@@ -1714,9 +2072,7 @@ export default function Home() {
           )}
 
 
-          {/* =================================================
-              DISCLAIMER
-          ================================================= */}
+          {/* DISCLAIMER */}
 
           <div className="disclaimer">
 

@@ -4,192 +4,240 @@ const DEFAULT_RPC =
 const PUMP_COIN_URL =
   "https://frontend-api-v3.pump.fun/coins-v2";
 
+const RUGCHECK_URL =
+  "https://api.rugcheck.xyz/v1/tokens";
+
+const TOKEN_PROGRAM_ID =
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
+
 const TOKEN_2022_PROGRAM_ID =
   "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
 
 const REQUEST_TIMEOUT_MS = 15000;
+const VERSION = "2.1.0";
 
 /* =========================================================
-   RESPONSE
+   RESPONSE / VALIDATION
 ========================================================= */
 
 function json(res, status, body) {
-  res.setHeader(
-    "Cache-Control",
-    "no-store"
-  );
-
+  res.setHeader("Cache-Control", "no-store");
   res.setHeader(
     "Content-Type",
     "application/json; charset=utf-8"
   );
 
-  return res
-    .status(status)
-    .json(body);
+  return res.status(status).json(body);
 }
-
-/* =========================================================
-   VALIDATION
-========================================================= */
 
 function isValidSolanaAddress(value) {
   return (
     typeof value === "string" &&
-    /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(
-      value
-    )
+    /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value)
   );
 }
 
+function num(value) {
+  if (
+    value === null ||
+    value === undefined ||
+    value === "" ||
+    typeof value === "boolean"
+  ) {
+    return null;
+  }
+
+  const n = Number(value);
+
+  return Number.isFinite(n)
+    ? n
+    : null;
+}
+
+function normalizeAddress(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+
+  return isValidSolanaAddress(trimmed)
+    ? trimmed
+    : null;
+}
+
 /* =========================================================
-   RPC
+   FETCH / RPC
 ========================================================= */
+
+async function fetchJson(
+  url,
+  options = {}
+) {
+  const controller =
+    new AbortController();
+
+  const timeout =
+    setTimeout(
+      () => controller.abort(),
+      REQUEST_TIMEOUT_MS
+    );
+
+  try {
+    const response =
+      await fetch(url, {
+        ...options,
+
+        signal:
+          controller.signal,
+
+        headers: {
+          Accept:
+            "application/json",
+
+          ...(options.headers || {})
+        }
+      });
+
+    const text =
+      await response.text();
+
+    let data = null;
+
+    if (text) {
+      try {
+        data =
+          JSON.parse(text);
+      } catch {
+        throw new Error(
+          `Réponse JSON invalide (${response.status}).`
+        );
+      }
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        data?.error ||
+        data?.message ||
+        `HTTP ${response.status}`
+      );
+    }
+
+    return data;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 async function rpcCall(
   rpcUrl,
   method,
   params
 ) {
-  const controller =
-    new AbortController();
+  const data =
+    await fetchJson(
+      rpcUrl,
+      {
+        method: "POST",
 
-  const timeout =
-    setTimeout(
-      () =>
-        controller.abort(),
-      REQUEST_TIMEOUT_MS
-    );
+        headers: {
+          "Content-Type":
+            "application/json"
+        },
 
-  try {
-    const response =
-      await fetch(
-        rpcUrl,
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-
-            Accept:
-              "application/json"
-          },
-
-          body: JSON.stringify({
+        body:
+          JSON.stringify({
             jsonrpc: "2.0",
-            id: "profitx-holders-v2",
+
+            id:
+              "profitx-holders-v2-1",
+
             method,
+
             params
-          }),
-
-          signal:
-            controller.signal
-        }
-      );
-
-    if (!response.ok) {
-      throw new Error(
-        `RPC HTTP ${response.status}`
-      );
-    }
-
-    const data =
-      await response.json();
-
-    if (data?.error) {
-      throw new Error(
-        data.error.message ||
-          "Solana RPC error"
-      );
-    }
-
-    return (
-      data?.result ??
-      null
+          })
+      }
     );
-  } finally {
-    clearTimeout(timeout);
+
+  if (data?.error) {
+    throw new Error(
+      data.error.message ||
+      "Solana RPC error"
+    );
   }
+
+  return (
+    data?.result ??
+    null
+  );
 }
 
 /* =========================================================
-   PUMP.FUN API
+   EXTERNAL SOURCES
 ========================================================= */
 
 async function getPumpCoin(
   mint
 ) {
-  const controller =
-    new AbortController();
-
-  const timeout =
-    setTimeout(
-      () =>
-        controller.abort(),
-      REQUEST_TIMEOUT_MS
-    );
-
   try {
-    const response =
-      await fetch(
+    const data =
+      await fetchJson(
         `${PUMP_COIN_URL}/${encodeURIComponent(
           mint
-        )}`,
-
-        {
-          method: "GET",
-
-          headers: {
-            Accept:
-              "application/json"
-          },
-
-          signal:
-            controller.signal
-        }
+        )}`
       );
-
-    if (!response.ok) {
-      return {
-        ok: false,
-
-        status:
-          response.status,
-
-        data: null
-      };
-    }
-
-    const data =
-      await response.json();
 
     return {
       ok: true,
 
-      status:
-        response.status,
+      data:
+        data?.data ||
+        data
+    };
+  } catch {
+    return {
+      ok: false,
+      data: null
+    };
+  }
+}
+
+async function getRugCheckReport(
+  mint
+) {
+  try {
+    const data =
+      await fetchJson(
+        `${RUGCHECK_URL}/${encodeURIComponent(
+          mint
+        )}/report`
+      );
+
+    return {
+      ok:
+        Boolean(
+          data &&
+          typeof data ===
+            "object"
+        ),
 
       data
     };
   } catch {
     return {
       ok: false,
-
-      status: null,
-
       data: null
     };
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
 /* =========================================================
-   BASE64
+   BINARY HELPERS
 ========================================================= */
 
-function base64ToBytes(base64) {
+function base64ToBytes(
+  base64
+) {
   try {
     return Uint8Array.from(
       Buffer.from(
@@ -202,14 +250,12 @@ function base64ToBytes(base64) {
   }
 }
 
-/* =========================================================
-   BASE58
-========================================================= */
-
 const BASE58_ALPHABET =
   "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
-function bytesToBase58(bytes) {
+function bytesToBase58(
+  bytes
+) {
   if (
     !bytes ||
     bytes.length === 0
@@ -228,7 +274,8 @@ function bytesToBase58(bytes) {
       i++
     ) {
       const value =
-        digits[i] * 256 +
+        digits[i] *
+          256 +
         carry;
 
       digits[i] =
@@ -240,7 +287,9 @@ function bytesToBase58(bytes) {
         );
     }
 
-    while (carry > 0) {
+    while (
+      carry > 0
+    ) {
       digits.push(
         carry % 58
       );
@@ -278,10 +327,6 @@ function bytesToBase58(bytes) {
   return result;
 }
 
-/* =========================================================
-   UINT64
-========================================================= */
-
 function readU64LE(
   bytes,
   offset
@@ -307,15 +352,14 @@ function readU64LE(
           offset + i
         ]
       ) <<
-      (8n * BigInt(i));
+      (
+        8n *
+        BigInt(i)
+      );
   }
 
   return value;
 }
-
-/* =========================================================
-   PERCENTAGE
-========================================================= */
 
 function percentage(
   amount,
@@ -329,7 +373,10 @@ function percentage(
   }
 
   const scaled =
-    (amount * 1000000n) /
+    (
+      amount *
+      1000000n
+    ) /
     supply;
 
   return (
@@ -339,31 +386,7 @@ function percentage(
 }
 
 /* =========================================================
-   NORMALIZE ADDRESS
-========================================================= */
-
-function normalizeAddress(
-  value
-) {
-  if (
-    typeof value !==
-    "string"
-  ) {
-    return null;
-  }
-
-  const trimmed =
-    value.trim();
-
-  return isValidSolanaAddress(
-    trimmed
-  )
-    ? trimmed
-    : null;
-}
-
-/* =========================================================
-   ADDRESS COLLECTION
+   PUMP NORMALIZATION
 ========================================================= */
 
 function collectAddresses(
@@ -384,12 +407,9 @@ function collectAddresses(
   for (
     const key of keys
   ) {
-    const value =
-      object[key];
-
     const address =
       normalizeAddress(
-        value
+        object[key]
       );
 
     if (address) {
@@ -402,21 +422,10 @@ function collectAddresses(
   return result;
 }
 
-/* =========================================================
-   PUMP DATA NORMALIZATION
-========================================================= */
-
 function normalizePumpData(
   raw,
   mint
 ) {
-  /*
-   * The Pump API has changed fields
-   * over time. We deliberately inspect
-   * several known names and only keep
-   * valid Solana addresses.
-   */
-
   const data =
     raw &&
     typeof raw ===
@@ -476,12 +485,24 @@ function normalizePumpData(
 
   const complete =
     typeof data.complete ===
-    "boolean"
+      "boolean"
       ? data.complete
       : null;
 
+  const detected =
+    bondingCurve.size > 0 ||
+    associatedBondingCurve.size > 0 ||
+    creator.size > 0 ||
+    pumpSwapPool.size > 0 ||
+    raydiumPool.size > 0 ||
+    complete !== null;
+
   return {
     mint,
+
+    detected,
+
+    complete,
 
     bondingCurve:
       Array.from(
@@ -507,8 +528,6 @@ function normalizePumpData(
       Array.from(
         raydiumPool
       ),
-
-    complete,
 
     sourceFields: {
       bondingCurve:
@@ -546,7 +565,7 @@ function normalizePumpData(
 }
 
 /* =========================================================
-   CLASSIFICATION
+   ACCOUNT CLASSIFICATION
 ========================================================= */
 
 function classifyAccount({
@@ -554,38 +573,17 @@ function classifyAccount({
   owner,
   pump
 }) {
-  /*
-   * 1. Associated bonding curve
-   *
-   * This is normally the most precise
-   * identification because it is the
-   * actual token account address.
-   */
-
   if (
-    pump.associatedBondingCurve.includes(
-      tokenAccount
-    )
+    pump
+      .associatedBondingCurve
+      .includes(
+        tokenAccount
+      )
   ) {
-    return {
-      category:
-        "BONDING_CURVE",
-
-      confidence:
-        "HIGH",
-
-      reason:
-        "Token account identifié comme Associated Bonding Curve Pump.fun."
-    };
+    return (
+      "BONDING_CURVE"
+    );
   }
-
-  /*
-   * 2. Bonding curve account
-   *
-   * Depending on Pump.fun/API representation,
-   * the bonding curve may appear either as
-   * the token account or its owner.
-   */
 
   if (
     pump.bondingCurve.includes(
@@ -595,21 +593,10 @@ function classifyAccount({
       owner
     )
   ) {
-    return {
-      category:
-        "BONDING_CURVE",
-
-      confidence:
-        "HIGH",
-
-      reason:
-        "Adresse identifiée comme Bonding Curve Pump.fun."
-    };
+    return (
+      "BONDING_CURVE"
+    );
   }
-
-  /*
-   * 3. PumpSwap
-   */
 
   if (
     pump.pumpSwapPool.includes(
@@ -619,21 +606,10 @@ function classifyAccount({
       owner
     )
   ) {
-    return {
-      category:
-        "PUMPSWAP_POOL",
-
-      confidence:
-        "HIGH",
-
-      reason:
-        "Adresse identifiée comme pool PumpSwap."
-    };
+    return (
+      "PUMPSWAP_POOL"
+    );
   }
-
-  /*
-   * 4. Raydium
-   */
 
   if (
     pump.raydiumPool.includes(
@@ -643,131 +619,612 @@ function classifyAccount({
       owner
     )
   ) {
-    return {
-      category:
-        "RAYDIUM_POOL",
-
-      confidence:
-        "HIGH",
-
-      reason:
-        "Adresse identifiée comme pool Raydium."
-    };
+    return (
+      "RAYDIUM_POOL"
+    );
   }
-
-  /*
-   * 5. Creator
-   */
 
   if (
     pump.creator.includes(
       owner
     )
   ) {
-    return {
-      category:
-        "CREATOR",
-
-      confidence:
-        "HIGH",
-
-      reason:
-        "Owner du token account correspond au créateur Pump.fun."
-    };
+    return "CREATOR";
   }
 
-  /*
-   * 6. External holder
-   */
-
-  return {
-    category:
-      "EXTERNAL_HOLDER",
-
-    confidence:
-      "MEDIUM",
-
-    reason:
-      "Adresse non identifiée comme réserve, pool ou créateur."
-  };
+  return (
+    "EXTERNAL_HOLDER"
+  );
 }
 
 /* =========================================================
-   CATEGORY AGGREGATION
+   EXACT RPC SCAN
+   Utilisé en priorité pour les tokens Pump.fun
 ========================================================= */
 
-function aggregateCategories(
-  accounts,
-  supply
-) {
-  const categories =
+async function exactRpcDistribution({
+  rpcUrl,
+  tokenProgram,
+  mint,
+  supply,
+  pump
+}) {
+  const accountsResult =
+    await rpcCall(
+      rpcUrl,
+      "getProgramAccounts",
+      [
+        tokenProgram,
+        {
+          commitment:
+            "confirmed",
+
+          encoding:
+            "base64",
+
+          filters: [
+            {
+              memcmp: {
+                offset: 0,
+
+                bytes:
+                  mint
+              }
+            }
+          ],
+
+          dataSlice: {
+            offset: 32,
+            length: 40
+          }
+        }
+      ]
+    );
+
+  const rawAccounts =
+    Array.isArray(
+      accountsResult
+    )
+      ? accountsResult
+      : [];
+
+  const decodedAccounts =
+    [];
+
+  for (
+    const account of
+      rawAccounts
+  ) {
+    const encoded =
+      account?.account
+        ?.data?.[0];
+
+    if (
+      typeof encoded !==
+      "string"
+    ) {
+      continue;
+    }
+
+    const bytes =
+      base64ToBytes(
+        encoded
+      );
+
+    if (
+      !bytes ||
+      bytes.length < 40
+    ) {
+      continue;
+    }
+
+    const owner =
+      bytesToBase58(
+        bytes.slice(
+          0,
+          32
+        )
+      );
+
+    const amount =
+      readU64LE(
+        bytes,
+        32
+      );
+
+    if (
+      !owner ||
+      amount === null ||
+      amount === 0n
+    ) {
+      continue;
+    }
+
+    decodedAccounts.push({
+      tokenAccount:
+        account.pubkey,
+
+      owner,
+
+      amount,
+
+      category:
+        classifyAccount({
+          tokenAccount:
+            account.pubkey,
+
+          owner,
+
+          pump
+        })
+    });
+  }
+
+  const holderMap =
     new Map();
 
   for (
-    const account of accounts
+    const account of
+      decodedAccounts
   ) {
     const current =
-      categories.get(
-        account.category
+      holderMap.get(
+        account.owner
       ) || {
-        category:
-          account.category,
+        owner:
+          account.owner,
 
         amount:
           0n,
 
-        tokenAccounts:
-          0,
+        categories:
+          new Set(),
 
-        owners:
-          new Set()
+        tokenAccounts:
+          0
       };
 
     current.amount +=
       account.amount;
 
+    current.categories.add(
+      account.category
+    );
+
     current.tokenAccounts +=
       1;
 
-    current.owners.add(
-      account.owner
-    );
-
-    categories.set(
-      account.category,
+    holderMap.set(
+      account.owner,
       current
     );
   }
 
-  return Array.from(
-    categories.values()
-  )
-    .map(
-      (item) => ({
-        category:
-          item.category,
-
-        amount:
-          item.amount.toString(),
-
-        percentage:
-          percentage(
-            item.amount,
-            supply
-          ),
-
-        tokenAccounts:
-          item.tokenAccounts,
-
-        uniqueOwners:
-          item.owners.size
-      })
+  const holders =
+    Array.from(
+      holderMap.values()
     )
-    .sort(
-      (a, b) =>
-        b.percentage -
-        a.percentage
+      .sort(
+        (a, b) => {
+          if (
+            a.amount ===
+            b.amount
+          ) {
+            return 0;
+          }
+
+          return (
+            a.amount >
+            b.amount
+              ? -1
+              : 1
+          );
+        }
+      );
+
+  const external =
+    holders.filter(
+      (holder) =>
+        holder.categories.has(
+          "EXTERNAL_HOLDER"
+        )
     );
+
+  const topHolders =
+    holders
+      .slice(
+        0,
+        20
+      )
+      .map(
+        (
+          holder,
+          index
+        ) => ({
+          rank:
+            index + 1,
+
+          owner:
+            holder.owner,
+
+          amount:
+            holder
+              .amount
+              .toString(),
+
+          percentage:
+            percentage(
+              holder.amount,
+              supply
+            ),
+
+          categories:
+            Array.from(
+              holder.categories
+            ),
+
+          tokenAccounts:
+            holder
+              .tokenAccounts
+        })
+      );
+
+  const externalTop1Percent =
+    external[0]
+      ? percentage(
+          external[0]
+            .amount,
+          supply
+        )
+      : 0;
+
+  const externalTop5Amount =
+    external
+      .slice(
+        0,
+        5
+      )
+      .reduce(
+        (
+          total,
+          holder
+        ) =>
+          total +
+          holder.amount,
+        0n
+      );
+
+  const externalTop10Amount =
+    external
+      .slice(
+        0,
+        10
+      )
+      .reduce(
+        (
+          total,
+          holder
+        ) =>
+          total +
+          holder.amount,
+        0n
+      );
+
+  let observedSupply =
+    0n;
+
+  for (
+    const account of
+      decodedAccounts
+  ) {
+    observedSupply +=
+      account.amount;
+  }
+
+  const unobservedSupply =
+    supply >
+      observedSupply
+      ? supply -
+        observedSupply
+      : 0n;
+
+  return {
+    source:
+      "rpc_exact",
+
+    tokenAccountsScanned:
+      rawAccounts.length,
+
+    nonZeroTokenAccounts:
+      decodedAccounts.length,
+
+    uniqueOwners:
+      holders.length,
+
+    externalHolders:
+      external.length,
+
+    distribution: {
+      categories: [],
+
+      externalTop1Percent,
+
+      externalTop5Percent:
+        percentage(
+          externalTop5Amount,
+          supply
+        ),
+
+      externalTop10Percent:
+        percentage(
+          externalTop10Amount,
+          supply
+        )
+    },
+
+    observedSupply:
+      observedSupply
+        .toString(),
+
+    observedPercent:
+      percentage(
+        observedSupply,
+        supply
+      ),
+
+    unobservedSupply:
+      unobservedSupply
+        .toString(),
+
+    unobservedPercent:
+      percentage(
+        unobservedSupply,
+        supply
+      ),
+
+    topHolders,
+
+    complete:
+      unobservedSupply ===
+      0n
+  };
+}
+
+/* =========================================================
+   RUGCHECK DISTRIBUTION
+   Adapté aux tokens possédant beaucoup de holders
+========================================================= */
+
+function rugCheckDistribution(
+  report
+) {
+  if (
+    !report ||
+    typeof report !==
+      "object"
+  ) {
+    return null;
+  }
+
+  const totalHolders =
+    num(
+      report.totalHolders ??
+      report.total_holders
+    );
+
+  const rawTop =
+    Array.isArray(
+      report.topHolders
+    )
+      ? report.topHolders
+      : Array.isArray(
+          report.top_holders
+        )
+        ? report.top_holders
+        : [];
+
+  const top =
+    rawTop
+      .map(
+        (holder) => {
+          const pct =
+            num(
+              holder?.pct ??
+              holder?.percentage
+            );
+
+          const owner =
+            normalizeAddress(
+              holder?.owner
+            ) ||
+            normalizeAddress(
+              holder?.address
+            ) ||
+            null;
+
+          return {
+            owner,
+
+            address:
+              normalizeAddress(
+                holder?.address
+              ) ||
+              null,
+
+            amount:
+              holder?.amount !==
+                undefined &&
+              holder?.amount !==
+                null
+                ? String(
+                    holder.amount
+                  )
+                : null,
+
+            percentage:
+              pct,
+
+            uiAmount:
+              num(
+                holder?.uiAmount ??
+                holder?.ui_amount
+              )
+          };
+        }
+      )
+      .filter(
+        (holder) =>
+          holder.percentage !==
+          null
+      )
+      .sort(
+        (a, b) =>
+          b.percentage -
+          a.percentage
+      );
+
+  if (
+    totalHolders === null &&
+    top.length === 0
+  ) {
+    return null;
+  }
+
+  const top1 =
+    top[0]
+      ?.percentage ??
+    null;
+
+  const top5 =
+    top
+      .slice(
+        0,
+        5
+      )
+      .reduce(
+        (
+          sum,
+          holder
+        ) =>
+          sum +
+          (
+            holder
+              .percentage ||
+            0
+          ),
+        0
+      );
+
+  const top10 =
+    top
+      .slice(
+        0,
+        10
+      )
+      .reduce(
+        (
+          sum,
+          holder
+        ) =>
+          sum +
+          (
+            holder
+              .percentage ||
+            0
+          ),
+        0
+      );
+
+  return {
+    source:
+      "rugcheck",
+
+    tokenAccountsScanned:
+      null,
+
+    nonZeroTokenAccounts:
+      null,
+
+    uniqueOwners:
+      totalHolders,
+
+    /*
+     * Pour un token non-Pump, les détenteurs
+     * sont considérés comme externes au système
+     * PROFITX/Pump.fun.
+     */
+    externalHolders:
+      totalHolders,
+
+    distribution: {
+      categories: [],
+
+      externalTop1Percent:
+        top1,
+
+      externalTop5Percent:
+        top.length
+          ? top5
+          : null,
+
+      externalTop10Percent:
+        top.length
+          ? top10
+          : null
+    },
+
+    observedSupply:
+      null,
+
+    observedPercent:
+      null,
+
+    unobservedSupply:
+      null,
+
+    unobservedPercent:
+      null,
+
+    topHolders:
+      top
+        .slice(
+          0,
+          20
+        )
+        .map(
+          (
+            holder,
+            index
+          ) => ({
+            rank:
+              index + 1,
+
+            owner:
+              holder.owner,
+
+            address:
+              holder.address,
+
+            amount:
+              holder.amount,
+
+            percentage:
+              holder.percentage,
+
+            uiAmount:
+              holder.uiAmount,
+
+            categories: [
+              "EXTERNAL_HOLDER"
+            ]
+          })
+        ),
+
+    complete:
+      totalHolders !==
+        null &&
+      top.length > 0
+  };
 }
 
 /* =========================================================
@@ -799,27 +1256,21 @@ export default async function handler(
     );
   }
 
-  let mint = "";
-
-  if (
-    req.method === "GET"
-  ) {
-    mint =
-      typeof req.query?.mint ===
-      "string"
-        ? req.query.mint.trim()
+  const mint =
+    req.method ===
+      "GET"
+      ? typeof req.query
+          ?.mint ===
+        "string"
+        ? req.query.mint
+            .trim()
+        : ""
+      : typeof req.body
+          ?.mint ===
+        "string"
+        ? req.body.mint
+            .trim()
         : "";
-  }
-
-  if (
-    req.method === "POST"
-  ) {
-    mint =
-      typeof req.body?.mint ===
-      "string"
-        ? req.body.mint.trim()
-        : "";
-  }
 
   if (!mint) {
     return json(
@@ -852,29 +1303,61 @@ export default async function handler(
   }
 
   const rpcUrl =
-    process.env.SOLANA_RPC_URL ||
+    process.env
+      .SOLANA_RPC_URL ||
     DEFAULT_RPC;
 
   try {
-    /* =====================================================
-       1. CHECK MINT
-    ===================================================== */
+    /*
+     * On récupère en parallèle :
+     * - le compte mint
+     * - la supply
+     * - Pump.fun
+     * - RugCheck
+     */
 
-    const mintResult =
-      await rpcCall(
-        rpcUrl,
-        "getAccountInfo",
-        [
-          mint,
-          {
-            encoding:
-              "base64",
+    const [
+      mintResult,
+      supplyResult,
+      pumpResult,
+      rugResult
+    ] =
+      await Promise.all([
+        rpcCall(
+          rpcUrl,
+          "getAccountInfo",
+          [
+            mint,
+            {
+              encoding:
+                "base64",
 
-            commitment:
-              "confirmed"
-          }
-        ]
-      );
+              commitment:
+                "confirmed"
+            }
+          ]
+        ),
+
+        rpcCall(
+          rpcUrl,
+          "getTokenSupply",
+          [
+            mint,
+            {
+              commitment:
+                "confirmed"
+            }
+          ]
+        ),
+
+        getPumpCoin(
+          mint
+        ),
+
+        getRugCheckReport(
+          mint
+        )
+      ]);
 
     const mintAccount =
       mintResult?.value ??
@@ -887,58 +1370,56 @@ export default async function handler(
         {
           ok: false,
 
+          module:
+            "PROFITX_HOLDERS",
+
+          version:
+            VERSION,
+
+          mint,
+
           error:
             "Mint introuvable sur Solana."
         }
       );
     }
 
+    const tokenProgram =
+      mintAccount.owner;
+
+    const isToken2022 =
+      tokenProgram ===
+      TOKEN_2022_PROGRAM_ID;
+
+    const isClassicToken =
+      tokenProgram ===
+      TOKEN_PROGRAM_ID;
+
     if (
-      mintAccount.owner !==
-      TOKEN_2022_PROGRAM_ID
+      !isToken2022 &&
+      !isClassicToken
     ) {
       return json(
         res,
         200,
         {
-          ok: true,
+          ok: false,
 
           module:
             "PROFITX_HOLDERS",
 
           version:
-            "2.0.0",
+            VERSION,
 
           mint,
 
-          isToken2022:
-            false,
+          tokenProgram,
 
-          tokenProgram:
-            mintAccount.owner,
-
-          message:
-            "Ce mint n'utilise pas Token-2022."
+          error:
+            "Programme de token non pris en charge."
         }
       );
     }
-
-    /* =====================================================
-       2. SUPPLY
-    ===================================================== */
-
-    const supplyResult =
-      await rpcCall(
-        rpcUrl,
-        "getTokenSupply",
-        [
-          mint,
-          {
-            commitment:
-              "confirmed"
-          }
-        ]
-      );
 
     const supplyData =
       supplyResult?.value ??
@@ -946,7 +1427,8 @@ export default async function handler(
 
     if (
       !supplyData ||
-      typeof supplyData.amount !==
+      typeof supplyData
+        .amount !==
         "string"
     ) {
       throw new Error(
@@ -961,17 +1443,19 @@ export default async function handler(
 
     const decimals =
       Number(
-        supplyData.decimals ??
-          0
+        supplyData
+          .decimals ??
+        0
       );
 
-    /* =====================================================
-       3. PUMP.FUN DATA
-    ===================================================== */
-
-    const pumpResult =
-      await getPumpCoin(
-        mint
+    const supplyUi =
+      num(
+        supplyData
+          .uiAmount
+      ) ??
+      num(
+        supplyData
+          .uiAmountString
       );
 
     const pump =
@@ -980,352 +1464,137 @@ export default async function handler(
         mint
       );
 
-    /* =====================================================
-       4. ALL TOKEN ACCOUNTS
-    ===================================================== */
+    let holdersData =
+      null;
 
-    const accountsResult =
-      await rpcCall(
-        rpcUrl,
-        "getProgramAccounts",
-        [
-          TOKEN_2022_PROGRAM_ID,
-          {
-            commitment:
-              "confirmed",
+    let rpcExactError =
+      null;
 
-            encoding:
-              "base64",
+    /*
+     * PFX / tokens Pump.fun :
+     * priorité au scan on-chain exact.
+     */
 
-            filters: [
-              {
-                memcmp: {
-                  offset: 0,
+    if (
+      pump.detected
+    ) {
+      try {
+        holdersData =
+          await exactRpcDistribution({
+            rpcUrl,
 
-                  bytes: mint
-                }
-              }
-            ],
+            tokenProgram,
 
-            dataSlice: {
-              offset: 32,
+            mint,
 
-              length: 40
-            }
+            supply,
+
+            pump
+          });
+      } catch (
+        error
+      ) {
+        rpcExactError =
+          error?.message ||
+          "Scan RPC exact indisponible.";
+      }
+    }
+
+    /*
+     * Gros tokens :
+     * RugCheck évite de charger tous
+     * les comptes SPL dans Vercel.
+     */
+
+    if (
+      !holdersData &&
+      rugResult.ok
+    ) {
+      holdersData =
+        rugCheckDistribution(
+          rugResult.data
+        );
+    }
+
+    /*
+     * Dernier fallback pour un petit
+     * token SPL non-Pump.
+     */
+
+    if (
+      !holdersData &&
+      !pump.detected
+    ) {
+      try {
+        holdersData =
+          await exactRpcDistribution({
+            rpcUrl,
+
+            tokenProgram,
+
+            mint,
+
+            supply,
+
+            pump
+          });
+      } catch (
+        error
+      ) {
+        rpcExactError =
+          error?.message ||
+          "Scan RPC exact indisponible.";
+      }
+    }
+
+    if (
+      !holdersData
+    ) {
+      return json(
+        res,
+        200,
+        {
+          ok: false,
+
+          module:
+            "PROFITX_HOLDERS",
+
+          version:
+            VERSION,
+
+          timestamp:
+            new Date()
+              .toISOString(),
+
+          mint,
+
+          tokenProgram,
+
+          isToken2022,
+
+          tokenStandard:
+            isToken2022
+              ? "TOKEN_2022"
+              : "SPL_TOKEN",
+
+          error:
+            "Données holders indisponibles.",
+
+          diagnostics: {
+            rugCheckUsed:
+              false,
+
+            rugCheckAvailable:
+              rugResult.ok,
+
+            pumpDetected:
+              pump.detected,
+
+            rpcExactError
           }
-        ]
-      );
-
-    const rawAccounts =
-      Array.isArray(
-        accountsResult
-      )
-        ? accountsResult
-        : [];
-
-    /* =====================================================
-       5. DECODE
-    ===================================================== */
-
-    const decodedAccounts =
-      [];
-
-    for (
-      const account of
-        rawAccounts
-    ) {
-      const encoded =
-        account?.account
-          ?.data?.[0];
-
-      if (
-        typeof encoded !==
-        "string"
-      ) {
-        continue;
-      }
-
-      const bytes =
-        base64ToBytes(
-          encoded
-        );
-
-      if (
-        !bytes ||
-        bytes.length < 40
-      ) {
-        continue;
-      }
-
-      const owner =
-        bytesToBase58(
-          bytes.slice(
-            0,
-            32
-          )
-        );
-
-      const amount =
-        readU64LE(
-          bytes,
-          32
-        );
-
-      if (
-        !owner ||
-        amount === null
-      ) {
-        continue;
-      }
-
-      if (
-        amount === 0n
-      ) {
-        continue;
-      }
-
-      const classification =
-        classifyAccount({
-          tokenAccount:
-            account.pubkey,
-
-          owner,
-
-          pump
-        });
-
-      decodedAccounts.push({
-        tokenAccount:
-          account.pubkey,
-
-        owner,
-
-        amount,
-
-        category:
-          classification.category,
-
-        confidence:
-          classification.confidence,
-
-        reason:
-          classification.reason
-      });
-    }
-
-    /* =====================================================
-       6. AGGREGATE OWNERS
-    ===================================================== */
-
-    const holderMap =
-      new Map();
-
-    for (
-      const account of
-        decodedAccounts
-    ) {
-      const current =
-        holderMap.get(
-          account.owner
-        ) || {
-          owner:
-            account.owner,
-
-          amount:
-            0n,
-
-          categories:
-            new Set(),
-
-          tokenAccounts:
-            0
-        };
-
-      current.amount +=
-        account.amount;
-
-      current.categories.add(
-        account.category
-      );
-
-      current.tokenAccounts +=
-        1;
-
-      holderMap.set(
-        account.owner,
-        current
+        }
       );
     }
-
-    const holders =
-      Array.from(
-        holderMap.values()
-      )
-        .sort(
-          (a, b) => {
-            if (
-              a.amount ===
-              b.amount
-            ) {
-              return 0;
-            }
-
-            return a.amount >
-              b.amount
-              ? -1
-              : 1;
-          }
-        );
-
-    /* =====================================================
-       7. RANKED HOLDERS
-    ===================================================== */
-
-    const ranked =
-      holders.map(
-        (
-          holder,
-          index
-        ) => ({
-          rank:
-            index + 1,
-
-          owner:
-            holder.owner,
-
-          amount:
-            holder.amount.toString(),
-
-          percentage:
-            percentage(
-              holder.amount,
-              supply
-            ),
-
-          categories:
-            Array.from(
-              holder.categories
-            ),
-
-          tokenAccounts:
-            holder.tokenAccounts
-        })
-      );
-
-    /* =====================================================
-       8. CATEGORY TOTALS
-    ===================================================== */
-
-    const categoryTotals =
-      aggregateCategories(
-        decodedAccounts,
-        supply
-      );
-
-    /* =====================================================
-       9. EXTERNAL HOLDERS ONLY
-    ===================================================== */
-
-    const external =
-      holders.filter(
-        (holder) =>
-          holder.categories.has(
-            "EXTERNAL_HOLDER"
-          )
-      );
-
-    let externalAmount =
-      0n;
-
-    for (
-      const holder of external
-    ) {
-      externalAmount +=
-        holder.amount;
-    }
-
-    const externalPercent =
-      percentage(
-        externalAmount,
-        supply
-      );
-
-    /* =====================================================
-       10. EXTERNAL CONCENTRATION
-    ===================================================== */
-
-    const externalTop1 =
-      external[0]
-        ? percentage(
-            external[0]
-              .amount,
-            supply
-          )
-        : 0;
-
-    const externalTop5Amount =
-      external
-        .slice(0, 5)
-        .reduce(
-          (
-            total,
-            holder
-          ) =>
-            total +
-            holder.amount,
-          0n
-        );
-
-    const externalTop10Amount =
-      external
-        .slice(0, 10)
-        .reduce(
-          (
-            total,
-            holder
-          ) =>
-            total +
-            holder.amount,
-          0n
-        );
-
-    const externalTop5 =
-      percentage(
-        externalTop5Amount,
-        supply
-      );
-
-    const externalTop10 =
-      percentage(
-        externalTop10Amount,
-        supply
-      );
-
-    /* =====================================================
-       11. OBSERVED SUPPLY
-    ===================================================== */
-
-    let observedSupply =
-      0n;
-
-    for (
-      const account of
-        decodedAccounts
-    ) {
-      observedSupply +=
-        account.amount;
-    }
-
-    const unobservedSupply =
-      supply >
-      observedSupply
-        ? supply -
-          observedSupply
-        : 0n;
-
-    /* =====================================================
-       12. RESULT
-    ===================================================== */
 
     return json(
       res,
@@ -1337,75 +1606,92 @@ export default async function handler(
           "PROFITX_HOLDERS",
 
         version:
-          "2.0.0",
+          VERSION,
 
         timestamp:
-          new Date().toISOString(),
+          new Date()
+            .toISOString(),
 
         mint,
 
-        tokenProgram:
-          TOKEN_2022_PROGRAM_ID,
+        tokenProgram,
+
+        isToken2022,
+
+        tokenStandard:
+          isToken2022
+            ? "TOKEN_2022"
+            : "SPL_TOKEN",
 
         decimals,
 
         supply:
-          supply.toString(),
+          supply
+            .toString(),
 
-        supplyUi:
-          Number(
-            supply
-          ) /
-          Math.pow(
-            10,
-            decimals
-          ),
+        supplyUi,
+
+        source:
+          holdersData
+            .source,
 
         /* -----------------------------------------------
-           PUMP.FUN IDENTIFICATION
+           PUMP.FUN
         ----------------------------------------------- */
 
         pumpFun: {
           detected:
+            pump.detected,
+
+          apiAvailable:
             pumpResult.ok,
 
           complete:
             pump.complete,
 
           bondingCurve:
-            pump.bondingCurve,
+            pump
+              .bondingCurve,
 
           associatedBondingCurve:
-            pump.associatedBondingCurve,
+            pump
+              .associatedBondingCurve,
 
           creator:
             pump.creator,
 
           pumpSwapPool:
-            pump.pumpSwapPool,
+            pump
+              .pumpSwapPool,
 
           raydiumPool:
-            pump.raydiumPool,
+            pump
+              .raydiumPool,
 
           sourceFields:
-            pump.sourceFields
+            pump
+              .sourceFields
         },
 
         /* -----------------------------------------------
-           ACCOUNT COUNTS
+           HOLDERS
         ----------------------------------------------- */
 
         tokenAccountsScanned:
-          rawAccounts.length,
+          holdersData
+            .tokenAccountsScanned,
 
         nonZeroTokenAccounts:
-          decodedAccounts.length,
+          holdersData
+            .nonZeroTokenAccounts,
 
         uniqueOwners:
-          holders.length,
+          holdersData
+            .uniqueOwners,
 
         externalHolders:
-          external.length,
+          holdersData
+            .externalHolders,
 
         /* -----------------------------------------------
            DISTRIBUTION
@@ -1413,21 +1699,28 @@ export default async function handler(
 
         distribution: {
           categories:
-            categoryTotals,
-
-          externalAmount:
-            externalAmount.toString(),
-
-          externalPercent,
+            holdersData
+              .distribution
+              ?.categories ??
+            [],
 
           externalTop1Percent:
-            externalTop1,
+            holdersData
+              .distribution
+              ?.externalTop1Percent ??
+            null,
 
           externalTop5Percent:
-            externalTop5,
+            holdersData
+              .distribution
+              ?.externalTop5Percent ??
+            null,
 
           externalTop10Percent:
-            externalTop10
+            holdersData
+              .distribution
+              ?.externalTop10Percent ??
+            null
         },
 
         /* -----------------------------------------------
@@ -1435,32 +1728,28 @@ export default async function handler(
         ----------------------------------------------- */
 
         observedSupply:
-          observedSupply.toString(),
+          holdersData
+            .observedSupply,
 
         observedPercent:
-          percentage(
-            observedSupply,
-            supply
-          ),
+          holdersData
+            .observedPercent,
 
         unobservedSupply:
-          unobservedSupply.toString(),
+          holdersData
+            .unobservedSupply,
 
         unobservedPercent:
-          percentage(
-            unobservedSupply,
-            supply
-          ),
+          holdersData
+            .unobservedPercent,
 
         /* -----------------------------------------------
-           HOLDERS
+           TOP HOLDERS
         ----------------------------------------------- */
 
         topHolders:
-          ranked.slice(
-            0,
-            20
-          ),
+          holdersData
+            .topHolders,
 
         /* -----------------------------------------------
            DATA QUALITY
@@ -1470,25 +1759,61 @@ export default async function handler(
           supply:
             true,
 
-          tokenAccounts:
-            true,
-
           holders:
-            true,
+            holdersData
+              .uniqueOwners !==
+            null,
+
+          distribution:
+            holdersData
+              .distribution
+              ?.externalTop1Percent !==
+              null ||
+            holdersData
+              .distribution
+              ?.externalTop10Percent !==
+              null,
 
           pumpFun:
-            pumpResult.ok,
-
-          classification:
-            true,
+            pump.detected,
 
           complete:
-            unobservedSupply ===
-            0n
+            holdersData
+              .complete,
+
+          source:
+            holdersData
+              .source
+        },
+
+        /* -----------------------------------------------
+           DIAGNOSTICS
+        ----------------------------------------------- */
+
+        diagnostics: {
+          rugCheckAvailable:
+            rugResult.ok,
+
+          rugCheckUsed:
+            holdersData
+              .source ===
+            "rugcheck",
+
+          pumpDetected:
+            pump.detected,
+
+          rpcExactUsed:
+            holdersData
+              .source ===
+            "rpc_exact",
+
+          rpcExactError
         }
       }
     );
-  } catch (error) {
+  } catch (
+    error
+  ) {
     return json(
       res,
       500,
@@ -1499,7 +1824,7 @@ export default async function handler(
           "PROFITX_HOLDERS",
 
         version:
-          "2.0.0",
+          VERSION,
 
         error:
           error?.message ||

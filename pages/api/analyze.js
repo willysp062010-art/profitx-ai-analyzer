@@ -11,6 +11,7 @@ const DEFAULT_RPC =
   "https://api.mainnet-beta.solana.com";
 
 const TIMEOUT = 12000;
+const VERSION = "4.2.0";
 
 /* =========================================================
    BASIC HELPERS
@@ -41,6 +42,37 @@ function firstNumber(...values) {
   }
 
   return null;
+}
+
+function ageHoursFromTimestamp(value) {
+  const ts = num(value);
+
+  if (ts === null) {
+    return null;
+  }
+
+  const ms =
+    ts > 100000000000
+      ? ts
+      : ts * 1000;
+
+  return Math.max(
+    0,
+    (Date.now() - ms) / 3600000
+  );
+}
+
+function maturityScoreFromAge(ageHours) {
+  if (ageHours === null) {
+    return null;
+  }
+
+  return clamp(
+    (
+      Math.log10(ageHours + 1) /
+      Math.log10(24 * 30 + 1)
+    ) * 100
+  );
 }
 
 function validMint(value) {
@@ -304,7 +336,7 @@ async function dexData(mint) {
   try {
     const result =
       await fetchJson(
-        `${DEXSCREENER_URL}/solana/${encodeURIComponent(
+        `${DEXSCREENER_URL}/${encodeURIComponent(
           mint
         )}`
       );
@@ -439,42 +471,15 @@ function pumpMetrics(
       supply.uiAmount;
   }
 
-  let ageHours = null;
-
-  const created =
-    num(
+  const ageHours =
+    ageHoursFromTimestamp(
       coin?.created_timestamp
     );
 
-  if (created !== null) {
-    const ms =
-      created > 100000000000
-        ? created
-        : created * 1000;
-
-    ageHours =
-      Math.max(
-        0,
-        (Date.now() - ms) /
-          3600000
-      );
-  }
-
-  let maturity = null;
-
-  if (ageHours !== null) {
-    maturity =
-      clamp(
-        (
-          Math.log10(
-            ageHours + 1
-          ) /
-          Math.log10(
-            24 * 30 + 1
-          )
-        ) * 100
-      );
-  }
+  const maturity =
+    maturityScoreFromAge(
+      ageHours
+    );
 
   return {
     liquidityUsd,
@@ -815,15 +820,6 @@ function distributionScore(holders) {
       holders?.uniqueOwners
     );
 
-  /*
-   * Une distribution ne peut pas être considérée
-   * comme excellente simplement parce que les
-   * pourcentages de concentration sont faibles.
-   *
-   * Le nombre réel de détenteurs externes est
-   * également pris en compte.
-   */
-
   if (
     externalHolders === null &&
     uniqueOwners === null &&
@@ -881,20 +877,28 @@ function distributionScore(holders) {
     top1 !== null ||
     top10 !== null
   ) {
-    concentrationScore =
-      clamp(
-        100 -
-          (
-            (top1 || 0) * 0.7 +
-            (top10 || 0) * 0.3
-          )
-      );
-  }
+    let concentration = 0;
+    let concentrationWeight = 0;
 
-  /*
-   * Le nombre de détenteurs compte autant que
-   * la concentration.
-   */
+    if (top1 !== null) {
+      concentration += top1 * 0.7;
+      concentrationWeight += 0.7;
+    }
+
+    if (top10 !== null) {
+      concentration += top10 * 0.3;
+      concentrationWeight += 0.3;
+    }
+
+    concentrationScore =
+      concentrationWeight > 0
+        ? clamp(
+            100 -
+              concentration /
+                concentrationWeight
+          )
+        : null;
+  }
 
   if (
     concentrationScore !== null
@@ -919,8 +923,12 @@ function securityScore(security) {
 function token2022Score(
   token2022
 ) {
+  if (!token2022) {
+    return null;
+  }
+
   if (
-    !token2022?.isToken2022
+    token2022.isToken2022 !== true
   ) {
     return 100;
   }
@@ -1028,23 +1036,22 @@ function marketScore({
   activity,
   volume
 }) {
-  if (
-    activity === null &&
-    volume === null
-  ) {
-    return null;
+  let total = 0;
+  let weight = 0;
+
+  if (activity !== null) {
+    total += activity * 0.6;
+    weight += 0.6;
   }
 
-  const a =
-    activity ?? 0;
+  if (volume !== null) {
+    total += volume * 0.4;
+    weight += 0.4;
+  }
 
-  const v =
-    volume ?? 0;
-
-  return Math.round(
-    a * 0.6 +
-    v * 0.4
-  );
+  return weight > 0
+    ? Math.round(total / weight)
+    : null;
 }
 
 /* =========================================================
@@ -1060,7 +1067,6 @@ function confidenceScore({
   liquidity
 }) {
   let points = 0;
-
   let max = 0;
 
   function check(value) {
@@ -1126,12 +1132,26 @@ function diagnostic({
       holders?.uniqueOwners
     );
 
+  const externalHolderCount =
+    num(
+      holders?.externalHolders
+    );
+
   if (
     holderCount !== null &&
     holderCount <= 3
   ) {
     warnings.push(
       "Nombre de détenteurs très faible."
+    );
+  }
+
+  if (
+    externalHolderCount !== null &&
+    externalHolderCount <= 3
+  ) {
+    warnings.push(
+      "Nombre de détenteurs externes très faible."
     );
   }
 
@@ -1189,7 +1209,7 @@ function diagnostic({
 
   return {
     version:
-      "4.0.0",
+      VERSION,
 
     marketState:
       state,
@@ -1346,10 +1366,15 @@ export default async function handler(
       dex?.pair
     );
 
-  /*
-   * Pump.fun = source principale
-   * tant qu'il n'existe pas de paire DEX.
-   */
+  const dexAgeHours =
+    ageHoursFromTimestamp(
+      dMetrics?.pairCreatedAt
+    );
+
+  const dexMaturity =
+    maturityScoreFromAge(
+      dexAgeHours
+    );
 
   const metrics =
     dMetrics
@@ -1362,11 +1387,11 @@ export default async function handler(
 
           maturity:
             pMetrics?.maturity ??
-            null,
+            dexMaturity,
 
           ageHours:
             pMetrics?.ageHours ??
-            null
+            dexAgeHours
         }
       : {
           liquidityUsd:
@@ -1402,25 +1427,28 @@ export default async function handler(
             null
         };
 
-  /*
-   * Activity V3 est prioritaire.
-   * Un zéro reste un zéro.
-   */
-
   if (
     activity.available
   ) {
-    metrics.volume24hUsd =
-      activity.volume24hUsd;
+    if (activity.volume24hUsd !== null) {
+      metrics.volume24hUsd =
+        activity.volume24hUsd;
+    }
 
-    metrics.transactions24h =
-      activity.transactions24h;
+    if (activity.transactions24h !== null) {
+      metrics.transactions24h =
+        activity.transactions24h;
+    }
 
-    metrics.buys24h =
-      activity.buys24h;
+    if (activity.buys24h !== null) {
+      metrics.buys24h =
+        activity.buys24h;
+    }
 
-    metrics.sells24h =
-      activity.sells24h;
+    if (activity.sells24h !== null) {
+      metrics.sells24h =
+        activity.sells24h;
+    }
   }
 
   const liquidity =
@@ -1446,13 +1474,19 @@ export default async function handler(
   let securityFinal = null;
 
   if (
-    baseSecurity !== null
+    baseSecurity !== null &&
+    extensionSecurity !== null
   ) {
     securityFinal =
       clamp(
         baseSecurity * 0.8 +
         extensionSecurity * 0.2
       );
+  } else if (
+    baseSecurity !== null
+  ) {
+    securityFinal =
+      baseSecurity;
   }
 
   const activityValue =
@@ -1491,12 +1525,6 @@ export default async function handler(
       volume:
         volumeValue
     });
-
-  /*
-   * Global score :
-   * structure 70 %
-   * marché 30 %
-   */
 
   let globalScore = null;
 
@@ -1908,7 +1936,7 @@ export default async function handler(
         "PROFITX_ANALYZER",
 
       version:
-        "4.0.0",
+        VERSION,
 
       mint,
 
@@ -2118,7 +2146,7 @@ export default async function handler(
         activity.volumeStatus ===
           "ZERO_ACTIVITY"
           ? "Aucun mouvement économique détecté sur les dernières 24 heures. Les valeurs 0 correspondent à une absence d'activité réelle."
-          : "Analyse ProfitX 4.0 basée prioritairement sur les données on-chain et les modules ProfitX."
+          : `Analyse ProfitX ${VERSION} basée prioritairement sur les données on-chain et les modules ProfitX.`
     }
   );
 }

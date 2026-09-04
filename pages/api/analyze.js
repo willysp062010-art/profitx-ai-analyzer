@@ -11,7 +11,7 @@ const DEFAULT_RPC =
   "https://api.mainnet-beta.solana.com";
 
 const TIMEOUT = 12000;
-const VERSION = "4.2.0";
+const VERSION = "4.3.0";
 
 /* =========================================================
    BASIC HELPERS
@@ -792,7 +792,7 @@ function volumeScore(value) {
 }
 
 /* =========================================================
-   DISTRIBUTION SCORE — CORRIGÉ
+   DISTRIBUTION SCORE
 ========================================================= */
 
 function distributionScore(holders) {
@@ -1059,12 +1059,13 @@ function marketScore({
 ========================================================= */
 
 function confidenceScore({
-  pump,
-  activity,
   holders,
   security,
   token2022,
-  liquidity
+  liquidity,
+  volume24h,
+  transactions24h,
+  maturity
 }) {
   let points = 0;
   let max = 0;
@@ -1077,12 +1078,30 @@ function confidenceScore({
     }
   }
 
-  check(Boolean(pump));
-  check(activity.available);
-  check(Boolean(holders));
-  check(Boolean(security));
-  check(Boolean(token2022));
+  const hasMarketActivityData =
+    volume24h !== null ||
+    transactions24h !== null;
+
+  const hasHolderData =
+    num(holders?.uniqueOwners) !== null ||
+    num(holders?.externalHolders) !== null ||
+    num(holders?.distribution?.externalTop1Percent) !== null ||
+    num(holders?.distribution?.externalTop10Percent) !== null;
+
+  const hasSecurityData =
+    num(security?.securityScore) !== null;
+
+  const hasTokenStandardData =
+    token2022 !== null &&
+    token2022?.isToken2022 !== undefined &&
+    token2022?.isToken2022 !== null;
+
   check(liquidity !== null);
+  check(hasMarketActivityData);
+  check(maturity !== null);
+  check(hasHolderData);
+  check(hasSecurityData);
+  check(hasTokenStandardData);
 
   return max
     ? Math.round(
@@ -1155,12 +1174,22 @@ function diagnostic({
     );
   }
 
+  const hasDistributionData =
+    distributionScore(holders) !== null;
+
   if (
     structural.total !== null &&
-    structural.total >= 70
+    structural.total >= 70 &&
+    hasDistributionData
   ) {
     positives.push(
       "Structure globalement solide selon les données disponibles."
+    );
+  }
+
+  if (!hasDistributionData) {
+    warnings.push(
+      "Distribution des détenteurs indisponible."
     );
   }
 
@@ -1427,6 +1456,11 @@ export default async function handler(
             null
         };
 
+  /*
+   * Activity V3 est prioritaire.
+   * Un zéro reste un zéro.
+   */
+
   if (
     activity.available
   ) {
@@ -1546,28 +1580,45 @@ export default async function handler(
 
   const confidence =
     confidenceScore({
-      pump:
-        pump?.coin,
-
-      activity,
-
       holders,
 
       security,
 
       token2022,
 
-      liquidity
+      liquidity,
+
+      volume24h:
+        num(metrics.volume24hUsd),
+
+      transactions24h:
+        num(metrics.transactions24h),
+
+      maturity
     });
 
+  const hasDexMarket =
+    !!dMetrics &&
+    (
+      num(dMetrics?.liquidityUsd) !== null ||
+      num(dMetrics?.volume24hUsd) !== null ||
+      num(dMetrics?.priceUsd) !== null
+    );
+
+  const hasRealPumpBondingCurve =
+    pump?.coin?.complete === false &&
+    !hasDexMarket &&
+    (
+      num(pump?.coin?.virtual_sol_reserves) !== null ||
+      num(pump?.coin?.virtual_token_reserves) !== null
+    );
+
   const status =
-    pump?.coin?.complete ===
-      true
+    pump?.coin?.complete === true
       ? "GRADUATED"
-      : pump?.coin?.complete ===
-          false
+      : hasRealPumpBondingCurve
         ? "BONDING_CURVE"
-        : dMetrics
+        : hasDexMarket
           ? "VALID"
           : "NO_MARKET";
 
@@ -1614,9 +1665,19 @@ export default async function handler(
     );
   }
 
-  if (!holders) {
+  const hasHolderCountData =
+    num(holders?.uniqueOwners) !== null ||
+    num(holders?.externalHolders) !== null;
+
+  if (!hasHolderCountData) {
     missingData.push(
       "holders"
+    );
+  }
+
+  if (distribution === null) {
+    missingData.push(
+      "distribution"
     );
   }
 

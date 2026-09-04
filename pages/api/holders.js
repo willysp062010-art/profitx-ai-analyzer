@@ -1,11 +1,7 @@
-const DEFAULT_RPC =
-  "https://api.mainnet-beta.solana.com";
+const DEFAULT_RPC = "https://api.mainnet-beta.solana.com";
 
-const PUMP_COIN_URL =
-  "https://frontend-api-v3.pump.fun/coins-v2";
-
-const RUGCHECK_URL =
-  "https://api.rugcheck.xyz/v1/tokens";
+const PUMP_COIN_URL = "https://frontend-api-v3.pump.fun/coins-v2";
+const RUGCHECK_URL = "https://api.rugcheck.xyz/v1/tokens";
 
 const TOKEN_PROGRAM_ID =
   "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
@@ -14,7 +10,7 @@ const TOKEN_2022_PROGRAM_ID =
   "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
 
 const REQUEST_TIMEOUT_MS = 15000;
-const VERSION = "2.1.0";
+const VERSION = "2.1.1";
 
 /* =========================================================
    RESPONSE / VALIDATION
@@ -22,11 +18,7 @@ const VERSION = "2.1.0";
 
 function json(res, status, body) {
   res.setHeader("Cache-Control", "no-store");
-  res.setHeader(
-    "Content-Type",
-    "application/json; charset=utf-8"
-  );
-
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
   return res.status(status).json(body);
 }
 
@@ -48,10 +40,7 @@ function num(value) {
   }
 
   const n = Number(value);
-
-  return Number.isFinite(n)
-    ? n
-    : null;
+  return Number.isFinite(n) ? n : null;
 }
 
 function normalizeAddress(value) {
@@ -60,66 +49,41 @@ function normalizeAddress(value) {
   }
 
   const trimmed = value.trim();
-
-  return isValidSolanaAddress(trimmed)
-    ? trimmed
-    : null;
+  return isValidSolanaAddress(trimmed) ? trimmed : null;
 }
 
 /* =========================================================
    FETCH / RPC
 ========================================================= */
 
-async function fetchJson(
-  url,
-  options = {}
-) {
-  const controller =
-    new AbortController();
-
-  const timeout =
-    setTimeout(
-      () => controller.abort(),
-      REQUEST_TIMEOUT_MS
-    );
+async function fetchJson(url, options = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   try {
-    const response =
-      await fetch(url, {
-        ...options,
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        Accept: "application/json",
+        ...(options.headers || {}),
+      },
+    });
 
-        signal:
-          controller.signal,
-
-        headers: {
-          Accept:
-            "application/json",
-
-          ...(options.headers || {})
-        }
-      });
-
-    const text =
-      await response.text();
-
+    const text = await response.text();
     let data = null;
 
     if (text) {
       try {
-        data =
-          JSON.parse(text);
+        data = JSON.parse(text);
       } catch {
-        throw new Error(
-          `Réponse JSON invalide (${response.status}).`
-        );
+        throw new Error(`Réponse JSON invalide (${response.status}).`);
       }
     }
 
     if (!response.ok) {
       throw new Error(
-        data?.error ||
-        data?.message ||
-        `HTTP ${response.status}`
+        data?.error || data?.message || `HTTP ${response.status}`
       );
     }
 
@@ -129,104 +93,63 @@ async function fetchJson(
   }
 }
 
-async function rpcCall(
-  rpcUrl,
-  method,
-  params
-) {
-  const data =
-    await fetchJson(
-      rpcUrl,
-      {
-        method: "POST",
-
-        headers: {
-          "Content-Type":
-            "application/json"
-        },
-
-        body:
-          JSON.stringify({
-            jsonrpc: "2.0",
-
-            id:
-              "profitx-holders-v2-1",
-
-            method,
-
-            params
-          })
-      }
-    );
+async function rpcCall(rpcUrl, method, params) {
+  const data = await fetchJson(rpcUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: "profitx-holders-v2-1-1",
+      method,
+      params,
+    }),
+  });
 
   if (data?.error) {
-    throw new Error(
-      data.error.message ||
-      "Solana RPC error"
-    );
+    throw new Error(data.error.message || "Solana RPC error");
   }
 
-  return (
-    data?.result ??
-    null
-  );
+  return data?.result ?? null;
 }
 
 /* =========================================================
    EXTERNAL SOURCES
 ========================================================= */
 
-async function getPumpCoin(
-  mint
-) {
+async function getPumpCoin(mint) {
   try {
-    const data =
-      await fetchJson(
-        `${PUMP_COIN_URL}/${encodeURIComponent(
-          mint
-        )}`
-      );
+    const data = await fetchJson(
+      `${PUMP_COIN_URL}/${encodeURIComponent(mint)}`
+    );
 
     return {
       ok: true,
-
-      data:
-        data?.data ||
-        data
+      data: data?.data || data,
     };
   } catch {
     return {
       ok: false,
-      data: null
+      data: null,
     };
   }
 }
 
-async function getRugCheckReport(
-  mint
-) {
+async function getRugCheckReport(mint) {
   try {
-    const data =
-      await fetchJson(
-        `${RUGCHECK_URL}/${encodeURIComponent(
-          mint
-        )}/report`
-      );
+    const data = await fetchJson(
+      `${RUGCHECK_URL}/${encodeURIComponent(mint)}/report`
+    );
 
     return {
-      ok:
-        Boolean(
-          data &&
-          typeof data ===
-            "object"
-        ),
-
-      data
+      ok: Boolean(data && typeof data === "object"),
+      data,
     };
   } catch {
     return {
       ok: false,
-      data: null
+      data: null,
     };
   }
 }
@@ -235,16 +158,9 @@ async function getRugCheckReport(
    BINARY HELPERS
 ========================================================= */
 
-function base64ToBytes(
-  base64
-) {
+function base64ToBytes(base64) {
   try {
-    return Uint8Array.from(
-      Buffer.from(
-        base64,
-        "base64"
-      )
-    );
+    return Uint8Array.from(Buffer.from(base64, "base64"));
   } catch {
     return null;
   }
@@ -253,13 +169,8 @@ function base64ToBytes(
 const BASE58_ALPHABET =
   "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
-function bytesToBase58(
-  bytes
-) {
-  if (
-    !bytes ||
-    bytes.length === 0
-  ) {
+function bytesToBase58(bytes) {
+  if (!bytes || bytes.length === 0) {
     return null;
   }
 
@@ -268,226 +179,110 @@ function bytesToBase58(
   for (const byte of bytes) {
     let carry = byte;
 
-    for (
-      let i = 0;
-      i < digits.length;
-      i++
-    ) {
-      const value =
-        digits[i] *
-          256 +
-        carry;
-
-      digits[i] =
-        value % 58;
-
-      carry =
-        Math.floor(
-          value / 58
-        );
+    for (let i = 0; i < digits.length; i++) {
+      const value = digits[i] * 256 + carry;
+      digits[i] = value % 58;
+      carry = Math.floor(value / 58);
     }
 
-    while (
-      carry > 0
-    ) {
-      digits.push(
-        carry % 58
-      );
-
-      carry =
-        Math.floor(
-          carry / 58
-        );
+    while (carry > 0) {
+      digits.push(carry % 58);
+      carry = Math.floor(carry / 58);
     }
   }
 
   let result = "";
 
-  for (
-    let i = 0;
-    i < bytes.length &&
-    bytes[i] === 0;
-    i++
-  ) {
+  for (let i = 0; i < bytes.length && bytes[i] === 0; i++) {
     result += "1";
   }
 
-  for (
-    let i =
-      digits.length - 1;
-    i >= 0;
-    i--
-  ) {
-    result +=
-      BASE58_ALPHABET[
-        digits[i]
-      ];
+  for (let i = digits.length - 1; i >= 0; i--) {
+    result += BASE58_ALPHABET[digits[i]];
   }
 
   return result;
 }
 
-function readU64LE(
-  bytes,
-  offset
-) {
-  if (
-    !bytes ||
-    offset + 8 >
-      bytes.length
-  ) {
+function readU64LE(bytes, offset) {
+  if (!bytes || offset + 8 > bytes.length) {
     return null;
   }
 
   let value = 0n;
 
-  for (
-    let i = 0;
-    i < 8;
-    i++
-  ) {
-    value +=
-      BigInt(
-        bytes[
-          offset + i
-        ]
-      ) <<
-      (
-        8n *
-        BigInt(i)
-      );
+  for (let i = 0; i < 8; i++) {
+    value += BigInt(bytes[offset + i]) << (8n * BigInt(i));
   }
 
   return value;
 }
 
-function percentage(
-  amount,
-  supply
-) {
-  if (
-    supply <= 0n ||
-    amount <= 0n
-  ) {
+function percentage(amount, supply) {
+  if (supply <= 0n || amount <= 0n) {
     return 0;
   }
 
-  const scaled =
-    (
-      amount *
-      1000000n
-    ) /
-    supply;
-
-  return (
-    Number(scaled) /
-    10000
-  );
+  const scaled = (amount * 1000000n) / supply;
+  return Number(scaled) / 10000;
 }
 
 /* =========================================================
    PUMP NORMALIZATION
 ========================================================= */
 
-function collectAddresses(
-  object,
-  keys
-) {
-  const result =
-    new Set();
+function collectAddresses(object, keys) {
+  const result = new Set();
 
-  if (
-    !object ||
-    typeof object !==
-      "object"
-  ) {
+  if (!object || typeof object !== "object") {
     return result;
   }
 
-  for (
-    const key of keys
-  ) {
-    const address =
-      normalizeAddress(
-        object[key]
-      );
+  for (const key of keys) {
+    const address = normalizeAddress(object[key]);
 
     if (address) {
-      result.add(
-        address
-      );
+      result.add(address);
     }
   }
 
   return result;
 }
 
-function normalizePumpData(
-  raw,
-  mint
-) {
-  const data =
-    raw &&
-    typeof raw ===
-      "object"
-      ? raw
-      : {};
+function normalizePumpData(raw, mint) {
+  const data = raw && typeof raw === "object" ? raw : {};
 
-  const bondingCurve =
-    collectAddresses(
-      data,
-      [
-        "bonding_curve",
-        "bondingCurve"
-      ]
-    );
+  const bondingCurve = collectAddresses(data, [
+    "bonding_curve",
+    "bondingCurve",
+  ]);
 
-  const associatedBondingCurve =
-    collectAddresses(
-      data,
-      [
-        "associated_bonding_curve",
-        "associatedBondingCurve"
-      ]
-    );
+  const associatedBondingCurve = collectAddresses(data, [
+    "associated_bonding_curve",
+    "associatedBondingCurve",
+  ]);
 
-  const creator =
-    collectAddresses(
-      data,
-      [
-        "creator",
-        "creator_address",
-        "creatorAddress"
-      ]
-    );
+  const creator = collectAddresses(data, [
+    "creator",
+    "creator_address",
+    "creatorAddress",
+  ]);
 
-  const pumpSwapPool =
-    collectAddresses(
-      data,
-      [
-        "pump_swap_pool",
-        "pumpSwapPool",
-        "pool",
-        "pool_address",
-        "poolAddress"
-      ]
-    );
+  const pumpSwapPool = collectAddresses(data, [
+    "pump_swap_pool",
+    "pumpSwapPool",
+    "pool",
+    "pool_address",
+    "poolAddress",
+  ]);
 
-  const raydiumPool =
-    collectAddresses(
-      data,
-      [
-        "raydium_pool",
-        "raydiumPool",
-        "raydium_pool_address"
-      ]
-    );
+  const raydiumPool = collectAddresses(data, [
+    "raydium_pool",
+    "raydiumPool",
+    "raydium_pool_address",
+  ]);
 
-  const complete =
-    typeof data.complete ===
-      "boolean"
-      ? data.complete
-      : null;
+  const complete = typeof data.complete === "boolean" ? data.complete : null;
 
   const detected =
     bondingCurve.size > 0 ||
@@ -499,35 +294,13 @@ function normalizePumpData(
 
   return {
     mint,
-
     detected,
-
     complete,
-
-    bondingCurve:
-      Array.from(
-        bondingCurve
-      ),
-
-    associatedBondingCurve:
-      Array.from(
-        associatedBondingCurve
-      ),
-
-    creator:
-      Array.from(
-        creator
-      ),
-
-    pumpSwapPool:
-      Array.from(
-        pumpSwapPool
-      ),
-
-    raydiumPool:
-      Array.from(
-        raydiumPool
-      ),
+    bondingCurve: Array.from(bondingCurve),
+    associatedBondingCurve: Array.from(associatedBondingCurve),
+    creator: Array.from(creator),
+    pumpSwapPool: Array.from(pumpSwapPool),
+    raydiumPool: Array.from(raydiumPool),
 
     sourceFields: {
       bondingCurve:
@@ -559,87 +332,58 @@ function normalizePumpData(
 
       complete:
         data.complete ??
-        null
-    }
+        null,
+    },
   };
 }
 
 /* =========================================================
-   ACCOUNT CLASSIFICATION
+   CLASSIFICATION
 ========================================================= */
 
 function classifyAccount({
   tokenAccount,
   owner,
-  pump
+  pump,
 }) {
   if (
-    pump
-      .associatedBondingCurve
-      .includes(
-        tokenAccount
-      )
+    pump.associatedBondingCurve.includes(tokenAccount)
   ) {
-    return (
-      "BONDING_CURVE"
-    );
+    return "BONDING_CURVE";
   }
 
   if (
-    pump.bondingCurve.includes(
-      tokenAccount
-    ) ||
-    pump.bondingCurve.includes(
-      owner
-    )
+    pump.bondingCurve.includes(tokenAccount) ||
+    pump.bondingCurve.includes(owner)
   ) {
-    return (
-      "BONDING_CURVE"
-    );
+    return "BONDING_CURVE";
   }
 
   if (
-    pump.pumpSwapPool.includes(
-      tokenAccount
-    ) ||
-    pump.pumpSwapPool.includes(
-      owner
-    )
+    pump.pumpSwapPool.includes(tokenAccount) ||
+    pump.pumpSwapPool.includes(owner)
   ) {
-    return (
-      "PUMPSWAP_POOL"
-    );
+    return "PUMPSWAP_POOL";
   }
 
   if (
-    pump.raydiumPool.includes(
-      tokenAccount
-    ) ||
-    pump.raydiumPool.includes(
-      owner
-    )
+    pump.raydiumPool.includes(tokenAccount) ||
+    pump.raydiumPool.includes(owner)
   ) {
-    return (
-      "RAYDIUM_POOL"
-    );
+    return "RAYDIUM_POOL";
   }
 
   if (
-    pump.creator.includes(
-      owner
-    )
+    pump.creator.includes(owner)
   ) {
     return "CREATOR";
   }
 
-  return (
-    "EXTERNAL_HOLDER"
-  );
+  return "EXTERNAL_HOLDER";
 }
 
 /* =========================================================
-   EXACT RPC SCAN
-   Utilisé en priorité pour les tokens Pump.fun
+   EXACT RPC DISTRIBUTION
 ========================================================= */
 
 async function exactRpcDistribution({
@@ -647,7 +391,7 @@ async function exactRpcDistribution({
   tokenProgram,
   mint,
   supply,
-  pump
+  pump,
 }) {
   const accountsResult =
     await rpcCall(
@@ -656,60 +400,47 @@ async function exactRpcDistribution({
       [
         tokenProgram,
         {
-          commitment:
-            "confirmed",
-
-          encoding:
-            "base64",
+          commitment: "confirmed",
+          encoding: "base64",
 
           filters: [
             {
               memcmp: {
                 offset: 0,
-
-                bytes:
-                  mint
-              }
-            }
+                bytes: mint,
+              },
+            },
           ],
 
           dataSlice: {
             offset: 32,
-            length: 40
-          }
-        }
+            length: 40,
+          },
+        },
       ]
     );
 
   const rawAccounts =
-    Array.isArray(
-      accountsResult
-    )
+    Array.isArray(accountsResult)
       ? accountsResult
       : [];
 
-  const decodedAccounts =
-    [];
+  const decodedAccounts = [];
 
   for (
-    const account of
-      rawAccounts
+    const account of rawAccounts
   ) {
     const encoded =
-      account?.account
-        ?.data?.[0];
+      account?.account?.data?.[0];
 
     if (
-      typeof encoded !==
-      "string"
+      typeof encoded !== "string"
     ) {
       continue;
     }
 
     const bytes =
-      base64ToBytes(
-        encoded
-      );
+      base64ToBytes(encoded);
 
     if (
       !bytes ||
@@ -720,10 +451,7 @@ async function exactRpcDistribution({
 
     const owner =
       bytesToBase58(
-        bytes.slice(
-          0,
-          32
-        )
+        bytes.slice(0, 32)
       );
 
     const amount =
@@ -741,11 +469,8 @@ async function exactRpcDistribution({
     }
 
     decodedAccounts.push({
-      tokenAccount:
-        account.pubkey,
-
+      tokenAccount: account.pubkey,
       owner,
-
       amount,
 
       category:
@@ -754,9 +479,8 @@ async function exactRpcDistribution({
             account.pubkey,
 
           owner,
-
-          pump
-        })
+          pump,
+        }),
     });
   }
 
@@ -764,8 +488,7 @@ async function exactRpcDistribution({
     new Map();
 
   for (
-    const account of
-      decodedAccounts
+    const account of decodedAccounts
   ) {
     const current =
       holderMap.get(
@@ -781,7 +504,7 @@ async function exactRpcDistribution({
           new Set(),
 
         tokenAccounts:
-          0
+          0,
       };
 
     current.amount +=
@@ -832,10 +555,7 @@ async function exactRpcDistribution({
 
   const topHolders =
     holders
-      .slice(
-        0,
-        20
-      )
+      .slice(0, 20)
       .map(
         (
           holder,
@@ -848,9 +568,7 @@ async function exactRpcDistribution({
             holder.owner,
 
           amount:
-            holder
-              .amount
-              .toString(),
+            holder.amount.toString(),
 
           percentage:
             percentage(
@@ -864,26 +582,21 @@ async function exactRpcDistribution({
             ),
 
           tokenAccounts:
-            holder
-              .tokenAccounts
+            holder.tokenAccounts,
         })
       );
 
   const externalTop1Percent =
     external[0]
       ? percentage(
-          external[0]
-            .amount,
+          external[0].amount,
           supply
         )
       : 0;
 
   const externalTop5Amount =
     external
-      .slice(
-        0,
-        5
-      )
+      .slice(0, 5)
       .reduce(
         (
           total,
@@ -891,15 +604,13 @@ async function exactRpcDistribution({
         ) =>
           total +
           holder.amount,
+
         0n
       );
 
   const externalTop10Amount =
     external
-      .slice(
-        0,
-        10
-      )
+      .slice(0, 10)
       .reduce(
         (
           total,
@@ -907,6 +618,7 @@ async function exactRpcDistribution({
         ) =>
           total +
           holder.amount,
+
         0n
       );
 
@@ -914,8 +626,7 @@ async function exactRpcDistribution({
     0n;
 
   for (
-    const account of
-      decodedAccounts
+    const account of decodedAccounts
   ) {
     observedSupply +=
       account.amount;
@@ -923,7 +634,7 @@ async function exactRpcDistribution({
 
   const unobservedSupply =
     supply >
-      observedSupply
+    observedSupply
       ? supply -
         observedSupply
       : 0n;
@@ -959,12 +670,54 @@ async function exactRpcDistribution({
         percentage(
           externalTop10Amount,
           supply
-        )
+        ),
+
+      totalTop1Percent:
+        topHolders[0]
+          ?.percentage ??
+        null,
+
+      totalTop5Percent:
+        topHolders.length
+          ? topHolders
+              .slice(0, 5)
+              .reduce(
+                (
+                  sum,
+                  holder
+                ) =>
+                  sum +
+                  (
+                    holder.percentage ||
+                    0
+                  ),
+
+                0
+              )
+          : null,
+
+      totalTop10Percent:
+        topHolders.length
+          ? topHolders
+              .slice(0, 10)
+              .reduce(
+                (
+                  sum,
+                  holder
+                ) =>
+                  sum +
+                  (
+                    holder.percentage ||
+                    0
+                  ),
+
+                0
+              )
+          : null,
     },
 
     observedSupply:
-      observedSupply
-        .toString(),
+      observedSupply.toString(),
 
     observedPercent:
       percentage(
@@ -973,8 +726,7 @@ async function exactRpcDistribution({
       ),
 
     unobservedSupply:
-      unobservedSupply
-        .toString(),
+      unobservedSupply.toString(),
 
     unobservedPercent:
       percentage(
@@ -986,13 +738,15 @@ async function exactRpcDistribution({
 
     complete:
       unobservedSupply ===
-      0n
+      0n,
   };
 }
 
 /* =========================================================
    RUGCHECK DISTRIBUTION
-   Adapté aux tokens possédant beaucoup de holders
+
+   RugCheck donne le nombre total de holders.
+   Il ne prouve pas qu'ils sont tous "externes".
 ========================================================= */
 
 function rugCheckDistribution(
@@ -1068,7 +822,7 @@ function rugCheckDistribution(
               num(
                 holder?.uiAmount ??
                 holder?.ui_amount
-              )
+              ),
           };
         }
       )
@@ -1090,50 +844,47 @@ function rugCheckDistribution(
     return null;
   }
 
-  const top1 =
-    top[0]
-      ?.percentage ??
+  const totalTop1Percent =
+    top[0]?.percentage ??
     null;
 
-  const top5 =
-    top
-      .slice(
-        0,
-        5
-      )
-      .reduce(
-        (
-          sum,
-          holder
-        ) =>
-          sum +
-          (
-            holder
-              .percentage ||
-            0
-          ),
-        0
-      );
+  const totalTop5Percent =
+    top.length
+      ? top
+          .slice(0, 5)
+          .reduce(
+            (
+              sum,
+              holder
+            ) =>
+              sum +
+              (
+                holder.percentage ||
+                0
+              ),
 
-  const top10 =
-    top
-      .slice(
-        0,
-        10
-      )
-      .reduce(
-        (
-          sum,
-          holder
-        ) =>
-          sum +
-          (
-            holder
-              .percentage ||
             0
-          ),
-        0
-      );
+          )
+      : null;
+
+  const totalTop10Percent =
+    top.length
+      ? top
+          .slice(0, 10)
+          .reduce(
+            (
+              sum,
+              holder
+            ) =>
+              sum +
+              (
+                holder.percentage ||
+                0
+              ),
+
+            0
+          )
+      : null;
 
   return {
     source:
@@ -1148,29 +899,26 @@ function rugCheckDistribution(
     uniqueOwners:
       totalHolders,
 
-    /*
-     * Pour un token non-Pump, les détenteurs
-     * sont considérés comme externes au système
-     * PROFITX/Pump.fun.
-     */
     externalHolders:
-      totalHolders,
+      null,
 
     distribution: {
       categories: [],
 
       externalTop1Percent:
-        top1,
+        null,
 
       externalTop5Percent:
-        top.length
-          ? top5
-          : null,
+        null,
 
       externalTop10Percent:
-        top.length
-          ? top10
-          : null
+        null,
+
+      totalTop1Percent,
+
+      totalTop5Percent,
+
+      totalTop10Percent,
     },
 
     observedSupply:
@@ -1187,10 +935,7 @@ function rugCheckDistribution(
 
     topHolders:
       top
-        .slice(
-          0,
-          20
-        )
+        .slice(0, 20)
         .map(
           (
             holder,
@@ -1214,16 +959,15 @@ function rugCheckDistribution(
             uiAmount:
               holder.uiAmount,
 
-            categories: [
-              "EXTERNAL_HOLDER"
-            ]
+            categories:
+              [],
           })
         ),
 
     complete:
       totalHolders !==
         null &&
-      top.length > 0
+      top.length > 0,
   };
 }
 
@@ -1251,25 +995,21 @@ export default async function handler(
         ok: false,
 
         error:
-          "Méthode non autorisée."
+          "Méthode non autorisée.",
       }
     );
   }
 
   const mint =
     req.method ===
-      "GET"
-      ? typeof req.query
-          ?.mint ===
+    "GET"
+      ? typeof req.query?.mint ===
         "string"
-        ? req.query.mint
-            .trim()
+        ? req.query.mint.trim()
         : ""
-      : typeof req.body
-          ?.mint ===
+      : typeof req.body?.mint ===
         "string"
-        ? req.body.mint
-            .trim()
+        ? req.body.mint.trim()
         : "";
 
   if (!mint) {
@@ -1280,7 +1020,7 @@ export default async function handler(
         ok: false,
 
         error:
-          "Adresse mint manquante."
+          "Adresse mint manquante.",
       }
     );
   }
@@ -1297,7 +1037,7 @@ export default async function handler(
         ok: false,
 
         error:
-          "Adresse mint Solana invalide."
+          "Adresse mint Solana invalide.",
       }
     );
   }
@@ -1308,19 +1048,11 @@ export default async function handler(
     DEFAULT_RPC;
 
   try {
-    /*
-     * On récupère en parallèle :
-     * - le compte mint
-     * - la supply
-     * - Pump.fun
-     * - RugCheck
-     */
-
     const [
       mintResult,
       supplyResult,
       pumpResult,
-      rugResult
+      rugResult,
     ] =
       await Promise.all([
         rpcCall(
@@ -1333,8 +1065,8 @@ export default async function handler(
                 "base64",
 
               commitment:
-                "confirmed"
-            }
+                "confirmed",
+            },
           ]
         ),
 
@@ -1345,8 +1077,8 @@ export default async function handler(
             mint,
             {
               commitment:
-                "confirmed"
-            }
+                "confirmed",
+            },
           ]
         ),
 
@@ -1356,7 +1088,7 @@ export default async function handler(
 
         getRugCheckReport(
           mint
-        )
+        ),
       ]);
 
     const mintAccount =
@@ -1379,7 +1111,7 @@ export default async function handler(
           mint,
 
           error:
-            "Mint introuvable sur Solana."
+            "Mint introuvable sur Solana.",
         }
       );
     }
@@ -1416,7 +1148,7 @@ export default async function handler(
           tokenProgram,
 
           error:
-            "Programme de token non pris en charge."
+            "Programme de token non pris en charge.",
         }
       );
     }
@@ -1427,8 +1159,7 @@ export default async function handler(
 
     if (
       !supplyData ||
-      typeof supplyData
-        .amount !==
+      typeof supplyData.amount !==
         "string"
     ) {
       throw new Error(
@@ -1443,19 +1174,16 @@ export default async function handler(
 
     const decimals =
       Number(
-        supplyData
-          .decimals ??
+        supplyData.decimals ??
         0
       );
 
     const supplyUi =
       num(
-        supplyData
-          .uiAmount
+        supplyData.uiAmount
       ) ??
       num(
-        supplyData
-          .uiAmountString
+        supplyData.uiAmountString
       );
 
     const pump =
@@ -1470,26 +1198,27 @@ export default async function handler(
     let rpcExactError =
       null;
 
-    /*
-     * PFX / tokens Pump.fun :
-     * priorité au scan on-chain exact.
-     */
+    /* =====================================================
+       ROUTAGE v2.1.1
+
+       TOKEN-2022 :
+       RPC exact d'abord.
+
+       SPL CLASSIQUE :
+       RugCheck d'abord pour éviter les scans géants.
+    ===================================================== */
 
     if (
-      pump.detected
+      isToken2022
     ) {
       try {
         holdersData =
           await exactRpcDistribution({
             rpcUrl,
-
             tokenProgram,
-
             mint,
-
             supply,
-
-            pump
+            pump,
           });
       } catch (
         error
@@ -1498,52 +1227,45 @@ export default async function handler(
           error?.message ||
           "Scan RPC exact indisponible.";
       }
-    }
 
-    /*
-     * Gros tokens :
-     * RugCheck évite de charger tous
-     * les comptes SPL dans Vercel.
-     */
-
-    if (
-      !holdersData &&
-      rugResult.ok
-    ) {
-      holdersData =
-        rugCheckDistribution(
-          rugResult.data
-        );
-    }
-
-    /*
-     * Dernier fallback pour un petit
-     * token SPL non-Pump.
-     */
-
-    if (
-      !holdersData &&
-      !pump.detected
-    ) {
-      try {
-        holdersData =
-          await exactRpcDistribution({
-            rpcUrl,
-
-            tokenProgram,
-
-            mint,
-
-            supply,
-
-            pump
-          });
-      } catch (
-        error
+      if (
+        !holdersData &&
+        rugResult.ok
       ) {
-        rpcExactError =
-          error?.message ||
-          "Scan RPC exact indisponible.";
+        holdersData =
+          rugCheckDistribution(
+            rugResult.data
+          );
+      }
+    } else {
+      if (
+        rugResult.ok
+      ) {
+        holdersData =
+          rugCheckDistribution(
+            rugResult.data
+          );
+      }
+
+      if (
+        !holdersData
+      ) {
+        try {
+          holdersData =
+            await exactRpcDistribution({
+              rpcUrl,
+              tokenProgram,
+              mint,
+              supply,
+              pump,
+            });
+        } catch (
+          error
+        ) {
+          rpcExactError =
+            error?.message ||
+            "Scan RPC exact indisponible.";
+        }
       }
     }
 
@@ -1581,17 +1303,20 @@ export default async function handler(
             "Données holders indisponibles.",
 
           diagnostics: {
-            rugCheckUsed:
-              false,
-
             rugCheckAvailable:
               rugResult.ok,
+
+            rugCheckUsed:
+              false,
 
             pumpDetected:
               pump.detected,
 
-            rpcExactError
-          }
+            rpcExactUsed:
+              false,
+
+            rpcExactError,
+          },
         }
       );
     }
@@ -1626,18 +1351,12 @@ export default async function handler(
         decimals,
 
         supply:
-          supply
-            .toString(),
+          supply.toString(),
 
         supplyUi,
 
         source:
-          holdersData
-            .source,
-
-        /* -----------------------------------------------
-           PUMP.FUN
-        ----------------------------------------------- */
+          holdersData.source,
 
         pumpFun: {
           detected:
@@ -1650,32 +1369,23 @@ export default async function handler(
             pump.complete,
 
           bondingCurve:
-            pump
-              .bondingCurve,
+            pump.bondingCurve,
 
           associatedBondingCurve:
-            pump
-              .associatedBondingCurve,
+            pump.associatedBondingCurve,
 
           creator:
             pump.creator,
 
           pumpSwapPool:
-            pump
-              .pumpSwapPool,
+            pump.pumpSwapPool,
 
           raydiumPool:
-            pump
-              .raydiumPool,
+            pump.raydiumPool,
 
           sourceFields:
-            pump
-              .sourceFields
+            pump.sourceFields,
         },
-
-        /* -----------------------------------------------
-           HOLDERS
-        ----------------------------------------------- */
 
         tokenAccountsScanned:
           holdersData
@@ -1692,10 +1402,6 @@ export default async function handler(
         externalHolders:
           holdersData
             .externalHolders,
-
-        /* -----------------------------------------------
-           DISTRIBUTION
-        ----------------------------------------------- */
 
         distribution: {
           categories:
@@ -1720,12 +1426,26 @@ export default async function handler(
             holdersData
               .distribution
               ?.externalTop10Percent ??
-            null
-        },
+            null,
 
-        /* -----------------------------------------------
-           OBSERVED SUPPLY
-        ----------------------------------------------- */
+          totalTop1Percent:
+            holdersData
+              .distribution
+              ?.totalTop1Percent ??
+            null,
+
+          totalTop5Percent:
+            holdersData
+              .distribution
+              ?.totalTop5Percent ??
+            null,
+
+          totalTop10Percent:
+            holdersData
+              .distribution
+              ?.totalTop10Percent ??
+            null,
+        },
 
         observedSupply:
           holdersData
@@ -1743,17 +1463,9 @@ export default async function handler(
           holdersData
             .unobservedPercent,
 
-        /* -----------------------------------------------
-           TOP HOLDERS
-        ----------------------------------------------- */
-
         topHolders:
           holdersData
             .topHolders,
-
-        /* -----------------------------------------------
-           DATA QUALITY
-        ----------------------------------------------- */
 
         dataQuality: {
           supply:
@@ -1772,43 +1484,47 @@ export default async function handler(
             holdersData
               .distribution
               ?.externalTop10Percent !==
+              null ||
+            holdersData
+              .distribution
+              ?.totalTop1Percent !==
+              null ||
+            holdersData
+              .distribution
+              ?.totalTop10Percent !==
               null,
+
+          externalClassification:
+            holdersData.source ===
+            "rpc_exact",
 
           pumpFun:
             pump.detected,
 
           complete:
-            holdersData
-              .complete,
+            holdersData.complete,
 
           source:
-            holdersData
-              .source
+            holdersData.source,
         },
-
-        /* -----------------------------------------------
-           DIAGNOSTICS
-        ----------------------------------------------- */
 
         diagnostics: {
           rugCheckAvailable:
             rugResult.ok,
 
           rugCheckUsed:
-            holdersData
-              .source ===
+            holdersData.source ===
             "rugcheck",
 
           pumpDetected:
             pump.detected,
 
           rpcExactUsed:
-            holdersData
-              .source ===
+            holdersData.source ===
             "rpc_exact",
 
-          rpcExactError
-        }
+          rpcExactError,
+        },
       }
     );
   } catch (
@@ -1828,7 +1544,7 @@ export default async function handler(
 
         error:
           error?.message ||
-          "Erreur lors de l'analyse des holders."
+          "Erreur lors de l'analyse des holders.",
       }
     );
   }

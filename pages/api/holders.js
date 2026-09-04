@@ -10,7 +10,10 @@ const TOKEN_2022_PROGRAM_ID =
   "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
 
 const REQUEST_TIMEOUT_MS = 15000;
-const VERSION = "2.1.1";
+const VERSION = "2.1.2";
+
+const BASE58_ALPHABET =
+  "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
 /* =========================================================
    RESPONSE / VALIDATION
@@ -19,13 +22,80 @@ const VERSION = "2.1.1";
 function json(res, status, body) {
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("Content-Type", "application/json; charset=utf-8");
-  return res.status(status).json(body);
+
+  return res
+    .status(status)
+    .json(body);
+}
+
+function base58ToBytes(value) {
+  if (
+    typeof value !== "string" ||
+    !value.length
+  ) {
+    return null;
+  }
+
+  let number = 0n;
+
+  for (const char of value) {
+    const index =
+      BASE58_ALPHABET.indexOf(char);
+
+    if (index < 0) {
+      return null;
+    }
+
+    number =
+      number * 58n +
+      BigInt(index);
+  }
+
+  const decoded = [];
+
+  while (number > 0n) {
+    decoded.push(
+      Number(number & 255n)
+    );
+
+    number >>= 8n;
+  }
+
+  decoded.reverse();
+
+  let leadingZeroes = 0;
+
+  while (
+    leadingZeroes < value.length &&
+    value[leadingZeroes] === "1"
+  ) {
+    leadingZeroes += 1;
+  }
+
+  return Uint8Array.from([
+    ...new Array(
+      leadingZeroes
+    ).fill(0),
+    ...decoded,
+  ]);
 }
 
 function isValidSolanaAddress(value) {
-  return (
-    typeof value === "string" &&
-    /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value)
+  if (
+    typeof value !== "string" ||
+    !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(
+      value
+    )
+  ) {
+    return false;
+  }
+
+  const decoded =
+    base58ToBytes(value);
+
+  return Boolean(
+    decoded &&
+    decoded.length === 32
   );
 }
 
@@ -40,50 +110,87 @@ function num(value) {
   }
 
   const n = Number(value);
-  return Number.isFinite(n) ? n : null;
+
+  return Number.isFinite(n)
+    ? n
+    : null;
 }
 
 function normalizeAddress(value) {
-  if (typeof value !== "string") {
+  if (
+    typeof value !== "string"
+  ) {
     return null;
   }
 
-  const trimmed = value.trim();
-  return isValidSolanaAddress(trimmed) ? trimmed : null;
+  const trimmed =
+    value.trim();
+
+  return isValidSolanaAddress(
+    trimmed
+  )
+    ? trimmed
+    : null;
 }
 
 /* =========================================================
    FETCH / RPC
 ========================================================= */
 
-async function fetchJson(url, options = {}) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+async function fetchJson(
+  url,
+  options = {}
+) {
+  const controller =
+    new AbortController();
+
+  const timeout =
+    setTimeout(
+      () =>
+        controller.abort(),
+      REQUEST_TIMEOUT_MS
+    );
 
   try {
-    const response = await fetch(url, {
-      ...options,
-      signal: controller.signal,
-      headers: {
-        Accept: "application/json",
-        ...(options.headers || {}),
-      },
-    });
+    const response =
+      await fetch(
+        url,
+        {
+          ...options,
 
-    const text = await response.text();
+          signal:
+            controller.signal,
+
+          headers: {
+            Accept:
+              "application/json",
+
+            ...(options.headers || {}),
+          },
+        }
+      );
+
+    const text =
+      await response.text();
+
     let data = null;
 
     if (text) {
       try {
-        data = JSON.parse(text);
+        data =
+          JSON.parse(text);
       } catch {
-        throw new Error(`Réponse JSON invalide (${response.status}).`);
+        throw new Error(
+          `Réponse JSON invalide (${response.status}).`
+        );
       }
     }
 
     if (!response.ok) {
       throw new Error(
-        data?.error || data?.message || `HTTP ${response.status}`
+        data?.error ||
+        data?.message ||
+        `HTTP ${response.status}`
       );
     }
 
@@ -93,62 +200,182 @@ async function fetchJson(url, options = {}) {
   }
 }
 
-async function rpcCall(rpcUrl, method, params) {
-  const data = await fetchJson(rpcUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: "profitx-holders-v2-1-1",
-      method,
-      params,
-    }),
-  });
+async function rpcCall(
+  rpcUrl,
+  method,
+  params
+) {
+  const data =
+    await fetchJson(
+      rpcUrl,
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+
+        body:
+          JSON.stringify({
+            jsonrpc: "2.0",
+
+            id:
+              "profitx-holders-v2-1-2",
+
+            method,
+            params,
+          }),
+      }
+    );
 
   if (data?.error) {
-    throw new Error(data.error.message || "Solana RPC error");
+    throw new Error(
+      data.error.message ||
+      "Solana RPC error"
+    );
   }
 
-  return data?.result ?? null;
+  return (
+    data?.result ??
+    null
+  );
 }
 
 /* =========================================================
    EXTERNAL SOURCES
 ========================================================= */
 
-async function getPumpCoin(mint) {
+function extractMintFromObject(
+  data
+) {
+  if (
+    !data ||
+    typeof data !== "object"
+  ) {
+    return null;
+  }
+
+  const candidates = [
+    data.mint,
+    data.tokenMint,
+    data.token_mint,
+    data.coinMint,
+    data.coin_mint,
+    data.address,
+  ];
+
+  for (
+    const candidate of
+    candidates
+  ) {
+    const address =
+      normalizeAddress(
+        candidate
+      );
+
+    if (address) {
+      return address;
+    }
+  }
+
+  return null;
+}
+
+async function getPumpCoin(
+  mint
+) {
   try {
-    const data = await fetchJson(
-      `${PUMP_COIN_URL}/${encodeURIComponent(mint)}`
-    );
+    const response =
+      await fetchJson(
+        `${PUMP_COIN_URL}/${encodeURIComponent(
+          mint
+        )}`
+      );
+
+    const data =
+      response?.data ||
+      response;
+
+    const returnedMint =
+      extractMintFromObject(
+        data
+      );
+
+    const verified =
+      returnedMint === mint;
 
     return {
       ok: true,
-      data: data?.data || data,
+
+      verified,
+
+      returnedMint,
+
+      data:
+        verified
+          ? data
+          : null,
     };
   } catch {
     return {
       ok: false,
+
+      verified: false,
+
+      returnedMint: null,
+
       data: null,
     };
   }
 }
 
-async function getRugCheckReport(mint) {
+async function getRugCheckReport(
+  mint
+) {
   try {
-    const data = await fetchJson(
-      `${RUGCHECK_URL}/${encodeURIComponent(mint)}/report`
-    );
+    const data =
+      await fetchJson(
+        `${RUGCHECK_URL}/${encodeURIComponent(
+          mint
+        )}/report`
+      );
+
+    const reportedMint =
+      extractMintFromObject(
+        data
+      );
+
+    const identityValid =
+      !reportedMint ||
+      reportedMint === mint;
 
     return {
-      ok: Boolean(data && typeof data === "object"),
-      data,
+      ok:
+        Boolean(
+          data &&
+          typeof data ===
+            "object" &&
+          identityValid
+        ),
+
+      identityValid,
+
+      reportedMint,
+
+      data:
+        identityValid
+          ? data
+          : null,
     };
   } catch {
     return {
       ok: false,
+
+      identityValid: false,
+
+      reportedMint: null,
+
       data: null,
     };
   }
@@ -158,180 +385,360 @@ async function getRugCheckReport(mint) {
    BINARY HELPERS
 ========================================================= */
 
-function base64ToBytes(base64) {
+function base64ToBytes(
+  base64
+) {
   try {
-    return Uint8Array.from(Buffer.from(base64, "base64"));
+    return Uint8Array.from(
+      Buffer.from(
+        base64,
+        "base64"
+      )
+    );
   } catch {
     return null;
   }
 }
 
-const BASE58_ALPHABET =
-  "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-
 function bytesToBase58(bytes) {
-  if (!bytes || bytes.length === 0) {
+  if (
+    !bytes ||
+    bytes.length === 0
+  ) {
     return null;
   }
 
   let digits = [0];
 
-  for (const byte of bytes) {
+  for (
+    const byte of bytes
+  ) {
     let carry = byte;
 
-    for (let i = 0; i < digits.length; i++) {
-      const value = digits[i] * 256 + carry;
-      digits[i] = value % 58;
-      carry = Math.floor(value / 58);
+    for (
+      let i = 0;
+      i < digits.length;
+      i++
+    ) {
+      const value =
+        digits[i] * 256 +
+        carry;
+
+      digits[i] =
+        value % 58;
+
+      carry =
+        Math.floor(
+          value / 58
+        );
     }
 
-    while (carry > 0) {
-      digits.push(carry % 58);
-      carry = Math.floor(carry / 58);
+    while (
+      carry > 0
+    ) {
+      digits.push(
+        carry % 58
+      );
+
+      carry =
+        Math.floor(
+          carry / 58
+        );
     }
   }
 
   let result = "";
 
-  for (let i = 0; i < bytes.length && bytes[i] === 0; i++) {
+  for (
+    let i = 0;
+    i < bytes.length &&
+    bytes[i] === 0;
+    i++
+  ) {
     result += "1";
   }
 
-  for (let i = digits.length - 1; i >= 0; i--) {
-    result += BASE58_ALPHABET[digits[i]];
+  for (
+    let i =
+      digits.length - 1;
+    i >= 0;
+    i--
+  ) {
+    result +=
+      BASE58_ALPHABET[
+        digits[i]
+      ];
   }
 
   return result;
 }
 
-function readU64LE(bytes, offset) {
-  if (!bytes || offset + 8 > bytes.length) {
+function readU64LE(
+  bytes,
+  offset
+) {
+  if (
+    !bytes ||
+    offset + 8 >
+      bytes.length
+  ) {
     return null;
   }
 
   let value = 0n;
 
-  for (let i = 0; i < 8; i++) {
-    value += BigInt(bytes[offset + i]) << (8n * BigInt(i));
+  for (
+    let i = 0;
+    i < 8;
+    i++
+  ) {
+    value +=
+      BigInt(
+        bytes[
+          offset + i
+        ]
+      ) <<
+      (
+        8n *
+        BigInt(i)
+      );
   }
 
   return value;
 }
 
-function percentage(amount, supply) {
-  if (supply <= 0n || amount <= 0n) {
+function percentage(
+  amount,
+  supply
+) {
+  if (
+    supply <= 0n ||
+    amount <= 0n
+  ) {
     return 0;
   }
 
-  const scaled = (amount * 1000000n) / supply;
-  return Number(scaled) / 10000;
+  const scaled =
+    (
+      amount *
+      1000000n
+    ) /
+    supply;
+
+  return (
+    Number(scaled) /
+    10000
+  );
 }
 
 /* =========================================================
    PUMP NORMALIZATION
 ========================================================= */
 
-function collectAddresses(object, keys) {
-  const result = new Set();
+function collectAddresses(
+  object,
+  keys
+) {
+  const result =
+    new Set();
 
-  if (!object || typeof object !== "object") {
+  if (
+    !object ||
+    typeof object !==
+      "object"
+  ) {
     return result;
   }
 
-  for (const key of keys) {
-    const address = normalizeAddress(object[key]);
+  for (
+    const key of keys
+  ) {
+    const address =
+      normalizeAddress(
+        object[key]
+      );
 
     if (address) {
-      result.add(address);
+      result.add(
+        address
+      );
     }
   }
 
   return result;
 }
 
-function normalizePumpData(raw, mint) {
-  const data = raw && typeof raw === "object" ? raw : {};
+function normalizePumpData(
+  raw,
+  mint
+) {
+  const data =
+    raw &&
+    typeof raw === "object"
+      ? raw
+      : {};
 
-  const bondingCurve = collectAddresses(data, [
-    "bonding_curve",
-    "bondingCurve",
-  ]);
+  const returnedMint =
+    extractMintFromObject(
+      data
+    );
 
-  const associatedBondingCurve = collectAddresses(data, [
-    "associated_bonding_curve",
-    "associatedBondingCurve",
-  ]);
+  const identityVerified =
+    returnedMint === mint;
 
-  const creator = collectAddresses(data, [
-    "creator",
-    "creator_address",
-    "creatorAddress",
-  ]);
+  const safeData =
+    identityVerified
+      ? data
+      : {};
 
-  const pumpSwapPool = collectAddresses(data, [
-    "pump_swap_pool",
-    "pumpSwapPool",
-    "pool",
-    "pool_address",
-    "poolAddress",
-  ]);
+  const bondingCurve =
+    collectAddresses(
+      safeData,
+      [
+        "bonding_curve",
+        "bondingCurve",
+      ]
+    );
 
-  const raydiumPool = collectAddresses(data, [
-    "raydium_pool",
-    "raydiumPool",
-    "raydium_pool_address",
-  ]);
+  const associatedBondingCurve =
+    collectAddresses(
+      safeData,
+      [
+        "associated_bonding_curve",
+        "associatedBondingCurve",
+      ]
+    );
 
-  const complete = typeof data.complete === "boolean" ? data.complete : null;
+  const creator =
+    collectAddresses(
+      safeData,
+      [
+        "creator",
+        "creator_address",
+        "creatorAddress",
+      ]
+    );
+
+  const pumpSwapPool =
+    collectAddresses(
+      safeData,
+      [
+        "pump_swap_pool",
+        "pumpSwapPool",
+        "pool",
+        "pool_address",
+        "poolAddress",
+      ]
+    );
+
+  const raydiumPool =
+    collectAddresses(
+      safeData,
+      [
+        "raydium_pool",
+        "raydiumPool",
+        "raydium_pool_address",
+      ]
+    );
+
+  const complete =
+    typeof safeData
+      .complete ===
+      "boolean"
+      ? safeData.complete
+      : null;
 
   const detected =
-    bondingCurve.size > 0 ||
-    associatedBondingCurve.size > 0 ||
-    creator.size > 0 ||
-    pumpSwapPool.size > 0 ||
-    raydiumPool.size > 0 ||
-    complete !== null;
+    identityVerified &&
+    (
+      bondingCurve.size > 0 ||
+      associatedBondingCurve
+        .size > 0 ||
+      creator.size > 0 ||
+      pumpSwapPool.size > 0 ||
+      raydiumPool.size > 0 ||
+      complete !== null
+    );
 
   return {
     mint,
+
+    returnedMint,
+
+    identityVerified,
+
     detected,
+
     complete,
-    bondingCurve: Array.from(bondingCurve),
-    associatedBondingCurve: Array.from(associatedBondingCurve),
-    creator: Array.from(creator),
-    pumpSwapPool: Array.from(pumpSwapPool),
-    raydiumPool: Array.from(raydiumPool),
+
+    bondingCurve:
+      Array.from(
+        bondingCurve
+      ),
+
+    associatedBondingCurve:
+      Array.from(
+        associatedBondingCurve
+      ),
+
+    creator:
+      Array.from(
+        creator
+      ),
+
+    pumpSwapPool:
+      Array.from(
+        pumpSwapPool
+      ),
+
+    raydiumPool:
+      Array.from(
+        raydiumPool
+      ),
 
     sourceFields: {
+      mint:
+        returnedMint,
+
       bondingCurve:
-        data.bonding_curve ??
-        data.bondingCurve ??
+        safeData
+          .bonding_curve ??
+        safeData
+          .bondingCurve ??
         null,
 
       associatedBondingCurve:
-        data.associated_bonding_curve ??
-        data.associatedBondingCurve ??
+        safeData
+          .associated_bonding_curve ??
+        safeData
+          .associatedBondingCurve ??
         null,
 
       creator:
-        data.creator ??
-        data.creator_address ??
-        data.creatorAddress ??
+        safeData.creator ??
+        safeData
+          .creator_address ??
+        safeData
+          .creatorAddress ??
         null,
 
       pumpSwapPool:
-        data.pump_swap_pool ??
-        data.pumpSwapPool ??
-        data.pool ??
+        safeData
+          .pump_swap_pool ??
+        safeData
+          .pumpSwapPool ??
+        safeData.pool ??
         null,
 
       raydiumPool:
-        data.raydium_pool ??
-        data.raydiumPool ??
+        safeData
+          .raydium_pool ??
+        safeData
+          .raydiumPool ??
         null,
 
       complete:
-        data.complete ??
+        safeData.complete ??
         null,
     },
   };
@@ -347,34 +754,66 @@ function classifyAccount({
   pump,
 }) {
   if (
-    pump.associatedBondingCurve.includes(tokenAccount)
+    pump
+      .associatedBondingCurve
+      .includes(
+        tokenAccount
+      )
   ) {
     return "BONDING_CURVE";
   }
 
   if (
-    pump.bondingCurve.includes(tokenAccount) ||
-    pump.bondingCurve.includes(owner)
+    pump
+      .bondingCurve
+      .includes(
+        tokenAccount
+      ) ||
+    pump
+      .bondingCurve
+      .includes(
+        owner
+      )
   ) {
     return "BONDING_CURVE";
   }
 
   if (
-    pump.pumpSwapPool.includes(tokenAccount) ||
-    pump.pumpSwapPool.includes(owner)
+    pump
+      .pumpSwapPool
+      .includes(
+        tokenAccount
+      ) ||
+    pump
+      .pumpSwapPool
+      .includes(
+        owner
+      )
   ) {
     return "PUMPSWAP_POOL";
   }
 
   if (
-    pump.raydiumPool.includes(tokenAccount) ||
-    pump.raydiumPool.includes(owner)
+    pump
+      .raydiumPool
+      .includes(
+        tokenAccount
+      ) ||
+    pump
+      .raydiumPool
+      .includes(
+        owner
+      )
   ) {
     return "RAYDIUM_POOL";
   }
 
   if (
-    pump.creator.includes(owner)
+    pump
+      .creator
+      .includes(
+        owner
+      )
   ) {
     return "CREATOR";
   }
@@ -400,8 +839,11 @@ async function exactRpcDistribution({
       [
         tokenProgram,
         {
-          commitment: "confirmed",
-          encoding: "base64",
+          commitment:
+            "confirmed",
+
+          encoding:
+            "base64",
 
           filters: [
             {
@@ -421,26 +863,43 @@ async function exactRpcDistribution({
     );
 
   const rawAccounts =
-    Array.isArray(accountsResult)
+    Array.isArray(
+      accountsResult
+    )
       ? accountsResult
       : [];
 
-  const decodedAccounts = [];
+  if (
+    supply > 0n &&
+    rawAccounts.length === 0
+  ) {
+    throw new Error(
+      "Scan RPC incomplet : aucun compte token observé pour une supply positive."
+    );
+  }
+
+  const decodedAccounts =
+    [];
 
   for (
-    const account of rawAccounts
+    const account of
+    rawAccounts
   ) {
     const encoded =
-      account?.account?.data?.[0];
+      account?.account
+        ?.data?.[0];
 
     if (
-      typeof encoded !== "string"
+      typeof encoded !==
+      "string"
     ) {
       continue;
     }
 
     const bytes =
-      base64ToBytes(encoded);
+      base64ToBytes(
+        encoded
+      );
 
     if (
       !bytes ||
@@ -451,7 +910,10 @@ async function exactRpcDistribution({
 
     const owner =
       bytesToBase58(
-        bytes.slice(0, 32)
+        bytes.slice(
+          0,
+          32
+        )
       );
 
     const amount =
@@ -469,8 +931,11 @@ async function exactRpcDistribution({
     }
 
     decodedAccounts.push({
-      tokenAccount: account.pubkey,
+      tokenAccount:
+        account.pubkey,
+
       owner,
+
       amount,
 
       category:
@@ -479,16 +944,28 @@ async function exactRpcDistribution({
             account.pubkey,
 
           owner,
+
           pump,
         }),
     });
+  }
+
+  if (
+    supply > 0n &&
+    decodedAccounts
+      .length === 0
+  ) {
+    throw new Error(
+      "Scan RPC incomplet : aucun solde token non nul observé pour une supply positive."
+    );
   }
 
   const holderMap =
     new Map();
 
   for (
-    const account of decodedAccounts
+    const account of
+    decodedAccounts
   ) {
     const current =
       holderMap.get(
@@ -548,14 +1025,18 @@ async function exactRpcDistribution({
   const external =
     holders.filter(
       (holder) =>
-        holder.categories.has(
-          "EXTERNAL_HOLDER"
-        )
+        holder.categories
+          .has(
+            "EXTERNAL_HOLDER"
+          )
     );
 
   const topHolders =
     holders
-      .slice(0, 20)
+      .slice(
+        0,
+        20
+      )
       .map(
         (
           holder,
@@ -568,7 +1049,8 @@ async function exactRpcDistribution({
             holder.owner,
 
           amount:
-            holder.amount.toString(),
+            holder.amount
+              .toString(),
 
           percentage:
             percentage(
@@ -582,21 +1064,26 @@ async function exactRpcDistribution({
             ),
 
           tokenAccounts:
-            holder.tokenAccounts,
+            holder
+              .tokenAccounts,
         })
       );
 
   const externalTop1Percent =
     external[0]
       ? percentage(
-          external[0].amount,
+          external[0]
+            .amount,
           supply
         )
       : 0;
 
   const externalTop5Amount =
     external
-      .slice(0, 5)
+      .slice(
+        0,
+        5
+      )
       .reduce(
         (
           total,
@@ -610,7 +1097,10 @@ async function exactRpcDistribution({
 
   const externalTop10Amount =
     external
-      .slice(0, 10)
+      .slice(
+        0,
+        10
+      )
       .reduce(
         (
           total,
@@ -626,7 +1116,8 @@ async function exactRpcDistribution({
     0n;
 
   for (
-    const account of decodedAccounts
+    const account of
+    decodedAccounts
   ) {
     observedSupply +=
       account.amount;
@@ -680,7 +1171,10 @@ async function exactRpcDistribution({
       totalTop5Percent:
         topHolders.length
           ? topHolders
-              .slice(0, 5)
+              .slice(
+                0,
+                5
+              )
               .reduce(
                 (
                   sum,
@@ -688,7 +1182,8 @@ async function exactRpcDistribution({
                 ) =>
                   sum +
                   (
-                    holder.percentage ||
+                    holder
+                      .percentage ||
                     0
                   ),
 
@@ -699,7 +1194,10 @@ async function exactRpcDistribution({
       totalTop10Percent:
         topHolders.length
           ? topHolders
-              .slice(0, 10)
+              .slice(
+                0,
+                10
+              )
               .reduce(
                 (
                   sum,
@@ -707,7 +1205,8 @@ async function exactRpcDistribution({
                 ) =>
                   sum +
                   (
-                    holder.percentage ||
+                    holder
+                      .percentage ||
                     0
                   ),
 
@@ -717,7 +1216,8 @@ async function exactRpcDistribution({
     },
 
     observedSupply:
-      observedSupply.toString(),
+      observedSupply
+        .toString(),
 
     observedPercent:
       percentage(
@@ -726,7 +1226,8 @@ async function exactRpcDistribution({
       ),
 
     unobservedSupply:
-      unobservedSupply.toString(),
+      unobservedSupply
+        .toString(),
 
     unobservedPercent:
       percentage(
@@ -747,10 +1248,14 @@ async function exactRpcDistribution({
 
    RugCheck donne le nombre total de holders.
    Il ne prouve pas qu'ils sont tous "externes".
+
+   Un totalHolders = 0 sans distribution n'est pas accepté
+   comme un vrai zéro lorsque la supply est positive.
 ========================================================= */
 
 function rugCheckDistribution(
-  report
+  report,
+  supply
 ) {
   if (
     !report ||
@@ -762,8 +1267,10 @@ function rugCheckDistribution(
 
   const totalHolders =
     num(
-      report.totalHolders ??
-      report.total_holders
+      report
+        .totalHolders ??
+      report
+        .total_holders
     );
 
   const rawTop =
@@ -772,9 +1279,11 @@ function rugCheckDistribution(
     )
       ? report.topHolders
       : Array.isArray(
-          report.top_holders
+          report
+            .top_holders
         )
-        ? report.top_holders
+        ? report
+            .top_holders
         : [];
 
   const top =
@@ -784,7 +1293,8 @@ function rugCheckDistribution(
           const pct =
             num(
               holder?.pct ??
-              holder?.percentage
+              holder
+                ?.percentage
             );
 
           const owner =
@@ -811,7 +1321,8 @@ function rugCheckDistribution(
               holder?.amount !==
                 null
                 ? String(
-                    holder.amount
+                    holder
+                      .amount
                   )
                 : null,
 
@@ -820,15 +1331,18 @@ function rugCheckDistribution(
 
             uiAmount:
               num(
-                holder?.uiAmount ??
-                holder?.ui_amount
+                holder
+                  ?.uiAmount ??
+                holder
+                  ?.ui_amount
               ),
           };
         }
       )
       .filter(
         (holder) =>
-          holder.percentage !==
+          holder
+            .percentage !==
           null
       )
       .sort(
@@ -838,20 +1352,33 @@ function rugCheckDistribution(
       );
 
   if (
-    totalHolders === null &&
+    totalHolders ===
+      null &&
+    top.length === 0
+  ) {
+    return null;
+  }
+
+  if (
+    supply > 0n &&
+    totalHolders === 0 &&
     top.length === 0
   ) {
     return null;
   }
 
   const totalTop1Percent =
-    top[0]?.percentage ??
+    top[0]
+      ?.percentage ??
     null;
 
   const totalTop5Percent =
     top.length
       ? top
-          .slice(0, 5)
+          .slice(
+            0,
+            5
+          )
           .reduce(
             (
               sum,
@@ -859,7 +1386,8 @@ function rugCheckDistribution(
             ) =>
               sum +
               (
-                holder.percentage ||
+                holder
+                  .percentage ||
                 0
               ),
 
@@ -870,7 +1398,10 @@ function rugCheckDistribution(
   const totalTop10Percent =
     top.length
       ? top
-          .slice(0, 10)
+          .slice(
+            0,
+            10
+          )
           .reduce(
             (
               sum,
@@ -878,7 +1409,8 @@ function rugCheckDistribution(
             ) =>
               sum +
               (
-                holder.percentage ||
+                holder
+                  .percentage ||
                 0
               ),
 
@@ -935,7 +1467,10 @@ function rugCheckDistribution(
 
     topHolders:
       top
-        .slice(0, 20)
+        .slice(
+          0,
+          20
+        )
         .map(
           (
             holder,
@@ -954,10 +1489,12 @@ function rugCheckDistribution(
               holder.amount,
 
             percentage:
-              holder.percentage,
+              holder
+                .percentage,
 
             uiAmount:
-              holder.uiAmount,
+              holder
+                .uiAmount,
 
             categories:
               [],
@@ -1001,8 +1538,7 @@ export default async function handler(
   }
 
   const mint =
-    req.method ===
-    "GET"
+    req.method === "GET"
       ? typeof req.query?.mint ===
         "string"
         ? req.query.mint.trim()
@@ -1036,8 +1572,16 @@ export default async function handler(
       {
         ok: false,
 
+        module:
+          "PROFITX_HOLDERS",
+
+        version:
+          VERSION,
+
+        mint,
+
         error:
-          "Adresse mint Solana invalide.",
+          "Adresse mint Solana invalide (32 octets requis).",
       }
     );
   }
@@ -1048,48 +1592,26 @@ export default async function handler(
     DEFAULT_RPC;
 
   try {
-    const [
-      mintResult,
-      supplyResult,
-      pumpResult,
-      rugResult,
-    ] =
-      await Promise.all([
-        rpcCall(
-          rpcUrl,
-          "getAccountInfo",
-          [
-            mint,
-            {
-              encoding:
-                "base64",
+    /*
+     * On vérifie d'abord que le compte existe.
+     * Les autres appels ne démarrent qu'après cette validation.
+     */
 
-              commitment:
-                "confirmed",
-            },
-          ]
-        ),
+    const mintResult =
+      await rpcCall(
+        rpcUrl,
+        "getAccountInfo",
+        [
+          mint,
+          {
+            encoding:
+              "base64",
 
-        rpcCall(
-          rpcUrl,
-          "getTokenSupply",
-          [
-            mint,
-            {
-              commitment:
-                "confirmed",
-            },
-          ]
-        ),
-
-        getPumpCoin(
-          mint
-        ),
-
-        getRugCheckReport(
-          mint
-        ),
-      ]);
+            commitment:
+              "confirmed",
+          },
+        ]
+      );
 
     const mintAccount =
       mintResult?.value ??
@@ -1153,13 +1675,41 @@ export default async function handler(
       );
     }
 
+    const [
+      supplyResult,
+      pumpResult,
+      rugResult,
+    ] =
+      await Promise.all([
+        rpcCall(
+          rpcUrl,
+          "getTokenSupply",
+          [
+            mint,
+            {
+              commitment:
+                "confirmed",
+            },
+          ]
+        ),
+
+        getPumpCoin(
+          mint
+        ),
+
+        getRugCheckReport(
+          mint
+        ),
+      ]);
+
     const supplyData =
       supplyResult?.value ??
       null;
 
     if (
       !supplyData ||
-      typeof supplyData.amount !==
+      typeof supplyData
+        .amount !==
         "string"
     ) {
       throw new Error(
@@ -1183,8 +1733,14 @@ export default async function handler(
         supplyData.uiAmount
       ) ??
       num(
-        supplyData.uiAmountString
+        supplyData
+          .uiAmountString
       );
+
+    /*
+     * La réponse Pump.fun ne peut être utilisée
+     * que si son mint correspond réellement au mint demandé.
+     */
 
     const pump =
       normalizePumpData(
@@ -1198,14 +1754,20 @@ export default async function handler(
     let rpcExactError =
       null;
 
+    let rugCheckRejected =
+      false;
+
     /* =====================================================
-       ROUTAGE v2.1.1
+       ROUTAGE v2.1.2
 
        TOKEN-2022 :
        RPC exact d'abord.
 
        SPL CLASSIQUE :
        RugCheck d'abord pour éviter les scans géants.
+
+       Si RugCheck renvoie un faux zéro ou une réponse
+       inexploitable, fallback vers le RPC exact.
     ===================================================== */
 
     if (
@@ -1234,8 +1796,16 @@ export default async function handler(
       ) {
         holdersData =
           rugCheckDistribution(
-            rugResult.data
+            rugResult.data,
+            supply
           );
+
+        if (
+          !holdersData
+        ) {
+          rugCheckRejected =
+            true;
+        }
       }
     } else {
       if (
@@ -1243,8 +1813,16 @@ export default async function handler(
       ) {
         holdersData =
           rugCheckDistribution(
-            rugResult.data
+            rugResult.data,
+            supply
           );
+
+        if (
+          !holdersData
+        ) {
+          rugCheckRejected =
+            true;
+        }
       }
 
       if (
@@ -1309,6 +1887,24 @@ export default async function handler(
             rugCheckUsed:
               false,
 
+            rugCheckRejected,
+
+            rugCheckIdentityValid:
+              rugResult
+                .identityValid ??
+              null,
+
+            pumpApiAvailable:
+              pumpResult.ok,
+
+            pumpIdentityVerified:
+              pump
+                .identityVerified,
+
+            pumpReturnedMint:
+              pump
+                .returnedMint,
+
             pumpDetected:
               pump.detected,
 
@@ -1320,6 +1916,29 @@ export default async function handler(
         }
       );
     }
+
+    const hasHolderCount =
+      holdersData
+        .uniqueOwners !==
+      null;
+
+    const hasDistribution =
+      holdersData
+        .distribution
+        ?.externalTop1Percent !==
+        null ||
+      holdersData
+        .distribution
+        ?.externalTop10Percent !==
+        null ||
+      holdersData
+        .distribution
+        ?.totalTop1Percent !==
+        null ||
+      holdersData
+        .distribution
+        ?.totalTop10Percent !==
+        null;
 
     return json(
       res,
@@ -1351,7 +1970,8 @@ export default async function handler(
         decimals,
 
         supply:
-          supply.toString(),
+          supply
+            .toString(),
 
         supplyUi,
 
@@ -1365,26 +1985,39 @@ export default async function handler(
           apiAvailable:
             pumpResult.ok,
 
+          identityVerified:
+            pump
+              .identityVerified,
+
+          returnedMint:
+            pump
+              .returnedMint,
+
           complete:
             pump.complete,
 
           bondingCurve:
-            pump.bondingCurve,
+            pump
+              .bondingCurve,
 
           associatedBondingCurve:
-            pump.associatedBondingCurve,
+            pump
+              .associatedBondingCurve,
 
           creator:
             pump.creator,
 
           pumpSwapPool:
-            pump.pumpSwapPool,
+            pump
+              .pumpSwapPool,
 
           raydiumPool:
-            pump.raydiumPool,
+            pump
+              .raydiumPool,
 
           sourceFields:
-            pump.sourceFields,
+            pump
+              .sourceFields,
         },
 
         tokenAccountsScanned:
@@ -1472,27 +2105,10 @@ export default async function handler(
             true,
 
           holders:
-            holdersData
-              .uniqueOwners !==
-            null,
+            hasHolderCount,
 
           distribution:
-            holdersData
-              .distribution
-              ?.externalTop1Percent !==
-              null ||
-            holdersData
-              .distribution
-              ?.externalTop10Percent !==
-              null ||
-            holdersData
-              .distribution
-              ?.totalTop1Percent !==
-              null ||
-            holdersData
-              .distribution
-              ?.totalTop10Percent !==
-              null,
+            hasDistribution,
 
           externalClassification:
             holdersData.source ===
@@ -1515,6 +2131,24 @@ export default async function handler(
           rugCheckUsed:
             holdersData.source ===
             "rugcheck",
+
+          rugCheckRejected,
+
+          rugCheckIdentityValid:
+            rugResult
+              .identityValid ??
+            null,
+
+          pumpApiAvailable:
+            pumpResult.ok,
+
+          pumpIdentityVerified:
+            pump
+              .identityVerified,
+
+          pumpReturnedMint:
+            pump
+              .returnedMint,
 
           pumpDetected:
             pump.detected,
@@ -1541,6 +2175,8 @@ export default async function handler(
 
         version:
           VERSION,
+
+        mint,
 
         error:
           error?.message ||

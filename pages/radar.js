@@ -216,6 +216,55 @@ export default function Radar() {
   const [minimumLiquidity, setMinimumLiquidity] = useState(0);
 
   const [copiedMint, setCopiedMint] = useState("");
+  const [watchlist, setWatchlist] = useState([]);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(
+        "profitx-watchlist-v1"
+      );
+
+      if (!saved) return;
+
+      const parsed = JSON.parse(saved);
+
+      if (Array.isArray(parsed)) {
+        setWatchlist(parsed);
+      }
+    } catch {
+      setWatchlist([]);
+    }
+  }, []);
+
+  function isInWatchlist(mint) {
+    return watchlist.some(
+      (item) =>
+        item.chainId === "solana" &&
+        item.tokenAddress === mint
+    );
+  }
+
+  function addToWatchlist(token) {
+    if (!token?.mint || isInWatchlist(token.mint)) return;
+
+    const newItem = {
+      id: `solana:${token.mint}`,
+      chainId: "solana",
+      tokenAddress: token.mint,
+      addedAt: new Date().toISOString(),
+    };
+
+    const updated = [newItem, ...watchlist];
+
+    setWatchlist(updated);
+
+    try {
+      window.localStorage.setItem(
+        "profitx-watchlist-v1",
+        JSON.stringify(updated)
+      );
+    } catch {}
+  }
 
   const loadRadar = useCallback(async (manual = false) => {
     if (manual) {
@@ -314,8 +363,7 @@ export default function Radar() {
 
     return () => clearInterval(interval);
   }, [autoRefresh, loadRadar]);
-
-  const displayedTokens = useMemo(() => {
+    const displayedTokens = useMemo(() => {
     const query = search.trim().toLowerCase();
 
     const filtered = tokens.filter((token) => {
@@ -329,7 +377,8 @@ export default function Radar() {
 
       const matchesLiquidity =
         minimumLiquidity <= 0 ||
-        (liquidity !== null && liquidity >= minimumLiquidity);
+        (liquidity !== null &&
+          liquidity >= minimumLiquidity);
 
       return matchesSearch && matchesLiquidity;
     });
@@ -431,6 +480,16 @@ export default function Radar() {
 
               <button
                 type="button"
+                className="navButton"
+                onClick={() =>
+                  router.push("/watchlist")
+                }
+              >
+                WATCHLIST
+              </button>
+
+              <button
+                type="button"
                 className="navButton activeNav"
               >
                 RADAR
@@ -456,7 +515,10 @@ export default function Radar() {
               </p>
             </div>
 
-            <div className="radarPulse" aria-hidden="true">
+            <div
+              className="radarPulse"
+              aria-hidden="true"
+            >
               <div className="pulseRing ringOne" />
               <div className="pulseRing ringTwo" />
               <div className="pulseRing ringThree" />
@@ -470,7 +532,9 @@ export default function Radar() {
             <div className="statusLeft">
               <span
                 className={`statusDot ${
-                  error ? "statusError" : "statusOnline"
+                  error
+                    ? "statusError"
+                    : "statusOnline"
                 }`}
               />
 
@@ -502,7 +566,9 @@ export default function Radar() {
                   type="checkbox"
                   checked={autoRefresh}
                   onChange={(event) =>
-                    setAutoRefresh(event.target.checked)
+                    setAutoRefresh(
+                      event.target.checked
+                    )
                   }
                 />
                 Auto 60 s
@@ -604,7 +670,9 @@ export default function Radar() {
 
             <div className="resultCounter">
               <span>TOKENS AFFICHÉS</span>
-              <strong>{displayedTokens.length}</strong>
+              <strong>
+                {displayedTokens.length}
+              </strong>
             </div>
           </section>
 
@@ -622,177 +690,238 @@ export default function Radar() {
           {loading ? (
             <section className="loadingPanel">
               <div className="loader" />
-              <strong>INITIALISATION PFX RADAR</strong>
+              <strong>
+                INITIALISATION PFX RADAR
+              </strong>
               <span>
                 Récupération des signaux Solana...
               </span>
             </section>
-          ) : !error && displayedTokens.length === 0 ? (
+          ) : !error &&
+            displayedTokens.length === 0 ? (
             <section className="emptyPanel">
               <div className="emptyIcon">◎</div>
-              <strong>AUCUN TOKEN À AFFICHER</strong>
+              <strong>
+                AUCUN TOKEN À AFFICHER
+              </strong>
               <p>
-                Aucun résultat ne correspond actuellement aux
-                critères sélectionnés.
+                Aucun résultat ne correspond
+                actuellement aux critères sélectionnés.
               </p>
             </section>
           ) : (
             <section className="tokenGrid">
-              {displayedTokens.map((token, index) => (
-                <article
-                  className="tokenCard"
-                  key={token.id}
-                >
-                  <div className="cardTop">
-                    <div className="rank">
-                      #{index + 1}
-                    </div>
+              {displayedTokens.map(
+                (token, index) => (
+                  <article
+                    className="tokenCard"
+                    key={token.id}
+                  >
+                    <div className="cardTop">
+                      <div className="rank">
+                        #{index + 1}
+                      </div>
 
-                    <div
-                      className={`scoreBadge ${scoreClass(
-                        token.score
-                      )}`}
-                    >
-                      <span>SCORE PFX</span>
-                      <strong>
-                        {number(token.score) !== null
-                          ? Math.round(token.score)
-                          : "N/D"}
-                      </strong>
-                      <small>/100</small>
-                    </div>
-                  </div>
-
-                  <div className="tokenIdentity">
-                    <div className="tokenIcon">
-                      {token.symbol !== "N/D"
-                        ? token.symbol
-                            .slice(0, 2)
-                            .toUpperCase()
-                        : "?"}
-                    </div>
-
-                    <div className="tokenTitle">
-                      <h2>{token.name}</h2>
-                      <div>
-                        ${token.symbol}
+                      <div
+                        className={`scoreBadge ${scoreClass(
+                          token.score
+                        )}`}
+                      >
+                        <span>SCORE PFX</span>
+                        <strong>
+                          {number(token.score) !==
+                          null
+                            ? Math.round(
+                                token.score
+                              )
+                            : "N/D"}
+                        </strong>
+                        <small>/100</small>
                       </div>
                     </div>
-                  </div>
 
-                  <button
-                    type="button"
-                    className="mintButton"
-                    onClick={() =>
-                      copyMint(token.mint)
-                    }
-                    title="Copier le mint"
-                  >
-                    <span>
-                      {shortMint(token.mint)}
-                    </span>
+                    <div className="tokenIdentity">
+                      <div className="tokenIcon">
+                        {token.symbol !== "N/D"
+                          ? token.symbol
+                              .slice(0, 2)
+                              .toUpperCase()
+                          : "?"}
+                      </div>
 
-                    <strong>
-                      {copiedMint === token.mint
-                        ? "COPIÉ"
-                        : "COPIER"}
-                    </strong>
-                  </button>
-
-                  <div className="metrics">
-                    <div className="metric">
-                      <span>PRIX</span>
-                      <strong>
-                        {formatPrice(token.priceUsd)}
-                      </strong>
-                    </div>
-
-                    <div className="metric">
-                      <span>MARKET CAP</span>
-                      <strong>
-                        {formatMoney(token.marketCap)}
-                      </strong>
-                    </div>
-
-                    <div className="metric">
-                      <span>LIQUIDITÉ</span>
-                      <strong>
-                        {formatMoney(token.liquidity)}
-                      </strong>
-                    </div>
-
-                    <div className="metric">
-                      <span>VOLUME 24 H</span>
-                      <strong>
-                        {formatMoney(token.volume24h)}
-                      </strong>
-                    </div>
-
-                    <div className="metric">
-                      <span>TRANSACTIONS 24 H</span>
-                      <strong>
-                        {formatInteger(
-                          token.transactions24h
-                        )}
-                      </strong>
-                    </div>
-
-                    <div className="metric">
-                      <span>ÂGE</span>
-                      <strong>
-                        {formatAge(token.ageMs)}
-                      </strong>
-                    </div>
-                  </div>
-
-                  <div className="marketLine">
-                    <div>
-                      <span>VARIATION 24 H</span>
-                      <strong
-                        className={changeClass(
-                          token.change24h
-                        )}
-                      >
-                        {formatPercent(
-                          token.change24h
-                        )}
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span>ACHATS / VENTES</span>
-                      <strong>
-                        {formatInteger(token.buys24h)}
-                        {" / "}
-                        {formatInteger(token.sells24h)}
-                      </strong>
-                    </div>
-                  </div>
-
-                  <div className="cardFooter">
-                    <div className="tokenStatus">
-                      <span>STATUT</span>
-                      <strong>{token.status}</strong>
+                      <div className="tokenTitle">
+                        <h2>{token.name}</h2>
+                        <div>
+                          ${token.symbol}
+                        </div>
+                      </div>
                     </div>
 
                     <button
                       type="button"
-                      className="analyzeButton"
+                      className="mintButton"
                       onClick={() =>
-                        analyzeToken(token.mint)
+                        copyMint(token.mint)
                       }
+                      title="Copier le mint"
                     >
-                      ANALYSER →
+                      <span>
+                        {shortMint(token.mint)}
+                      </span>
+
+                      <strong>
+                        {copiedMint === token.mint
+                          ? "COPIÉ"
+                          : "COPIER"}
+                      </strong>
                     </button>
-                  </div>
-                </article>
-              ))}
+
+                    <div className="metrics">
+                      <div className="metric">
+                        <span>PRIX</span>
+                        <strong>
+                          {formatPrice(
+                            token.priceUsd
+                          )}
+                        </strong>
+                      </div>
+
+                      <div className="metric">
+                        <span>MARKET CAP</span>
+                        <strong>
+                          {formatMoney(
+                            token.marketCap
+                          )}
+                        </strong>
+                      </div>
+
+                      <div className="metric">
+                        <span>LIQUIDITÉ</span>
+                        <strong>
+                          {formatMoney(
+                            token.liquidity
+                          )}
+                        </strong>
+                      </div>
+
+                      <div className="metric">
+                        <span>VOLUME 24 H</span>
+                        <strong>
+                          {formatMoney(
+                            token.volume24h
+                          )}
+                        </strong>
+                      </div>
+
+                      <div className="metric">
+                        <span>
+                          TRANSACTIONS 24 H
+                        </span>
+                        <strong>
+                          {formatInteger(
+                            token.transactions24h
+                          )}
+                        </strong>
+                      </div>
+
+                      <div className="metric">
+                        <span>ÂGE</span>
+                        <strong>
+                          {formatAge(
+                            token.ageMs
+                          )}
+                        </strong>
+                      </div>
+                    </div>
+
+                    <div className="marketLine">
+                      <div>
+                        <span>
+                          VARIATION 24 H
+                        </span>
+                        <strong
+                          className={changeClass(
+                            token.change24h
+                          )}
+                        >
+                          {formatPercent(
+                            token.change24h
+                          )}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span>
+                          ACHATS / VENTES
+                        </span>
+                        <strong>
+                          {formatInteger(
+                            token.buys24h
+                          )}
+                          {" / "}
+                          {formatInteger(
+                            token.sells24h
+                          )}
+                        </strong>
+                      </div>
+                    </div>
+
+                    <div className="cardFooter">
+                      <div className="tokenStatus">
+                        <span>STATUT</span>
+                        <strong>
+                          {token.status}
+                        </strong>
+                      </div>
+
+                      <div className="cardActions">
+                        <button
+                          type="button"
+                          className={`watchlistButton ${
+                            isInWatchlist(
+                              token.mint
+                            )
+                              ? "watchlistAdded"
+                              : ""
+                          }`}
+                          onClick={() =>
+                            addToWatchlist(token)
+                          }
+                          disabled={isInWatchlist(
+                            token.mint
+                          )}
+                        >
+                          {isInWatchlist(
+                            token.mint
+                          )
+                            ? "AJOUTÉ ✓"
+                            : "+ WATCHLIST"}
+                        </button>
+
+                        <button
+                          type="button"
+                          className="analyzeButton"
+                          onClick={() =>
+                            analyzeToken(
+                              token.mint
+                            )
+                          }
+                        >
+                          ANALYSER →
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                )
+              )}
             </section>
           )}
 
           <section className="methodology">
             <div>
-              <span className="methodNumber">01</span>
+              <span className="methodNumber">
+                01
+              </span>
               <strong>OBSERVATION</strong>
               <p>
                 Radar collecte uniquement des données
@@ -801,20 +930,25 @@ export default function Radar() {
             </div>
 
             <div>
-              <span className="methodNumber">02</span>
+              <span className="methodNumber">
+                02
+              </span>
               <strong>PRÉSÉLECTION</strong>
               <p>
-                Le score sert à organiser les résultats selon
-                plusieurs signaux mesurables.
+                Le score sert à organiser les résultats
+                selon plusieurs signaux mesurables.
               </p>
             </div>
 
             <div>
-              <span className="methodNumber">03</span>
+              <span className="methodNumber">
+                03
+              </span>
               <strong>ANALYSE</strong>
               <p>
-                Un token repéré peut ensuite être envoyé vers
-                PROFITX AI Analyzer pour une analyse détaillée.
+                Un token repéré peut ensuite être envoyé
+                vers PROFITX AI Analyzer pour une analyse
+                détaillée.
               </p>
             </div>
           </section>
@@ -827,13 +961,13 @@ export default function Radar() {
 
             <p>
               Outil informatif. Les scores et données ne
-              constituent pas un conseil financier, une garantie
-              de performance ou une prédiction de prix.
+              constituent pas un conseil financier, une
+              garantie de performance ou une prédiction
+              de prix.
             </p>
           </footer>
         </div>
       </main>
-
       <style jsx>{`
         .radarPage {
           min-height: 100vh;
@@ -1387,8 +1521,7 @@ export default function Radar() {
           font-size: 8px;
           letter-spacing: 1px;
         }
-
-        .metrics {
+                .metrics {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
           gap: 8px;
@@ -1460,6 +1593,36 @@ export default function Radar() {
         .tokenStatus strong {
           font-size: 10px;
           letter-spacing: 1px;
+        }
+
+        .cardActions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .watchlistButton {
+          min-height: 42px;
+          padding: 0 16px;
+          border: 1px solid #21f28b;
+          border-radius: 9px;
+          background: transparent;
+          color: #21f28b;
+          font-size: 9px;
+          font-weight: 900;
+          letter-spacing: 1px;
+          cursor: pointer;
+        }
+
+        .watchlistButton:hover:not(:disabled) {
+          background: rgba(33, 242, 139, 0.08);
+        }
+
+        .watchlistButton.watchlistAdded {
+          border-color: #315244;
+          background: rgba(33, 242, 139, 0.08);
+          color: #7fae99;
+          cursor: default;
         }
 
         .analyzeButton {
@@ -1631,6 +1794,12 @@ export default function Radar() {
             grid-template-columns: 1fr;
           }
 
+          .cardActions {
+            width: 100%;
+            flex-direction: column;
+          }
+
+          .watchlistButton,
           .analyzeButton {
             width: 100%;
           }

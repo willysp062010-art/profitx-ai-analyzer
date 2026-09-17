@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 
 const DEFAULT_MINT =
@@ -414,6 +414,18 @@ export default function Home() {
 
   const [error, setError] =
     useState("");
+
+  useEffect(() => {
+    const params =
+      new URLSearchParams(window.location.search);
+
+    const mintFromRadar =
+      params.get("mint")?.trim();
+
+    if (mintFromRadar) {
+      setMint(mintFromRadar);
+    }
+  }, []);
 
 
   async function analyze() {

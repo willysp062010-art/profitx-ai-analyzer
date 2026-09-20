@@ -173,6 +173,18 @@ export default function Alerts() {
   const [copiedId, setCopiedId] =
     useState("");
 
+  const [checking, setChecking] =
+    useState(false);
+
+  const [checkedAt, setCheckedAt] =
+    useState("");
+
+  const [engineResults, setEngineResults] =
+    useState({});
+
+  const [engineError, setEngineError] =
+    useState("");
+
   useEffect(() => {
     const storedWatchlist = loadStorage(
       WATCHLIST_STORAGE_KEY
@@ -341,6 +353,12 @@ export default function Alerts() {
         (alert) => alert.id !== id
       )
     );
+
+    setEngineResults((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
   }
 
   async function copyAddress(
@@ -386,6 +404,88 @@ export default function Alerts() {
         mint: alert.tokenAddress,
       },
     });
+  }
+
+  async function checkAlertsNow() {
+    if (checking) {
+      return;
+    }
+
+    clearMessages();
+    setEngineError("");
+
+    if (alerts.length === 0) {
+      setEngineError(
+        "Aucune alerte à vérifier."
+      );
+      return;
+    }
+
+    setChecking(true);
+
+    try {
+      const response = await fetch(
+        "/api/alerts",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            alerts,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || !data?.ok) {
+        throw new Error(
+          data?.error ||
+            "Le moteur PFX Alerts n'a pas pu effectuer la vérification."
+        );
+      }
+
+      const nextResults = {};
+
+      for (const result of data.results || []) {
+        if (result?.id) {
+          nextResults[result.id] = result;
+        }
+      }
+
+      setEngineResults(nextResults);
+
+      setCheckedAt(
+        data.checkedAt ||
+          new Date().toISOString()
+      );
+
+      const triggeredCount =
+        data?.summary?.triggered || 0;
+
+      if (triggeredCount > 0) {
+        setSuccess(
+          `${triggeredCount} alerte${
+            triggeredCount > 1 ? "s" : ""
+          } déclenchée${
+            triggeredCount > 1 ? "s" : ""
+          }.`
+        );
+      } else {
+        setSuccess(
+          "Vérification terminée. Aucune condition d'alerte n'est déclenchée."
+        );
+      }
+    } catch (error) {
+      setEngineError(
+        error?.message ||
+          "Impossible de contacter le PFX Alert Engine."
+      );
+    } finally {
+      setChecking(false);
+    }
   }
 
   return (
@@ -458,8 +558,7 @@ export default function Alerts() {
               </button>
             </nav>
           </header>
-
-          <section className="hero">
+            <section className="hero">
             <div className="heroText">
               <div className="eyebrow">
                 PROFITX • TOKEN MONITORING
@@ -470,10 +569,11 @@ export default function Alerts() {
               </h1>
 
               <p>
-                Créez vos règles de
-                surveillance pour les tokens
-                enregistrés dans votre PFX
-                Watchlist.
+                Créez vos règles de surveillance
+                pour les tokens enregistrés dans
+                votre PFX Watchlist et vérifiez
+                leurs conditions avec le PFX
+                Alert Engine.
               </p>
 
               <div className="heroActions">
@@ -540,17 +640,15 @@ export default function Alerts() {
               </h2>
 
               <p>
-                Sélectionnez un token de
-                votre Watchlist, une donnée
-                à surveiller et la valeur
-                cible.
+                Sélectionnez un token de votre
+                Watchlist, une donnée à surveiller
+                et la valeur cible.
               </p>
             </div>
 
             {!loaded ? (
               <div className="empty">
-                Chargement de PFX
-                Alerts...
+                Chargement de PFX Alerts...
               </div>
             ) : watchlist.length === 0 ? (
               <div className="empty">
@@ -559,9 +657,9 @@ export default function Alerts() {
                 </strong>
 
                 <p>
-                  Ajoutez d&apos;abord un
-                  token depuis PFX Radar ou
-                  PFX Watchlist.
+                  Ajoutez d&apos;abord un token
+                  depuis PFX Radar ou PFX
+                  Watchlist.
                 </p>
 
                 <button
@@ -580,17 +678,13 @@ export default function Alerts() {
                 onSubmit={createAlert}
               >
                 <div className="field tokenField">
-                  <label
-                    htmlFor="alert-token"
-                  >
+                  <label htmlFor="alert-token">
                     TOKEN
                   </label>
 
                   <select
                     id="alert-token"
-                    value={
-                      selectedTokenId
-                    }
+                    value={selectedTokenId}
                     onChange={(event) => {
                       setSelectedTokenId(
                         event.target.value
@@ -629,9 +723,7 @@ export default function Alerts() {
                 </div>
 
                 <div className="field">
-                  <label
-                    htmlFor="alert-metric"
-                  >
+                  <label htmlFor="alert-metric">
                     DONNÉE
                   </label>
 
@@ -645,23 +737,19 @@ export default function Alerts() {
                       clearMessages();
                     }}
                   >
-                    {METRICS.map(
-                      (item) => (
-                        <option
-                          key={item.id}
-                          value={item.id}
-                        >
-                          {item.label}
-                        </option>
-                      )
-                    )}
+                    {METRICS.map((item) => (
+                      <option
+                        key={item.id}
+                        value={item.id}
+                      >
+                        {item.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
                 <div className="field">
-                  <label
-                    htmlFor="alert-condition"
-                  >
+                  <label htmlFor="alert-condition">
                     CONDITION
                   </label>
 
@@ -689,9 +777,7 @@ export default function Alerts() {
                 </div>
 
                 <div className="field">
-                  <label
-                    htmlFor="alert-target"
-                  >
+                  <label htmlFor="alert-target">
                     VALEUR CIBLE
                   </label>
 
@@ -736,31 +822,75 @@ export default function Alerts() {
                 {success}
               </div>
             )}
+
+            {engineError && (
+              <div className="message error">
+                {engineError}
+              </div>
+            )}
           </section>
 
           <section className="panel">
             <div className="alertsHeader">
               <div className="sectionTitle">
                 <span>
-                  RÈGLES ENREGISTRÉES
+                  PFX ALERT ENGINE
                 </span>
 
                 <h2>
                   Mes alertes
                 </h2>
+
+                <p>
+                  Vérifiez immédiatement les
+                  conditions de vos alertes avec
+                  les données de marché.
+                </p>
               </div>
 
-              <div className="counter">
-                <strong>
-                  {alerts.length}
-                </strong>
+              <div className="engineControls">
+                {checkedAt && (
+                  <span className="lastCheck">
+                    DERNIÈRE VÉRIFICATION{" "}
+                    {new Date(
+                      checkedAt
+                    ).toLocaleTimeString(
+                      "fr-FR",
+                      {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit",
+                      }
+                    )}
+                  </span>
+                )}
 
-                <span>
-                  ALERTE
-                  {alerts.length > 1
-                    ? "S"
-                    : ""}
-                </span>
+                <button
+                  type="button"
+                  className="checkButton"
+                  onClick={checkAlertsNow}
+                  disabled={
+                    checking ||
+                    alerts.length === 0
+                  }
+                >
+                  {checking
+                    ? "VÉRIFICATION..."
+                    : "VÉRIFIER MAINTENANT"}
+                </button>
+
+                <div className="counter">
+                  <strong>
+                    {alerts.length}
+                  </strong>
+
+                  <span>
+                    ALERTE
+                    {alerts.length > 1
+                      ? "S"
+                      : ""}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -771,22 +901,19 @@ export default function Alerts() {
             ) : alerts.length === 0 ? (
               <div className="empty">
                 <strong>
-                  Aucune alerte
-                  enregistrée.
+                  Aucune alerte enregistrée.
                 </strong>
 
                 <p>
-                  Créez votre première règle
-                  de surveillance ci-dessus.
+                  Créez votre première règle de
+                  surveillance ci-dessus.
                 </p>
               </div>
             ) : (
               <div className="alertList">
                 {alerts.map((alert) => {
                   const metricInfo =
-                    getMetric(
-                      alert.metric
-                    );
+                    getMetric(alert.metric);
 
                   const conditionInfo =
                     getCondition(
@@ -794,8 +921,35 @@ export default function Alerts() {
                     );
 
                   const enabled =
-                    alert.enabled !==
-                    false;
+                    alert.enabled !== false;
+
+                  const engineResult =
+                    engineResults[
+                      alert.id
+                    ] || null;
+
+                  const engineStatus =
+                    !enabled
+                      ? "paused"
+                      : engineResult?.status ||
+                        "not_checked";
+
+                  const statusLabel =
+                    engineStatus ===
+                    "triggered"
+                      ? "DÉCLENCHÉE"
+                      : engineStatus ===
+                        "watching"
+                      ? "SURVEILLANCE"
+                      : engineStatus ===
+                        "no_market_data" ||
+                        engineStatus ===
+                          "metric_unavailable"
+                      ? "INDISPONIBLE"
+                      : engineStatus ===
+                        "paused"
+                      ? "PAUSE"
+                      : "À VÉRIFIER";
 
                   return (
                     <article
@@ -803,6 +957,11 @@ export default function Alerts() {
                         enabled
                           ? ""
                           : "disabledCard"
+                      } ${
+                        engineStatus ===
+                        "triggered"
+                          ? "triggeredCard"
+                          : ""
                       }`}
                       key={alert.id}
                     >
@@ -821,15 +980,9 @@ export default function Alerts() {
                         </div>
 
                         <div
-                          className={`status ${
-                            enabled
-                              ? "enabled"
-                              : "paused"
-                          }`}
+                          className={`status ${engineStatus}`}
                         >
-                          {enabled
-                            ? "ACTIVE"
-                            : "PAUSE"}
+                          {statusLabel}
                         </div>
                       </div>
 
@@ -882,6 +1035,50 @@ export default function Alerts() {
                             )}
                           </strong>
                         </div>
+                      </div>
+
+                      <div className="marketResult">
+                        <span>
+                          VALEUR ACTUELLE
+                        </span>
+
+                        <strong
+                          className={
+                            engineStatus ===
+                            "triggered"
+                              ? "triggeredValue"
+                              : ""
+                          }
+                        >
+                          {engineResult &&
+                          engineResult.currentValue !==
+                            null &&
+                          engineResult.currentValue !==
+                            undefined
+                            ? formatTarget(
+                                engineResult.currentValue,
+                                alert.metric
+                              )
+                            : enabled
+                            ? "—"
+                            : "PAUSE"}
+                        </strong>
+
+                        {engineResult?.marketData
+                          ?.symbol && (
+                          <small>
+                            {
+                              engineResult
+                                .marketData
+                                .symbol
+                            }
+                            {engineResult
+                              .marketData
+                              .dexId
+                              ? ` • ${engineResult.marketData.dexId}`
+                              : ""}
+                          </small>
+                        )}
                       </div>
 
                       <div className="cardFooter">
@@ -943,21 +1140,17 @@ export default function Alerts() {
               </span>
 
               <h2>
-                Structure prête pour la
-                surveillance automatique
+                Moteur de vérification connecté
               </h2>
 
               <p>
-                Cette première version
-                enregistre et organise vos
-                règles d&apos;alerte. Le
-                moteur de surveillance
-                serveur sera connecté dans
-                l&apos;étape suivante afin
-                de contrôler les conditions
-                indépendamment de
-                l&apos;ouverture de cette
-                page.
+                PFX Alerts peut maintenant
+                transmettre vos règles au moteur
+                serveur et comparer leurs valeurs
+                cibles aux données de marché
+                disponibles. La surveillance
+                automatique permanente sera
+                ajoutée dans une étape ultérieure.
               </p>
             </div>
           </section>
@@ -974,19 +1167,16 @@ export default function Alerts() {
             </div>
 
             <p>
-              Les alertes et données
-              PROFITX sont des outils
-              informatifs. Elles ne
-              constituent ni un conseil
-              financier, ni une
-              recommandation
-              d&apos;achat ou de vente, ni
-              une garantie de performance.
+              Les alertes et données PROFITX
+              sont des outils informatifs. Elles
+              ne constituent ni un conseil
+              financier, ni une recommandation
+              d&apos;achat ou de vente, ni une
+              garantie de performance.
             </p>
           </footer>
         </div>
       </main>
-
       <style jsx>{`
         .page {
           min-height: 100vh;
@@ -1013,8 +1203,7 @@ export default function Alerts() {
           min-height: 92px;
           display: flex;
           align-items: center;
-          justify-content:
-            space-between;
+          justify-content: space-between;
           gap: 24px;
           border-bottom:
             1px solid #1b3027;
@@ -1065,8 +1254,7 @@ export default function Alerts() {
         .heroActions button {
           min-height: 42px;
           padding: 0 17px;
-          border:
-            1px solid #294138;
+          border: 1px solid #294138;
           border-radius: 10px;
           background: transparent;
           color: #9bada6;
@@ -1086,8 +1274,7 @@ export default function Alerts() {
         .hero {
           display: flex;
           align-items: center;
-          justify-content:
-            space-between;
+          justify-content: space-between;
           gap: 50px;
           padding: 75px 0 55px;
         }
@@ -1136,8 +1323,7 @@ export default function Alerts() {
           display: grid;
           grid-template-columns:
             repeat(3, 1fr);
-          border:
-            1px solid #1c3329;
+          border: 1px solid #1c3329;
           border-radius: 16px;
           overflow: hidden;
           background: #08100c;
@@ -1174,8 +1360,7 @@ export default function Alerts() {
         .panel {
           margin-top: 22px;
           padding: 30px;
-          border:
-            1px solid #1b3027;
+          border: 1px solid #1b3027;
           border-radius: 17px;
           background:
             rgba(7, 13, 10, 0.94);
@@ -1217,8 +1402,7 @@ export default function Alerts() {
           height: 50px;
           box-sizing: border-box;
           padding: 0 13px;
-          border:
-            1px solid #20362c;
+          border: 1px solid #20362c;
           border-radius: 10px;
           outline: none;
           background: #050a08;
@@ -1289,8 +1473,7 @@ export default function Alerts() {
         .empty {
           margin-top: 25px;
           padding: 45px 25px;
-          border:
-            1px dashed #22372e;
+          border: 1px dashed #22372e;
           border-radius: 13px;
           color: #788b83;
           text-align: center;
@@ -1309,16 +1492,56 @@ export default function Alerts() {
         .alertsHeader {
           display: flex;
           align-items: center;
-          justify-content:
-            space-between;
+          justify-content: space-between;
           gap: 20px;
+        }
+
+        .engineControls {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+
+        .lastCheck {
+          color: #6e8178;
+          font-size: 8px;
+          font-weight: 900;
+          letter-spacing: 1px;
+        }
+
+        .checkButton {
+          min-height: 44px;
+          padding: 0 18px;
+          border: 1px solid #21f28b;
+          border-radius: 9px;
+          background:
+            rgba(33, 242, 139, 0.08);
+          color: #21f28b;
+          font-size: 9px;
+          font-weight: 900;
+          letter-spacing: 1px;
+          cursor: pointer;
+        }
+
+        .checkButton:hover:not(:disabled) {
+          background:
+            rgba(33, 242, 139, 0.14);
+          box-shadow:
+            0 0 22px
+            rgba(33, 242, 139, 0.1);
+        }
+
+        .checkButton:disabled {
+          opacity: 0.45;
+          cursor: not-allowed;
         }
 
         .counter {
           min-width: 90px;
           padding: 13px;
-          border:
-            1px solid #1d4b37;
+          border: 1px solid #1d4b37;
           border-radius: 11px;
           text-align: center;
         }
@@ -1351,8 +1574,7 @@ export default function Alerts() {
 
         .alertCard {
           padding: 20px;
-          border:
-            1px solid #1c3329;
+          border: 1px solid #1c3329;
           border-radius: 14px;
           background:
             linear-gradient(
@@ -1362,18 +1584,26 @@ export default function Alerts() {
             );
           transition:
             opacity 0.2s ease,
-            border-color 0.2s ease;
+            border-color 0.2s ease,
+            box-shadow 0.2s ease;
         }
 
         .disabledCard {
           opacity: 0.55;
         }
 
+        .triggeredCard {
+          border-color:
+            rgba(33, 242, 139, 0.75);
+          box-shadow:
+            0 0 26px
+            rgba(33, 242, 139, 0.08);
+        }
+
         .cardTop {
           display: flex;
           align-items: flex-start;
-          justify-content:
-            space-between;
+          justify-content: space-between;
           gap: 15px;
         }
 
@@ -1396,20 +1626,41 @@ export default function Alerts() {
           font-size: 7px;
           font-weight: 900;
           letter-spacing: 1px;
+          white-space: nowrap;
         }
 
-        .status.enabled {
-          border:
-            1px solid #216744;
+        .status.triggered {
+          border: 1px solid #21f28b;
           background:
-            rgba(33, 242, 139, 0.07);
+            rgba(33, 242, 139, 0.12);
           color: #21f28b;
         }
 
+        .status.watching {
+          border: 1px solid #216744;
+          background:
+            rgba(33, 242, 139, 0.06);
+          color: #21f28b;
+        }
+
+        .status.not_checked {
+          border: 1px solid #385047;
+          color: #91a49c;
+        }
+
         .status.paused {
-          border:
-            1px solid #46534e;
+          border: 1px solid #46534e;
           color: #84958e;
+        }
+
+        .status.no_market_data,
+        .status.metric_unavailable {
+          border:
+            1px solid
+            rgba(255, 181, 71, 0.45);
+          background:
+            rgba(255, 181, 71, 0.05);
+          color: #ffb547;
         }
 
         .address {
@@ -1417,13 +1668,11 @@ export default function Alerts() {
           min-height: 40px;
           display: flex;
           align-items: center;
-          justify-content:
-            space-between;
+          justify-content: space-between;
           gap: 10px;
           margin-top: 18px;
           padding: 0 12px;
-          border:
-            1px solid #172a21;
+          border: 1px solid #172a21;
           border-radius: 9px;
           background: #050907;
           color: #82958d;
@@ -1453,8 +1702,7 @@ export default function Alerts() {
 
         .rule > div {
           padding: 13px;
-          border:
-            1px solid #172a21;
+          border: 1px solid #172a21;
           border-radius: 9px;
         }
 
@@ -1475,6 +1723,42 @@ export default function Alerts() {
           color: #21f28b;
         }
 
+        .marketResult {
+          margin-top: 10px;
+          padding: 14px;
+          border: 1px solid #1b3328;
+          border-radius: 9px;
+          background:
+            rgba(33, 242, 139, 0.025);
+        }
+
+        .marketResult > span {
+          display: block;
+          margin-bottom: 7px;
+          color: #60736a;
+          font-size: 7px;
+          font-weight: 900;
+          letter-spacing: 1px;
+        }
+
+        .marketResult > strong {
+          display: block;
+          color: #d9e1dd;
+          font-size: 16px;
+        }
+
+        .marketResult .triggeredValue {
+          color: #21f28b;
+        }
+
+        .marketResult small {
+          display: block;
+          margin-top: 6px;
+          color: #687b72;
+          font-size: 8px;
+          text-transform: uppercase;
+        }
+
         .cardFooter {
           display: flex;
           gap: 8px;
@@ -1484,8 +1768,7 @@ export default function Alerts() {
         .secondary,
         .delete {
           min-height: 39px;
-          border:
-            1px solid #294138;
+          border: 1px solid #294138;
           border-radius: 8px;
           background: transparent;
           color: #9aada5;
@@ -1517,15 +1800,13 @@ export default function Alerts() {
           background:
             rgba(255, 94, 105, 0.05);
         }
-
-        .engineInfo {
+                .engineInfo {
           display: flex;
           align-items: center;
           gap: 20px;
           margin-top: 22px;
           padding: 26px 30px;
-          border:
-            1px solid #1b3027;
+          border: 1px solid #1b3027;
           border-radius: 16px;
           background:
             rgba(7, 13, 10, 0.8);
@@ -1537,8 +1818,7 @@ export default function Alerts() {
           display: grid;
           place-items: center;
           flex: 0 0 58px;
-          border:
-            1px solid #21f28b;
+          border: 1px solid #21f28b;
           border-radius: 50%;
           color: #21f28b;
           font-size: 25px;
@@ -1558,13 +1838,11 @@ export default function Alerts() {
 
         .footer {
           display: flex;
-          justify-content:
-            space-between;
+          justify-content: space-between;
           gap: 40px;
           margin-top: 40px;
           padding-top: 24px;
-          border-top:
-            1px solid #172820;
+          border-top: 1px solid #172820;
         }
 
         .footer div {
@@ -1587,9 +1865,7 @@ export default function Alerts() {
           text-align: right;
         }
 
-        @media (
-          max-width: 1050px
-        ) {
+        @media (max-width: 1050px) {
           .hero {
             align-items: stretch;
             flex-direction: column;
@@ -1611,11 +1887,19 @@ export default function Alerts() {
           .createButton {
             min-height: 50px;
           }
+
+          .alertsHeader {
+            align-items: flex-start;
+            flex-direction: column;
+          }
+
+          .engineControls {
+            width: 100%;
+            justify-content: flex-start;
+          }
         }
 
-        @media (
-          max-width: 760px
-        ) {
+        @media (max-width: 760px) {
           .shell {
             width:
               min(
@@ -1670,6 +1954,20 @@ export default function Alerts() {
             grid-template-columns: 1fr;
           }
 
+          .engineControls {
+            align-items: stretch;
+            flex-direction: column;
+          }
+
+          .checkButton {
+            width: 100%;
+          }
+
+          .counter {
+            box-sizing: border-box;
+            width: 100%;
+          }
+
           .engineInfo {
             align-items: flex-start;
           }
@@ -1683,9 +1981,7 @@ export default function Alerts() {
           }
         }
 
-        @media (
-          max-width: 480px
-        ) {
+        @media (max-width: 480px) {
           .stats {
             grid-template-columns: 1fr;
           }
@@ -1706,6 +2002,7 @@ export default function Alerts() {
 
           .delete {
             width: 100%;
+            flex-basis: 39px;
           }
         }
       `}</style>

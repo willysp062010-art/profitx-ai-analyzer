@@ -4,6 +4,7 @@ import { useRouter } from "next/router";
 
 const WATCHLIST_STORAGE_KEY = "profitx-watchlist-v1";
 const ALERTS_STORAGE_KEY = "profitx-alerts-v1";
+const CLIENT_ID_STORAGE_KEY = "profitx-alerts-client-id-v1";
 
 const NETWORKS = {
   solana: "Solana",
@@ -83,6 +84,201 @@ function saveStorage(key, value) {
   }
 }
 
+function createClientId() {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  try {
+    const existing =
+      window.localStorage.getItem(
+        CLIENT_ID_STORAGE_KEY
+      );
+
+    if (existing) {
+      return existing;
+    }
+
+    let generated = "";
+
+    if (
+      typeof crypto !== "undefined" &&
+      typeof crypto.randomUUID === "function"
+    ) {
+      generated = crypto.randomUUID();
+    } else {
+      generated = `pfx-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 12)}`;
+    }
+
+    window.localStorage.setItem(
+      CLIENT_ID_STORAGE_KEY,
+      generated
+    );
+
+    return generated;
+  } catch {
+    return `pfx-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 12)}`;
+  }
+}
+
+function serverRowToAlert(row) {
+  if (!row) {
+    return null;
+  }
+
+  return {
+    id: row.alert_id,
+    chainId: row.chain_id || "solana",
+    tokenAddress: row.token_address || "",
+    metric: row.metric || "priceUsd",
+    condition: row.condition || "above",
+    targetValue: Number(row.target_value),
+    enabled: row.enabled !== false,
+    triggered: row.status === "triggered",
+    createdAt:
+      row.created_at || new Date().toISOString(),
+  };
+}
+
+function mergeAlerts(localAlerts, serverAlerts) {
+  const merged = new Map();
+
+  for (const alert of serverAlerts || []) {
+    if (alert?.id) {
+      merged.set(alert.id, alert);
+    }
+  }
+
+  for (const alert of localAlerts || []) {
+    if (alert?.id && !merged.has(alert.id)) {
+      merged.set(alert.id, alert);
+    }
+  }
+
+  return Array.from(merged.values()).sort(
+    (a, b) =>
+      new Date(b.createdAt || 0).getTime() -
+      new Date(a.createdAt || 0).getTime()
+  );
+}
+
+async function readServerAlerts(clientId) {
+  const response = await fetch(
+    `/api/alerts-store?clientId=${encodeURIComponent(
+      clientId
+    )}`
+  );
+
+  const data = await response.json();
+
+  if (!response.ok || !data?.ok) {
+    throw new Error(
+      data?.message ||
+        "Impossible de récupérer les alertes serveur."
+    );
+  }
+
+  return (data.alerts || [])
+    .map(serverRowToAlert)
+    .filter(Boolean);
+}
+
+async function saveAlertToServer(
+  clientId,
+  alert
+) {
+  const response = await fetch(
+    "/api/alerts-store",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        clientId,
+        alert,
+      }),
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok || !data?.ok) {
+    throw new Error(
+      data?.message ||
+        "Impossible d'enregistrer l'alerte sur le serveur."
+    );
+  }
+
+  return data;
+}
+
+async function updateAlertOnServer(
+  clientId,
+  alertId,
+  enabled
+) {
+  const response = await fetch(
+    "/api/alerts-store",
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        clientId,
+        alertId,
+        enabled,
+      }),
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok || !data?.ok) {
+    throw new Error(
+      data?.message ||
+        "Impossible de modifier l'alerte sur le serveur."
+    );
+  }
+
+  return data;
+}
+
+async function deleteAlertFromServer(
+  clientId,
+  alertId
+) {
+  const response = await fetch(
+    "/api/alerts-store",
+    {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        clientId,
+        alertId,
+      }),
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok || !data?.ok) {
+    throw new Error(
+      data?.message ||
+        "Impossible de supprimer l'alerte du serveur."
+    );
+  }
+
+  return data;
+}
+
 function shortAddress(address) {
   if (!address) {
     return "Adresse inconnue";
@@ -92,7 +288,10 @@ function shortAddress(address) {
     return address;
   }
 
-  return `${address.slice(0, 10)}...${address.slice(-8)}`;
+  return `${address.slice(
+    0,
+    10
+  )}...${address.slice(-8)}`;
 }
 
 function getMetric(metricId) {
@@ -159,17 +358,23 @@ export default function Alerts() {
   const [alerts, setAlerts] = useState([]);
   const [loaded, setLoaded] = useState(false);
 
+  const [clientId, setClientId] = useState("");
+
   const [selectedTokenId, setSelectedTokenId] =
     useState("");
+
   const [metric, setMetric] =
     useState("priceUsd");
+
   const [condition, setCondition] =
     useState("above");
+
   const [targetValue, setTargetValue] =
     useState("");
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
   const [copiedId, setCopiedId] =
     useState("");
 
@@ -186,25 +391,120 @@ export default function Alerts() {
     useState("");
 
   useEffect(() => {
-    const storedWatchlist = loadStorage(
-      WATCHLIST_STORAGE_KEY
-    );
+    let cancelled = false;
 
-    const storedAlerts = loadStorage(
-      ALERTS_STORAGE_KEY
-    );
-
-    setWatchlist(storedWatchlist);
-    setAlerts(storedAlerts);
-
-    if (storedWatchlist.length > 0) {
-      setSelectedTokenId(
-        storedWatchlist[0].id ||
-          `${storedWatchlist[0].chainId}:${storedWatchlist[0].tokenAddress}`
+    async function initializeAlerts() {
+      const storedWatchlist = loadStorage(
+        WATCHLIST_STORAGE_KEY
       );
+
+      const storedAlerts = loadStorage(
+        ALERTS_STORAGE_KEY
+      );
+
+      const currentClientId =
+        createClientId();
+
+      if (cancelled) {
+        return;
+      }
+
+      setClientId(currentClientId);
+      setWatchlist(storedWatchlist);
+
+      if (storedWatchlist.length > 0) {
+        setSelectedTokenId(
+          storedWatchlist[0].id ||
+            `${storedWatchlist[0].chainId}:${storedWatchlist[0].tokenAddress}`
+        );
+      }
+
+      try {
+        const serverAlerts =
+          await readServerAlerts(
+            currentClientId
+          );
+
+        if (cancelled) {
+          return;
+        }
+
+        /*
+         * Migration sûre :
+         *
+         * - Les alertes déjà présentes sur le serveur
+         *   restent prioritaires.
+         *
+         * - Les anciennes alertes localStorage qui
+         *   n'existent pas encore sur le serveur sont
+         *   conservées puis envoyées vers Supabase.
+         *
+         * Ainsi une base serveur vide ne peut pas
+         * supprimer les alertes locales existantes.
+         */
+        const mergedAlerts = mergeAlerts(
+          storedAlerts,
+          serverAlerts
+        );
+
+        setAlerts(mergedAlerts);
+
+        const serverIds = new Set(
+          serverAlerts.map(
+            (alert) => alert.id
+          )
+        );
+
+        const alertsToMigrate =
+          storedAlerts.filter(
+            (alert) =>
+              alert?.id &&
+              !serverIds.has(alert.id)
+          );
+
+        for (const alert of alertsToMigrate) {
+          try {
+            await saveAlertToServer(
+              currentClientId,
+              alert
+            );
+          } catch (migrationError) {
+            console.error(
+              "PFX alert migration error:",
+              migrationError
+            );
+          }
+        }
+      } catch (initializationError) {
+        /*
+         * Si Supabase est momentanément indisponible,
+         * on conserve immédiatement les données
+         * locales au lieu de bloquer PFX Alerts.
+         */
+        console.error(
+          "PFX Alerts initialization error:",
+          initializationError
+        );
+
+        if (!cancelled) {
+          setAlerts(storedAlerts);
+
+          setEngineError(
+            "Stockage serveur momentanément indisponible. Vos alertes locales restent accessibles."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoaded(true);
+        }
+      }
     }
 
-    setLoaded(true);
+    initializeAlerts();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -241,7 +541,7 @@ export default function Alerts() {
     setSuccess("");
   }
 
-  function createAlert(event) {
+  async function createAlert(event) {
     event.preventDefault();
     clearMessages();
 
@@ -305,6 +605,13 @@ export default function Alerts() {
       return;
     }
 
+    if (!clientId) {
+      setError(
+        "Le stockage PFX Alerts n'est pas encore initialisé."
+      );
+      return;
+    }
+
     const alert = {
       id: `${chainId}:${cleanAddress}:${metric}:${condition}:${Date.now()}`,
       chainId,
@@ -317,48 +624,125 @@ export default function Alerts() {
       createdAt: new Date().toISOString(),
     };
 
-    setAlerts((current) => [
-      alert,
-      ...current,
-    ]);
+    /*
+     * On enregistre d'abord côté serveur.
+     * Si Supabase refuse l'opération, on n'affiche
+     * pas une fausse alerte persistante à l'utilisateur.
+     */
+    try {
+      await saveAlertToServer(
+        clientId,
+        alert
+      );
 
-    setTargetValue("");
+      setAlerts((current) => [
+        alert,
+        ...current,
+      ]);
 
-    setSuccess(
-      "Alerte enregistrée dans PFX Alerts."
-    );
+      setTargetValue("");
+
+      setSuccess(
+        "Alerte enregistrée dans PFX Alerts et sauvegardée sur le serveur."
+      );
+    } catch (saveError) {
+      setError(
+        saveError?.message ||
+          "Impossible d'enregistrer l'alerte sur le serveur."
+      );
+    }
   }
 
-  function toggleAlert(id) {
+  async function toggleAlert(id) {
     clearMessages();
 
-    setAlerts((current) =>
-      current.map((alert) =>
-        alert.id === id
-          ? {
-              ...alert,
-              enabled:
-                alert.enabled === false,
-            }
-          : alert
-      )
-    );
+    const currentAlert =
+      alerts.find(
+        (alert) => alert.id === id
+      );
+
+    if (!currentAlert) {
+      return;
+    }
+
+    if (!clientId) {
+      setError(
+        "Le stockage PFX Alerts n'est pas encore initialisé."
+      );
+      return;
+    }
+
+    const nextEnabled =
+      currentAlert.enabled === false;
+
+    try {
+      await updateAlertOnServer(
+        clientId,
+        id,
+        nextEnabled
+      );
+
+      setAlerts((current) =>
+        current.map((alert) =>
+          alert.id === id
+            ? {
+                ...alert,
+                enabled: nextEnabled,
+              }
+            : alert
+        )
+      );
+
+      setSuccess(
+        nextEnabled
+          ? "Alerte réactivée et synchronisée."
+          : "Alerte mise en pause et synchronisée."
+      );
+    } catch (updateError) {
+      setError(
+        updateError?.message ||
+          "Impossible de modifier l'alerte."
+      );
+    }
   }
 
-  function deleteAlert(id) {
+  async function deleteAlert(id) {
     clearMessages();
 
-    setAlerts((current) =>
-      current.filter(
-        (alert) => alert.id !== id
-      )
-    );
+    if (!clientId) {
+      setError(
+        "Le stockage PFX Alerts n'est pas encore initialisé."
+      );
+      return;
+    }
 
-    setEngineResults((current) => {
-      const next = { ...current };
-      delete next[id];
-      return next;
-    });
+    try {
+      await deleteAlertFromServer(
+        clientId,
+        id
+      );
+
+      setAlerts((current) =>
+        current.filter(
+          (alert) => alert.id !== id
+        )
+      );
+
+      setEngineResults((current) => {
+        const next = { ...current };
+        delete next[id];
+        return next;
+      });
+
+      setSuccess(
+        "Alerte supprimée du stockage PFX."
+      );
+    } catch (deleteError) {
+      setError(
+        deleteError?.message ||
+          "Impossible de supprimer l'alerte."
+      );
+    }
   }
 
   async function copyAddress(
@@ -451,7 +835,8 @@ export default function Alerts() {
 
       for (const result of data.results || []) {
         if (result?.id) {
-          nextResults[result.id] = result;
+          nextResults[result.id] =
+            result;
         }
       }
 
@@ -478,9 +863,9 @@ export default function Alerts() {
           "Vérification terminée. Aucune condition d'alerte n'est déclenchée."
         );
       }
-    } catch (error) {
+    } catch (checkError) {
       setEngineError(
-        error?.message ||
+        checkError?.message ||
           "Impossible de contacter le PFX Alert Engine."
       );
     } finally {

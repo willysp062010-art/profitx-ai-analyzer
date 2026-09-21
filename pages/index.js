@@ -698,7 +698,7 @@ export default function Home() {
           }}
         >
           <a
-            href={`https://pump.fun/coin/${DEFAULT_MINT}`}
+            href="/obtenir-pfx"
             target="_blank"
             rel="noreferrer"
             style={{

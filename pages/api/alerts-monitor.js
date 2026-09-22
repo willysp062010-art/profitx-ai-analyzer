@@ -1,6 +1,6 @@
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const ALERT_EMAIL_TO = "willysp062010@gmail.com";
+const ALERT_EMAIL_TO = process.env.PFX_ALERTS_EMAIL_TO;
 const ALERT_EMAIL_FROM = "PFX Alerts <onboarding@resend.dev>";
 const SUPABASE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
@@ -602,9 +602,15 @@ async function sendAlertEmail(
   alert,
   evaluation
 ) {
-  if (!RESEND_API_KEY) {
+   if (!RESEND_API_KEY) {
     throw new Error(
       "RESEND_API_KEY n'est pas configurée."
+    );
+  }
+
+  if (!ALERT_EMAIL_TO) {
+    throw new Error(
+      "PFX_ALERTS_EMAIL_TO n'est pas configurée."
     );
   }
 

@@ -619,117 +619,75 @@ export default function Home() {
   return (
     <main className="shell">
 
-     <header className="topbar">
+      <header className="topbar">
 
-  <a
-    href="/"
-    className="brand"
-    style={{
-      textDecoration: "none",
-      color: "inherit"
-    }}
-  >
-    <span className="logo">
-      P
-    </span>
-    PROFITX AI
-  </a>
+        <a
+          href="/"
+          className="brand"
+          style={{
+            textDecoration: "none",
+            color: "inherit"
+          }}
+        >
+          <span className="logo">
+            P
+          </span>
+          PROFITX AI
+        </a>
 
-  <nav
-    style={{
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "flex-end",
-      flexWrap: "wrap",
-      gap: "8px"
-    }}
-  >
+        <nav
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "flex-end",
+            flexWrap: "wrap",
+            gap: "8px"
+          }}
+        >
+          {[
+            ["ANALYZER", "/"],
+            ["RADAR", "/radar"],
+            ["WATCHLIST", "/watchlist"],
+            ["ALERTS", "/alerts"]
+          ].map(([label, href]) => (
+            <a
+              key={label}
+              href={href}
+              style={{
+                padding: "10px 14px",
+                border: "1px solid #00ff88",
+                borderRadius: "9px",
+                background: "rgba(0,255,136,0.08)",
+                color: "#00ff88",
+                textDecoration: "none",
+                fontWeight: 800,
+                fontSize: "12px",
+                letterSpacing: "0.7px"
+              }}
+            >
+              {label}
+            </a>
+          ))}
 
-    <a
-      href="/"
-      style={{
-        padding: "10px 14px",
-        border: "1px solid #00ff88",
-        borderRadius: "9px",
-        background: "rgba(0,255,136,0.08)",
-        color: "#00ff88",
-        textDecoration: "none",
-        fontWeight: 800,
-        fontSize: "12px",
-        letterSpacing: "0.7px"
-      }}
-    >
-      ANALYZER
-    </a>
+          <a
+            href="/obtenir-pfx"
+            style={{
+              padding: "10px 14px",
+              border: "1px solid #00ff88",
+              borderRadius: "9px",
+              background: "#00ff88",
+              color: "#00150c",
+              textDecoration: "none",
+              fontWeight: 900,
+              fontSize: "12px",
+              letterSpacing: "0.7px"
+            }}
+          >
+            OBTENIR PFX
+          </a>
+        </nav>
 
-    <a
-      href="/radar"
-      style={{
-        padding: "10px 14px",
-        border: "1px solid rgba(0,255,136,0.25)",
-        borderRadius: "9px",
-        color: "#b9c9c1",
-        textDecoration: "none",
-        fontWeight: 800,
-        fontSize: "12px",
-        letterSpacing: "0.7px"
-      }}
-    >
-      RADAR
-    </a>
-
-    <a
-      href="/watchlist"
-      style={{
-        padding: "10px 14px",
-        border: "1px solid rgba(0,255,136,0.25)",
-        borderRadius: "9px",
-        color: "#b9c9c1",
-        textDecoration: "none",
-        fontWeight: 800,
-        fontSize: "12px",
-        letterSpacing: "0.7px"
-      }}
-    >
-      WATCHLIST
-    </a>
-
-    <a
-      href="/alerts"
-      style={{
-        padding: "10px 14px",
-        border: "1px solid rgba(0,255,136,0.25)",
-        borderRadius: "9px",
-        color: "#b9c9c1",
-        textDecoration: "none",
-        fontWeight: 800,
-        fontSize: "12px",
-        letterSpacing: "0.7px"
-      }}
-    >
-      ALERTS
-    </a>
-
-    <a
-      href="/obtenir-pfx"
-      style={{
-        padding: "10px 14px",
-        border: "1px solid #00ff88",
-        borderRadius: "9px",
-        background: "#00ff88",
-        color: "#00150c",
-        textDecoration: "none",
-        fontWeight: 900,
-        fontSize: "12px",
-        letterSpacing: "0.7px"
-      }}
-    >
-      OBTENIR PFX
-    </a>
-
-  </nav>
-
-</header>
+      </header>
 
 
       <section className="panel">
@@ -819,7 +777,7 @@ export default function Home() {
                 "0 0 22px rgba(0, 255, 136, 0.18)"
             }}
           >
-            PUMP.FUN • VOIR / ACHETER PFX
+            OBTENIR PFX • GUIDE D'ACHAT
           </a>
         </div>
 
@@ -1101,8 +1059,6 @@ export default function Home() {
             </div>
 
           </div>
-
-
           {(token.name ||
             token.symbol) && (
 
@@ -2095,7 +2051,7 @@ export default function Home() {
               style={{
                 marginTop: "18px",
                 padding: "18px",
-                border:
+                                border:
                   "1px solid rgba(0, 255, 136, 0.22)",
                 borderRadius: "12px",
                 background:
@@ -2337,6 +2293,8 @@ export default function Home() {
             </div>
 
           </div>
+
+
           <div className="panel">
 
             <div className="eyebrow">
@@ -2457,6 +2415,7 @@ export default function Home() {
             </div>
 
           </div>
+
 
           {data.note && (
             <div className="note">

@@ -1529,13 +1529,12 @@ export default function Alerts() {
               </h2>
 
               <p>
-                PFX Alerts peut maintenant
-                transmettre vos règles au moteur
-                serveur et comparer leurs valeurs
-                cibles aux données de marché
-                disponibles. La surveillance
-                automatique permanente sera
-                ajoutée dans une étape ultérieure.
+               PFX Alerts surveille automatiquement
+vos règles en continu et compare leurs
+valeurs cibles aux données de marché.
+Lorsqu&apos;une condition est déclenchée,
+une notification par e-mail est envoyée
+automatiquement.
               </p>
             </div>
           </section>

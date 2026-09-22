@@ -50,3 +50,192 @@ h2 { margin:0 0 26px; font-size:28px; }
   .meta { min-width:0; }
   .metrics, .observed, .pairGrid { grid-template-columns:1fr 1fr; }
 }
+/* =========================================================
+   PROFITX — FOND ANIMÉ PFX
+   Décor global uniquement — aucune interaction avec le site
+   ========================================================= */
+
+.pfxBackground {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+  background: transparent;
+}
+
+.pfxSiteContent {
+  position: relative;
+  z-index: 1;
+}
+
+/* Bulles PFX */
+
+.pfxBubble {
+  position: absolute;
+  border-radius: 50%;
+  overflow: hidden;
+  opacity: 0.16;
+  pointer-events: none;
+  user-select: none;
+  will-change: transform;
+  filter:
+    drop-shadow(0 0 10px rgba(33, 242, 139, 0.18))
+    drop-shadow(0 0 24px rgba(33, 242, 139, 0.08));
+}
+
+.pfxBubble img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+/* Répartition des 8 bulles */
+
+.pfxBubble1 {
+  width: 150px;
+  height: 150px;
+  left: 2%;
+  top: 10%;
+  animation: pfxFloatA 24s ease-in-out infinite alternate;
+}
+
+.pfxBubble2 {
+  width: 95px;
+  height: 95px;
+  left: 18%;
+  top: 67%;
+  animation: pfxFloatB 29s ease-in-out infinite alternate;
+  animation-delay: -8s;
+}
+
+.pfxBubble3 {
+  width: 125px;
+  height: 125px;
+  left: 38%;
+  top: 20%;
+  animation: pfxFloatC 27s ease-in-out infinite alternate;
+  animation-delay: -13s;
+}
+
+.pfxBubble4 {
+  width: 80px;
+  height: 80px;
+  left: 55%;
+  top: 72%;
+  animation: pfxFloatA 31s ease-in-out infinite alternate-reverse;
+  animation-delay: -17s;
+}
+
+.pfxBubble5 {
+  width: 135px;
+  height: 135px;
+  right: 20%;
+  top: 8%;
+  animation: pfxFloatB 26s ease-in-out infinite alternate;
+  animation-delay: -5s;
+}
+
+.pfxBubble6 {
+  width: 105px;
+  height: 105px;
+  right: 6%;
+  top: 37%;
+  animation: pfxFloatC 30s ease-in-out infinite alternate-reverse;
+  animation-delay: -11s;
+}
+
+.pfxBubble7 {
+  width: 75px;
+  height: 75px;
+  right: 30%;
+  top: 48%;
+  animation: pfxFloatA 28s ease-in-out infinite alternate;
+  animation-delay: -20s;
+}
+
+.pfxBubble8 {
+  width: 115px;
+  height: 115px;
+  right: 4%;
+  bottom: 5%;
+  animation: pfxFloatB 33s ease-in-out infinite alternate-reverse;
+  animation-delay: -15s;
+}
+
+/* Mouvements lents */
+
+@keyframes pfxFloatA {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(-4deg);
+  }
+  50% {
+    transform: translate3d(28px, -35px, 0) rotate(4deg);
+  }
+  100% {
+    transform: translate3d(-18px, 24px, 0) rotate(-2deg);
+  }
+}
+
+@keyframes pfxFloatB {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(3deg);
+  }
+  50% {
+    transform: translate3d(-32px, 28px, 0) rotate(-5deg);
+  }
+  100% {
+    transform: translate3d(22px, -24px, 0) rotate(3deg);
+  }
+}
+
+@keyframes pfxFloatC {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(-3deg);
+  }
+  50% {
+    transform: translate3d(20px, 32px, 0) rotate(5deg);
+  }
+  100% {
+    transform: translate3d(-26px, -20px, 0) rotate(-4deg);
+  }
+}
+
+/* Téléphones / petits écrans */
+
+@media (max-width: 800px) {
+  .pfxBubble {
+    opacity: 0.10;
+  }
+
+  .pfxBubble1,
+  .pfxBubble5 {
+    width: 100px;
+    height: 100px;
+  }
+
+  .pfxBubble2,
+  .pfxBubble4,
+  .pfxBubble7 {
+    display: none;
+  }
+
+  .pfxBubble3,
+  .pfxBubble6,
+  .pfxBubble8 {
+    width: 75px;
+    height: 75px;
+  }
+}
+
+/* Respecte le réglage système "réduire les animations" */
+
+@media (prefers-reduced-motion: reduce) {
+  .pfxBubble {
+    animation: none !important;
+  }
+}

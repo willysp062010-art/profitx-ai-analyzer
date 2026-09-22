@@ -619,20 +619,117 @@ export default function Home() {
   return (
     <main className="shell">
 
-      <header className="topbar">
+     <header className="topbar">
 
-        <div className="brand">
-          <span className="logo">
-            P
-          </span>
-          PROFITX AI
-        </div>
+  <a
+    href="/"
+    className="brand"
+    style={{
+      textDecoration: "none",
+      color: "inherit"
+    }}
+  >
+    <span className="logo">
+      P
+    </span>
+    PROFITX AI
+  </a>
 
-        <div className="tag">
-          SOLANA TOKEN ANALYZER
-        </div>
+  <nav
+    style={{
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "flex-end",
+      flexWrap: "wrap",
+      gap: "8px"
+    }}
+  >
 
-      </header>
+    <a
+      href="/"
+      style={{
+        padding: "10px 14px",
+        border: "1px solid #00ff88",
+        borderRadius: "9px",
+        background: "rgba(0,255,136,0.08)",
+        color: "#00ff88",
+        textDecoration: "none",
+        fontWeight: 800,
+        fontSize: "12px",
+        letterSpacing: "0.7px"
+      }}
+    >
+      ANALYZER
+    </a>
+
+    <a
+      href="/radar"
+      style={{
+        padding: "10px 14px",
+        border: "1px solid rgba(0,255,136,0.25)",
+        borderRadius: "9px",
+        color: "#b9c9c1",
+        textDecoration: "none",
+        fontWeight: 800,
+        fontSize: "12px",
+        letterSpacing: "0.7px"
+      }}
+    >
+      RADAR
+    </a>
+
+    <a
+      href="/watchlist"
+      style={{
+        padding: "10px 14px",
+        border: "1px solid rgba(0,255,136,0.25)",
+        borderRadius: "9px",
+        color: "#b9c9c1",
+        textDecoration: "none",
+        fontWeight: 800,
+        fontSize: "12px",
+        letterSpacing: "0.7px"
+      }}
+    >
+      WATCHLIST
+    </a>
+
+    <a
+      href="/alerts"
+      style={{
+        padding: "10px 14px",
+        border: "1px solid rgba(0,255,136,0.25)",
+        borderRadius: "9px",
+        color: "#b9c9c1",
+        textDecoration: "none",
+        fontWeight: 800,
+        fontSize: "12px",
+        letterSpacing: "0.7px"
+      }}
+    >
+      ALERTS
+    </a>
+
+    <a
+      href="/obtenir-pfx"
+      style={{
+        padding: "10px 14px",
+        border: "1px solid #00ff88",
+        borderRadius: "9px",
+        background: "#00ff88",
+        color: "#00150c",
+        textDecoration: "none",
+        fontWeight: 900,
+        fontSize: "12px",
+        letterSpacing: "0.7px"
+      }}
+    >
+      OBTENIR PFX
+    </a>
+
+  </nav>
+
+</header>
 
 
       <section className="panel">

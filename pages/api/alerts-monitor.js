@@ -1,5 +1,7 @@
 const SUPABASE_URL = process.env.SUPABASE_URL;
-
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const ALERT_EMAIL_TO = "willysp062010@gmail.com";
+const ALERT_EMAIL_FROM = "PFX Alerts <onboarding@resend.dev>";
 const SUPABASE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
@@ -553,7 +555,163 @@ function buildDatabaseUpdate(
 
   return update;
 }
+function getMetricLabel(metric) {
+  const labels = {
+    priceUsd: "Prix",
+    change24h: "Variation 24 h",
+    liquidityUsd: "Liquidité",
+    volume24hUsd: "Volume 24 h",
+  };
 
+  return labels[metric] || metric;
+}
+
+function getConditionLabel(condition) {
+  return condition === "above"
+    ? "supérieur à"
+    : "inférieur à";
+}
+
+function formatAlertValue(metric, value) {
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return "Indisponible";
+  }
+
+  if (metric === "change24h") {
+    return `${number.toLocaleString("fr-FR", {
+      maximumFractionDigits: 4,
+    })} %`;
+  }
+
+  if (
+    metric === "priceUsd" ||
+    metric === "liquidityUsd" ||
+    metric === "volume24hUsd"
+  ) {
+    return `${number.toLocaleString("fr-FR", {
+      maximumFractionDigits: 10,
+    })} $`;
+  }
+
+  return number.toLocaleString("fr-FR");
+}
+
+async function sendAlertEmail(
+  alert,
+  evaluation
+) {
+  if (!RESEND_API_KEY) {
+    throw new Error(
+      "RESEND_API_KEY n'est pas configurée."
+    );
+  }
+
+  const symbol =
+    evaluation.tokenSymbol ||
+    "Token Solana";
+
+  const metricLabel =
+    getMetricLabel(alert.metric);
+
+  const conditionLabel =
+    getConditionLabel(
+      alert.condition
+    );
+
+  const currentValue =
+    formatAlertValue(
+      alert.metric,
+      evaluation.currentValue
+    );
+
+  const targetValue =
+    formatAlertValue(
+      alert.metric,
+      alert.targetValue
+    );
+
+  const subject =
+    `🚨 PFX Alert — ${symbol} — ${metricLabel}`;
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;background:#07110d;color:#f5f7f6;padding:28px;">
+      <div style="max-width:620px;margin:auto;background:#0d1813;border:1px solid #21f28b;border-radius:14px;padding:28px;">
+        <div style="font-size:13px;color:#21f28b;font-weight:700;letter-spacing:1px;">
+          PROFITX AI • PFX ALERTS
+        </div>
+
+        <h1 style="font-size:24px;margin:14px 0 8px;">
+          🚨 Alerte déclenchée
+        </h1>
+
+        <p style="color:#b9c5bf;">
+          Une condition surveillée par PFX Alerts vient d'être atteinte.
+        </p>
+
+        <div style="background:#07110d;border-radius:10px;padding:18px;margin:22px 0;">
+          <p><strong>Token :</strong> ${symbol}</p>
+          <p><strong>Métrique :</strong> ${metricLabel}</p>
+          <p><strong>Condition :</strong> ${conditionLabel}</p>
+          <p><strong>Seuil :</strong> ${targetValue}</p>
+          <p><strong>Valeur actuelle :</strong> ${currentValue}</p>
+          <p><strong>DEX :</strong> ${evaluation.dexId || "Indisponible"}</p>
+        </div>
+
+        <p style="font-size:12px;color:#87958e;word-break:break-all;">
+          Adresse du token : ${alert.tokenAddress}
+        </p>
+
+        <p style="font-size:12px;color:#87958e;">
+          Contrôle automatique PROFITX AI — PFX Alerts.
+        </p>
+      </div>
+    </div>
+  `;
+
+  const response =
+    await fetchWithTimeout(
+      "https://api.resend.com/emails",
+      {
+        method: "POST",
+        headers: {
+          Authorization:
+            `Bearer ${RESEND_API_KEY}`,
+          "Content-Type":
+            "application/json",
+        },
+        body: JSON.stringify({
+          from: ALERT_EMAIL_FROM,
+          to: [ALERT_EMAIL_TO],
+          subject,
+          html,
+        }),
+      }
+    );
+
+  const text =
+    await response.text();
+
+  let data = null;
+
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = text;
+    }
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      data?.message ||
+        `Resend HTTP ${response.status}`
+    );
+  }
+
+  return data;
+}
 function isAuthorized(req) {
   /*
    * Tant que le secret n'est pas encore
@@ -726,12 +884,46 @@ export default async function handler(
             evaluation
           );
 
-        await updateAlert(
-          alert,
-          update
-        );
+       await updateAlert(
+  alert,
+  update
+);
 
-        results.push({
+let notificationSent = false;
+let notificationError = null;
+
+if (evaluation.newlyTriggered) {
+  try {
+    await sendAlertEmail(
+      alert,
+      evaluation
+    );
+
+    notificationSent = true;
+
+    await updateAlert(
+      alert,
+      {
+        last_notification_at:
+          checkedAt,
+        updated_at:
+          checkedAt,
+      }
+    );
+  } catch (emailError) {
+    notificationError =
+      emailError?.message ||
+      "Erreur d'envoi de l'e-mail.";
+
+    console.error(
+      "PFX Alerts email error:",
+      alert.alertId,
+      emailError
+    );
+  }
+}
+
+results.push({
           id: alert.alertId,
           clientId: alert.clientId,
           tokenAddress:
@@ -753,7 +945,8 @@ export default async function handler(
             evaluation.triggeredNow,
           newlyTriggered:
             evaluation.newlyTriggered,
-        });
+        notificationSent,
+notificationError,});
       } catch (error) {
         console.error(
           "PFX Alerts Monitor alert error:",

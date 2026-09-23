@@ -43,9 +43,17 @@ export default function ObtenirPFX() {
             <span>PROFITX AI</span>
           </a>
 
-          <a href="/" className="back">
-            ← ANALYZER
-          </a>
+         <nav className="nav">
+  <a href="/">ANALYZER</a>
+  <a href="/radar">RADAR</a>
+  <a href="/compare">COMPARE</a>
+  <a href="/intelligence">INTELLIGENCE</a>
+  <a href="/watchlist">WATCHLIST</a>
+  <a href="/alerts">ALERTS</a>
+  <a href="/obtenir-pfx" className="activeNav">
+    OBTENIR PFX
+  </a>
+</nav>
         </header>
 
         <section className="hero">
@@ -437,17 +445,35 @@ export default function ObtenirPFX() {
             0 0 22px rgba(33, 242, 139, 0.2);
         }
 
-        .back {
-          color: #a9b5af;
-          text-decoration: none;
-          font-size: 13px;
-          font-weight: 800;
-          letter-spacing: 0.8px;
-        }
+        .nav {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 
-        .back:hover {
-          color: #21f28b;
-        }
+.nav a {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: transparent;
+  color: #a9b5af;
+  text-decoration: none;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.8px;
+}
+
+.nav a:hover,
+.nav .activeNav {
+  border-color: #21f28b;
+  color: #21f28b;
+}
 
         .hero,
         .quick,

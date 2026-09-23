@@ -536,13 +536,51 @@ export default function ComparePage() {
               </span>
             </button>
 
-            <button
-              className="backButton"
-              type="button"
-              onClick={() => router.push("/")}
-            >
-              ← Analyzer
-            </button>
+           <nav className="mainNav">
+  <button
+    type="button"
+    onClick={() => router.push("/")}
+  >
+    ANALYZER
+  </button>
+
+  <button
+    type="button"
+    onClick={() => router.push("/radar")}
+  >
+    RADAR
+  </button>
+
+  <button
+    type="button"
+    className="active"
+    onClick={() => router.push("/compare")}
+  >
+    COMPARE
+  </button>
+
+  <button
+    type="button"
+    onClick={() => router.push("/watchlist")}
+  >
+    WATCHLIST
+  </button>
+
+  <button
+    type="button"
+    onClick={() => router.push("/alerts")}
+  >
+    ALERTS
+  </button>
+
+  <button
+    type="button"
+    className="getPfx"
+    onClick={() => router.push("/obtenir-pfx")}
+  >
+    OBTENIR PFX
+  </button>
+</nav>
           </header>
 
           <section className="hero">
@@ -1065,19 +1103,43 @@ export default function ComparePage() {
           letter-spacing: 0.16em;
         }
 
-        .backButton {
-          padding: 10px 15px;
-          border-radius: 9px;
-          border: 1px solid #26352b;
-          background: #0b100d;
-          color: #b9c5bd;
-          cursor: pointer;
-        }
+        .mainNav {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 
-        .backButton:hover {
-          border-color: #35ff82;
-          color: #35ff82;
-        }
+.mainNav button {
+  padding: 10px 14px;
+  border: 1px solid #35ff82;
+  border-radius: 9px;
+  background: rgba(53, 255, 130, 0.08);
+  color: #35ff82;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.7px;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.mainNav button:hover,
+.mainNav button.active {
+  background: rgba(53, 255, 130, 0.16);
+}
+
+.mainNav button.getPfx {
+  background: #35ff82;
+  color: #031007;
+  font-weight: 900;
+}
+
+.mainNav button.getPfx:hover {
+  background: #62ff9c;
+}
 
         .hero {
           text-align: center;

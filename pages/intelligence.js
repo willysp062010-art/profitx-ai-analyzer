@@ -350,7 +350,7 @@ export default function IntelligencePage() {
         IDENTITÉ ACTUELLE
       </div>
       <img
-        src="/profitx-logo-03-current.png"
+        src="/ChatGPT Image 5 sept. 2026, 08_15_55.png"
         alt="Identité actuelle PROFITX"
       />
       <strong>PROFITX AI</strong>

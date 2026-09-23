@@ -302,10 +302,20 @@ function findMetric(
 }
 
 function joinLabels(items) {
-  const labels =
-    items.map(
-      (item) => item.label.toLowerCase()
-    );
+  const articles = {
+    liquidity: "la liquidité",
+    distribution: "la distribution",
+    security: "la sécurité",
+    maturity: "la maturité",
+    activity: "l'activité",
+    volume: "le volume"
+  };
+
+  const labels = items.map(
+    (item) =>
+      articles[item.key] ||
+      item.label.toLowerCase()
+  );
 
   if (labels.length === 0) {
     return "";
@@ -325,6 +335,7 @@ function joinLabels(items) {
       .join(", ")} et ` +
     labels[labels.length - 1]
   );
+}
 }
 
 function buildSummary({

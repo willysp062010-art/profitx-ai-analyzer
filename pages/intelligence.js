@@ -314,7 +314,50 @@ export default function IntelligencePage() {
             observée d'un token Solana.
           </p>
         </section>
+<section className="brandEvolution">
+  <div className="brandEvolutionTitle">
+    <span>IDENTITÉ PROFITX</span>
+    <strong>De PFX à PROFITX AI</strong>
+  </div>
 
+  <div className="brandLogos">
+    <div className="brandLogoCard historical">
+      <div className="brandLogoLabel">
+        IDENTITÉ ORIGINALE • PUMP.FUN
+      </div>
+      <img
+        src="/profitx-logo-01-pumpfun.png"
+        alt="Logo historique PROFITX PFX Pump.fun"
+      />
+      <strong>PROFITX PFX</strong>
+      <span>Identité historique</span>
+    </div>
+
+    <div className="brandLogoCard">
+      <div className="brandLogoLabel">
+        ÉVOLUTION • AI ANALYZER
+      </div>
+      <img
+        src="/profitx-logo-02-analyzer.png"
+        alt="PROFITX AI Analyzer"
+      />
+      <strong>PROFITX AI ANALYZER</strong>
+      <span>Deuxième génération</span>
+    </div>
+
+    <div className="brandLogoCard current">
+      <div className="brandLogoLabel">
+        IDENTITÉ ACTUELLE
+      </div>
+      <img
+        src="/profitx-logo-03-current.png"
+        alt="Identité actuelle PROFITX"
+      />
+      <strong>PROFITX AI</strong>
+      <span>Identité actuelle</span>
+    </div>
+  </div>
+</section>
         <section className="searchPanel">
           <label htmlFor="mint">
             Mint Solana
@@ -931,6 +974,93 @@ export default function IntelligencePage() {
             font-size: 17px;
             line-height: 1.7;
           }
+          .brandEvolution {
+  width: 100%;
+  max-width: 1180px;
+  margin: 42px auto 0;
+}
+
+.brandEvolutionTitle {
+  margin-bottom: 18px;
+  text-align: center;
+}
+
+.brandEvolutionTitle span {
+  display: block;
+  color: #00ff88;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 1.4px;
+}
+
+.brandEvolutionTitle strong {
+  display: block;
+  margin-top: 7px;
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.brandLogos {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.brandLogoCard {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #1b3025;
+  border-radius: 18px;
+  background: #050906;
+  text-align: center;
+  overflow: hidden;
+}
+
+.brandLogoCard.historical {
+  border-color: rgba(0, 255, 136, 0.48);
+}
+
+.brandLogoCard.current {
+  border-color: rgba(0, 255, 136, 0.7);
+  box-shadow: 0 0 28px rgba(0, 255, 136, 0.08);
+}
+
+.brandLogoLabel {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+  color: #00ff88;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.8px;
+}
+
+.brandLogoCard img {
+  display: block;
+  width: 100%;
+  height: 230px;
+  object-fit: contain;
+  border-radius: 12px;
+  background: #020403;
+}
+
+.brandLogoCard strong {
+  display: block;
+  margin-top: 13px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.brandLogoCard > span {
+  display: block;
+  margin-top: 5px;
+  color: #7f8d85;
+  font-size: 11px;
+}
 
           .searchPanel {
             width: 100%;
@@ -1523,6 +1653,26 @@ export default function IntelligencePage() {
             .hero p {
               font-size: 15px;
             }
+            .brandEvolution {
+  margin-top: 30px;
+}
+
+.brandEvolutionTitle {
+  text-align: left;
+}
+
+.brandLogos {
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.brandLogoCard {
+  padding: 14px;
+}
+
+.brandLogoCard img {
+  height: 280px;
+}
 
             .searchPanel {
               padding: 16px;

@@ -4,7 +4,11 @@ import { useRouter } from "next/router";
 
 const DEFAULT_MINT =
   "6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump";
-
+const PFX_OFFICIAL_LOGO =
+  "/profitx-logo-01-pumpfun.png";
+function isPfxToken(mint) {
+  return String(mint || "").trim() === DEFAULT_MINT;
+}
 function isNumber(value) {
   return (
     value !== null &&
@@ -400,24 +404,25 @@ export default function IntelligencePage() {
           <section className="results">
             <div className="tokenHeader">
               <div className="tokenIdentity">
-                {token?.imageUri ? (
-                  <img
-                    src={
-                      token.imageUri
-                    }
-                    alt=""
-                    className="tokenLogo"
-                  />
-                ) : (
-                  <div className="tokenFallback">
-                    {(
-                      token?.symbol ||
-                      "?"
-                    )
-                      .slice(0, 1)
-                      .toUpperCase()}
-                  </div>
-                )}
+              {isPfxToken(analyzer?.mint) ? (
+  <img
+    src={PFX_OFFICIAL_LOGO}
+    alt="PROFITX PFX"
+    className="tokenLogo tokenLogoPfx"
+  />
+) : token?.imageUri ? (
+  <img
+    src={token.imageUri}
+    alt={token?.symbol || "Token"}
+    className="tokenLogo"
+  />
+) : (
+  <div className="tokenFallback">
+    {(token?.symbol || "?")
+      .slice(0, 1)
+      .toUpperCase()}
+  </div>
+)}
 
                 <div>
                   <div className="tokenName">
@@ -1083,19 +1088,33 @@ export default function IntelligencePage() {
           }
 
           .tokenLogo,
-          .tokenFallback {
-            width: 58px;
-            height: 58px;
-            flex: 0 0 58px;
-            border: 1px solid #294034;
-            border-radius: 50%;
-          }
+.tokenFallback {
+  width: 86px;
+  height: 86px;
+  flex: 0 0 86px;
+  border: 1px solid #294034;
+  border-radius: 18px;
+}
 
-          .tokenLogo {
-            display: block;
-            object-fit: cover;
-            background: #0b110d;
-          }
+.tokenLogo {
+  display: block;
+  object-fit: cover;
+  background: #0b110d;
+}
+
+.tokenLogoPfx {
+  width: 104px;
+  height: 104px;
+  flex-basis: 104px;
+  object-fit: contain;
+  padding: 4px;
+  border: 1px solid rgba(0, 255, 136, 0.45);
+  border-radius: 20px;
+  background: #050806;
+  box-shadow:
+    0 0 0 1px rgba(0, 255, 136, 0.08),
+    0 0 24px rgba(0, 255, 136, 0.14);
+}
 
           .tokenFallback {
             display: flex;
@@ -1465,6 +1484,22 @@ export default function IntelligencePage() {
               grid-template-columns:
                 1fr;
             }
+            .tokenIdentity {
+  align-items: flex-start;
+}
+
+.tokenLogo,
+.tokenFallback {
+  width: 72px;
+  height: 72px;
+  flex-basis: 72px;
+}
+
+.tokenLogoPfx {
+  width: 86px;
+  height: 86px;
+  flex-basis: 86px;
+}
           }
 
           @media (

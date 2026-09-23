@@ -825,7 +825,22 @@ export default function Home() {
           >
             TikTok • @pfx_profitx
           </a>
-
+<a
+  href="https://www.instagram.com/pfx_profitx/"
+  target="_blank"
+  rel="noreferrer"
+  style={{
+    padding: "11px 15px",
+    border: "1px solid #00ff88",
+    borderRadius: "10px",
+    background: "#06100b",
+    color: "#00ff88",
+    textDecoration: "none",
+    fontWeight: 700
+  }}
+>
+  Instagram • @pfx_profitx
+</a>
           <a
             href="https://www.facebook.com/profile.php?id=61591572038365"
             target="_blank"

@@ -558,7 +558,12 @@ export default function ComparePage() {
   >
     COMPARE
   </button>
-
+<button
+  type="button"
+  onClick={() => router.push("/intelligence")}
+>
+  INTELLIGENCE
+</button>
   <button
     type="button"
     onClick={() => router.push("/watchlist")}

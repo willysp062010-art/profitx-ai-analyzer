@@ -648,6 +648,7 @@ export default function Home() {
            ["ANALYZER", "/"],
 ["RADAR", "/radar"],
 ["COMPARE", "/compare"],
+["INTELLIGENCE", "/intelligence"],
 ["WATCHLIST", "/watchlist"],
 ["ALERTS", "/alerts"]
           ].map(([label, href]) => (

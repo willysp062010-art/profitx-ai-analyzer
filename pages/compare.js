@@ -121,25 +121,26 @@ function getValue(result, key) {
     transactions24h: observed.transactions24h,
     buys24h: observed.buys24h,
     sells24h: observed.sells24h,
+
     holders:
       modules?.holders?.uniqueOwners ??
       observed.holders,
+
     externalHolders:
       modules?.holders?.externalHolders,
+
     top1:
       modules?.holders?.externalTop1Percent ??
       modules?.holders?.totalTop1Percent,
+
     top10:
       modules?.holders?.externalTop10Percent ??
       modules?.holders?.totalTop10Percent,
-    distribution:
-      result?.metrics?.distribution,
-    security:
-      result?.metrics?.security,
-    activity:
-      result?.metrics?.activity,
-    maturity:
-      result?.metrics?.maturity,
+
+    distribution: result?.metrics?.distribution,
+    security: result?.metrics?.security,
+    activity: result?.metrics?.activity,
+    maturity: result?.metrics?.maturity,
     age: observed.ageHours,
   };
 
@@ -151,25 +152,33 @@ const ROWS = [
     key: "score",
     label: "Score PFX",
     format: (v) =>
-      isNumber(v) ? `${formatNumber(v, 0)} / 100` : "N/D",
+      isNumber(v)
+        ? `${formatNumber(v, 0)} / 100`
+        : "N/D",
   },
   {
     key: "structural",
     label: "Score structurel",
     format: (v) =>
-      isNumber(v) ? `${formatNumber(v, 0)} / 100` : "N/D",
+      isNumber(v)
+        ? `${formatNumber(v, 0)} / 100`
+        : "N/D",
   },
   {
     key: "market",
     label: "Score marché",
     format: (v) =>
-      isNumber(v) ? `${formatNumber(v, 0)} / 100` : "N/D",
+      isNumber(v)
+        ? `${formatNumber(v, 0)} / 100`
+        : "N/D",
   },
   {
     key: "confidence",
     label: "Confiance des données",
     format: (v) =>
-      isNumber(v) ? `${formatNumber(v, 0)} %` : "N/D",
+      isNumber(v)
+        ? `${formatNumber(v, 0)} %`
+        : "N/D",
   },
   {
     key: "liquidity",
@@ -232,25 +241,33 @@ const ROWS = [
     key: "distribution",
     label: "Distribution",
     format: (v) =>
-      isNumber(v) ? `${formatNumber(v, 0)} / 100` : "N/D",
+      isNumber(v)
+        ? `${formatNumber(v, 0)} / 100`
+        : "N/D",
   },
   {
     key: "security",
     label: "Sécurité",
     format: (v) =>
-      isNumber(v) ? `${formatNumber(v, 0)} / 100` : "N/D",
+      isNumber(v)
+        ? `${formatNumber(v, 0)} / 100`
+        : "N/D",
   },
   {
     key: "activity",
     label: "Activité",
     format: (v) =>
-      isNumber(v) ? `${formatNumber(v, 0)} / 100` : "N/D",
+      isNumber(v)
+        ? `${formatNumber(v, 0)} / 100`
+        : "N/D",
   },
   {
     key: "maturity",
     label: "Maturité",
     format: (v) =>
-      isNumber(v) ? `${formatNumber(v, 0)} / 100` : "N/D",
+      isNumber(v)
+        ? `${formatNumber(v, 0)} / 100`
+        : "N/D",
   },
   {
     key: "age",
@@ -312,12 +329,14 @@ function buildInsights(a, b) {
     {
       key: "security",
       label: "score de sécurité",
-      format: (v) => `${formatNumber(v, 0)} / 100`,
+      format: (v) =>
+        `${formatNumber(v, 0)} / 100`,
     },
     {
       key: "maturity",
       label: "maturité",
-      format: (v) => `${formatNumber(v, 0)} / 100`,
+      format: (v) =>
+        `${formatNumber(v, 0)} / 100`,
     },
   ];
 
@@ -329,11 +348,13 @@ function buildInsights(a, b) {
       continue;
     }
 
-    const winner = va > vb ? a : b;
+    const higherToken = va > vb ? a : b;
     const value = va > vb ? va : vb;
 
     insights.push(
-      `${tokenSymbol(winner)} présente une ${item.label} supérieure (${item.format(
+      `${tokenSymbol(
+        higherToken
+      )} présente une ${item.label} supérieure (${item.format(
         value
       )}).`
     );
@@ -361,6 +382,7 @@ function buildInsights(a, b) {
 
   const confidenceA =
     a?.diagnostic?.confidence?.score;
+
   const confidenceB =
     b?.diagnostic?.confidence?.score;
 
@@ -386,185 +408,7 @@ function buildInsights(a, b) {
 
   return insights.slice(0, 7);
 }
-
-function TokenHeader({ result, label }) {
-  const token = result?.token || {};
-
-  return (
-    <div className="tokenHeader">
-      <div className="tokenLabel">{label}</div>
-
-      <div className="identity">
-        {token.imageUri ? (
-          <img
-            className="tokenImage"
-            src={token.imageUri}
-            alt={token.name || token.symbol || "Token"}
-          />
-        ) : (
-          <div className="tokenFallback">
-            {(token.symbol || "?")
-              .slice(0, 2)
-              .toUpperCase()}
-          </div>
-        )}
-
-        <div className="identityText">
-          <div className="tokenName">
-            {token.name || "Token"}
-          </div>
-
-          <div className="symbol">
-            {token.symbol
-              ? `$${token.symbol}`
-              : "Symbole N/D"}
-          </div>
-        </div>
-      </div>
-
-      <div className="mint">
-        {shortMint(result?.mint)}
-      </div>
-
-      <div className="badges">
-        <span className="badge">
-          {statusLabel(result?.status)}
-        </span>
-
-        <span className="badge secondary">
-          {result?.source || "source N/D"}
-        </span>
-      </div>
-
-      <style jsx>{`
-        .tokenHeader {
-          display: inline-flex;
-          vertical-align: top;
-          width: calc((100% - 170px) / 2);
-          min-height: 195px;
-          padding: 24px;
-          flex-direction: column;
-          justify-content: center;
-          overflow: hidden;
-        }
-
-        .tokenLabel {
-          margin-bottom: 15px;
-          color: #35ff82;
-          font-size: 10px;
-          font-weight: 900;
-          letter-spacing: 0.16em;
-        }
-
-        .identity {
-          display: flex;
-          align-items: center;
-          gap: 13px;
-          min-width: 0;
-        }
-
-        .tokenImage,
-        .tokenFallback {
-          display: block;
-          width: 56px;
-          height: 56px;
-          min-width: 56px;
-          max-width: 56px;
-          max-height: 56px;
-          flex: 0 0 56px;
-          border-radius: 50%;
-          border: 1px solid #304137;
-          background: #0d1510;
-          object-fit: cover;
-          overflow: hidden;
-        }
-
-        .tokenFallback {
-          display: grid;
-          place-items: center;
-          color: #35ff82;
-          font-weight: 900;
-        }
-
-        .identityText {
-          min-width: 0;
-        }
-
-        .tokenName {
-          overflow: hidden;
-          color: #f4f7f5;
-          font-size: 21px;
-          font-weight: 850;
-          line-height: 1.15;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        .symbol {
-          margin-top: 3px;
-          overflow: hidden;
-          color: #7f8c84;
-          font-size: 13px;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        .mint {
-          margin-top: 15px;
-          overflow: hidden;
-          color: #66736b;
-          font-family: monospace;
-          font-size: 12px;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        .badges {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 7px;
-          margin-top: 12px;
-        }
-
-        .badge {
-          padding: 5px 8px;
-          border-radius: 6px;
-          background: rgba(53, 255, 130, 0.08);
-          color: #35ff82;
-          font-size: 10px;
-          font-weight: 800;
-        }
-
-        .badge.secondary {
-          background: #111813;
-          color: #819087;
-        }
-
-        @media (max-width: 760px) {
-          .tokenHeader {
-            width: 305px;
-            min-height: 180px;
-            padding: 18px;
-          }
-
-          .tokenImage,
-          .tokenFallback {
-            width: 50px;
-            height: 50px;
-            min-width: 50px;
-            max-width: 50px;
-            max-height: 50px;
-            flex-basis: 50px;
-          }
-
-          .tokenName {
-            font-size: 18px;
-          }
-        }
-      `}</style>
-    </div>
-  );
-}
+export default function ComparePage() {
   const router = useRouter();
 
   const [mintA, setMintA] = useState("");
@@ -655,10 +499,14 @@ function TokenHeader({ result, label }) {
     ? buildInsights(resultA, resultB)
     : [];
 
+  const tokenA = resultA?.token || {};
+  const tokenB = resultB?.token || {};
+
   return (
     <>
       <Head>
         <title>PFX Compare | PROFITX</title>
+
         <meta
           name="description"
           content="Comparez deux tokens Solana avec les données et scores du moteur PROFITX."
@@ -676,11 +524,15 @@ function TokenHeader({ result, label }) {
               type="button"
               onClick={() => router.push("/")}
             >
-              <span className="brandMark">PFX</span>
+              <span className="brandMark">
+                PFX
+              </span>
 
               <span>
                 <strong>PROFITX</strong>
-                <small>INTELLIGENCE LAYER</small>
+                <small>
+                  INTELLIGENCE LAYER
+                </small>
               </span>
             </button>
 
@@ -731,7 +583,9 @@ function TokenHeader({ result, label }) {
               />
             </div>
 
-            <div className="versus">VS</div>
+            <div className="versus">
+              VS
+            </div>
 
             <div className="inputBlock">
               <label htmlFor="mintB">
@@ -763,7 +617,10 @@ function TokenHeader({ result, label }) {
 
           {error ? (
             <div className="errorBox">
-              <strong>Comparaison impossible</strong>
+              <strong>
+                Comparaison impossible
+              </strong>
+
               <span>{error}</span>
             </div>
           ) : null}
@@ -784,71 +641,181 @@ function TokenHeader({ result, label }) {
 
           {hasResults ? (
             <>
-              <section className="resultGrid">
-                <TokenHeader
-                  result={resultA}
-                  label="TOKEN A"
-                />
+              <section className="resultsPanel">
+                <div className="tokenCards">
+                  <article className="tokenCard">
+                    <div className="tokenLabel">
+                      TOKEN A
+                    </div>
 
-                <div className="centerHeader">
-                  COMPARAISON
-                </div>
+                    <div className="identity">
+                      {tokenA.imageUri ? (
+                        <img
+                          className="tokenImage"
+                          src={tokenA.imageUri}
+                          alt={
+                            tokenA.name ||
+                            tokenA.symbol ||
+                            "Token A"
+                          }
+                        />
+                      ) : (
+                        <div className="tokenFallback">
+                          {(tokenA.symbol || "?")
+                            .slice(0, 2)
+                            .toUpperCase()}
+                        </div>
+                      )}
 
-                <TokenHeader
-                  result={resultB}
-                  label="TOKEN B"
-                />
+                      <div className="identityText">
+                        <div className="tokenName">
+                          {tokenA.name || "Token"}
+                        </div>
 
-                {ROWS.map((row) => {
-                  const valueA = getValue(
-                    resultA,
-                    row.key
-                  );
-
-                  const valueB = getValue(
-                    resultB,
-                    row.key
-                  );
-
-                  const state =
-                    comparisonState(
-                      resultA,
-                      resultB,
-                      row
-                    );
-
-                  return (
-                    <div
-                      className="metricRow"
-                      key={row.key}
-                    >
-                      <div
-                        className={`metricValue ${
-                          state.a ? "highlight" : ""
-                        }`}
-                      >
-                        {row.format(valueA)}
-                      </div>
-
-                      <div className="metricLabel">
-                        {row.label}
-                      </div>
-
-                      <div
-                        className={`metricValue ${
-                          state.b ? "highlight" : ""
-                        }`}
-                      >
-                        {row.format(valueB)}
+                        <div className="symbol">
+                          {tokenA.symbol
+                            ? `$${tokenA.symbol}`
+                            : "Symbole N/D"}
+                        </div>
                       </div>
                     </div>
-                  );
-                })}
+
+                    <div className="mint">
+                      {shortMint(resultA?.mint)}
+                    </div>
+
+                    <div className="badges">
+                      <span className="badge">
+                        {statusLabel(
+                          resultA?.status
+                        )}
+                      </span>
+
+                      <span className="badge secondary">
+                        {resultA?.source ||
+                          "source N/D"}
+                      </span>
+                    </div>
+                  </article>
+
+                  <div className="compareCenter">
+                    <span>VS</span>
+                    <strong>COMPARAISON</strong>
+                  </div>
+
+                  <article className="tokenCard">
+                    <div className="tokenLabel">
+                      TOKEN B
+                    </div>
+
+                    <div className="identity">
+                      {tokenB.imageUri ? (
+                        <img
+                          className="tokenImage"
+                          src={tokenB.imageUri}
+                          alt={
+                            tokenB.name ||
+                            tokenB.symbol ||
+                            "Token B"
+                          }
+                        />
+                      ) : (
+                        <div className="tokenFallback">
+                          {(tokenB.symbol || "?")
+                            .slice(0, 2)
+                            .toUpperCase()}
+                        </div>
+                      )}
+
+                      <div className="identityText">
+                        <div className="tokenName">
+                          {tokenB.name || "Token"}
+                        </div>
+
+                        <div className="symbol">
+                          {tokenB.symbol
+                            ? `$${tokenB.symbol}`
+                            : "Symbole N/D"}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mint">
+                      {shortMint(resultB?.mint)}
+                    </div>
+
+                    <div className="badges">
+                      <span className="badge">
+                        {statusLabel(
+                          resultB?.status
+                        )}
+                      </span>
+
+                      <span className="badge secondary">
+                        {resultB?.source ||
+                          "source N/D"}
+                      </span>
+                    </div>
+                  </article>
+                </div>
+
+                <div className="metricsTable">
+                  {ROWS.map((row) => {
+                    const valueA = getValue(
+                      resultA,
+                      row.key
+                    );
+
+                    const valueB = getValue(
+                      resultB,
+                      row.key
+                    );
+
+                    const state =
+                      comparisonState(
+                        resultA,
+                        resultB,
+                        row
+                      );
+
+                    return (
+                      <div
+                        className="metricRow"
+                        key={row.key}
+                      >
+                        <div
+                          className={`metricValue ${
+                            state.a
+                              ? "highlight"
+                              : ""
+                          }`}
+                        >
+                          {row.format(valueA)}
+                        </div>
+
+                        <div className="metricLabel">
+                          {row.label}
+                        </div>
+
+                        <div
+                          className={`metricValue ${
+                            state.b
+                              ? "highlight"
+                              : ""
+                          }`}
+                        >
+                          {row.format(valueB)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </section>
 
               <section className="reading">
                 <div className="sectionTitle">
-                  <span>PFX</span> Lecture comparative
+                  <span>PFX</span>{" "}
+                  Lecture comparative
                 </div>
 
                 <p className="readingIntro">
@@ -874,9 +841,9 @@ function TokenHeader({ result, label }) {
                   </div>
                 ) : (
                   <div className="noInsight">
-                    Aucun écart exploitable supplémentaire
-                    n'a été détecté avec les données
-                    disponibles.
+                    Aucun écart exploitable
+                    supplémentaire n'a été détecté
+                    avec les données disponibles.
                   </div>
                 )}
               </section>
@@ -913,13 +880,15 @@ function TokenHeader({ result, label }) {
                       {safeArray(
                         resultA?.diagnostic
                           ?.warnings
-                      ).map((warning, index) => (
-                        <div
-                          key={`${warning}-${index}`}
-                        >
-                          ⚠ {warning}
-                        </div>
-                      ))}
+                      ).map(
+                        (warning, index) => (
+                          <div
+                            key={`${warning}-${index}`}
+                          >
+                            ⚠ {warning}
+                          </div>
+                        )
+                      )}
                     </div>
                   ) : null}
                 </div>
@@ -955,13 +924,15 @@ function TokenHeader({ result, label }) {
                       {safeArray(
                         resultB?.diagnostic
                           ?.warnings
-                      ).map((warning, index) => (
-                        <div
-                          key={`${warning}-${index}`}
-                        >
-                          ⚠ {warning}
-                        </div>
-                      ))}
+                      ).map(
+                        (warning, index) => (
+                          <div
+                            key={`${warning}-${index}`}
+                          >
+                            ⚠ {warning}
+                          </div>
+                        )
+                      )}
                     </div>
                   ) : null}
                 </div>
@@ -977,7 +948,6 @@ function TokenHeader({ result, label }) {
           ) : null}
         </div>
       </main>
-
       <style jsx>{`
         :global(*) {
           box-sizing: border-box;
@@ -1265,7 +1235,11 @@ function TokenHeader({ result, label }) {
           }
         }
 
-        .resultGrid {
+        /* ========================================
+           NOUVELLE STRUCTURE COMPARE
+           ======================================== */
+
+        .resultsPanel {
           margin-top: 34px;
           border: 1px solid #1d2a22;
           border-radius: 18px;
@@ -1273,31 +1247,22 @@ function TokenHeader({ result, label }) {
           background: rgba(7, 11, 8, 0.95);
         }
 
-        .resultGrid > .tokenHeader,
-        .resultGrid > .centerHeader {
-          display: inline-flex;
-          vertical-align: top;
+        .tokenCards {
+          display: grid;
+          grid-template-columns:
+            minmax(0, 1fr)
+            170px
+            minmax(0, 1fr);
+          min-height: 205px;
+          border-bottom: 1px solid #172019;
         }
 
-        .tokenHeader {
-          width: calc((100% - 170px) / 2);
-          min-height: 195px;
-          padding: 24px;
+        .tokenCard {
+          min-width: 0;
+          padding: 25px;
+          display: flex;
           flex-direction: column;
           justify-content: center;
-        }
-
-        .centerHeader {
-          width: 170px;
-          min-height: 195px;
-          align-items: center;
-          justify-content: center;
-          color: #59675e;
-          font-size: 10px;
-          font-weight: 900;
-          letter-spacing: 0.15em;
-          border-left: 1px solid #172019;
-          border-right: 1px solid #172019;
         }
 
         .tokenLabel {
@@ -1311,18 +1276,25 @@ function TokenHeader({ result, label }) {
         .identity {
           display: flex;
           align-items: center;
-          gap: 13px;
+          gap: 14px;
+          min-width: 0;
         }
 
         .tokenImage,
         .tokenFallback {
-          width: 50px;
-          height: 50px;
-          flex: 0 0 50px;
-          border-radius: 50%;
+          display: block;
+          width: 56px !important;
+          height: 56px !important;
+          min-width: 56px;
+          max-width: 56px;
+          min-height: 56px;
+          max-height: 56px;
+          flex: 0 0 56px;
           border: 1px solid #304137;
+          border-radius: 50%;
           background: #0d1510;
           object-fit: cover;
+          overflow: hidden;
         }
 
         .tokenFallback {
@@ -1332,22 +1304,37 @@ function TokenHeader({ result, label }) {
           font-weight: 900;
         }
 
+        .identityText {
+          min-width: 0;
+        }
+
         .tokenName {
+          overflow: hidden;
+          color: #f4f7f5;
           font-size: 21px;
           font-weight: 850;
+          line-height: 1.15;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
         .symbol {
-          margin-top: 3px;
+          margin-top: 4px;
+          overflow: hidden;
           color: #7f8c84;
           font-size: 13px;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
         .mint {
           margin-top: 15px;
+          overflow: hidden;
           color: #66736b;
           font-family: monospace;
           font-size: 12px;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
         .badges {
@@ -1371,6 +1358,33 @@ function TokenHeader({ result, label }) {
           color: #819087;
         }
 
+        .compareCenter {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 7px;
+          border-left: 1px solid #172019;
+          border-right: 1px solid #172019;
+          color: #59675e;
+        }
+
+        .compareCenter span {
+          color: #35ff82;
+          font-size: 18px;
+          font-weight: 950;
+        }
+
+        .compareCenter strong {
+          font-size: 9px;
+          font-weight: 900;
+          letter-spacing: 0.14em;
+        }
+
+        .metricsTable {
+          width: 100%;
+        }
+
         .metricRow {
           display: grid;
           grid-template-columns:
@@ -1378,6 +1392,10 @@ function TokenHeader({ result, label }) {
             170px
             minmax(0, 1fr);
           border-top: 1px solid #172019;
+        }
+
+        .metricRow:first-child {
+          border-top: 0;
         }
 
         .metricValue,
@@ -1390,9 +1408,12 @@ function TokenHeader({ result, label }) {
         }
 
         .metricValue {
+          min-width: 0;
           color: #dce4df;
+          text-align: center;
           font-size: 15px;
           font-weight: 750;
+          overflow-wrap: anywhere;
           transition: background 0.15s ease;
         }
 
@@ -1534,7 +1555,7 @@ function TokenHeader({ result, label }) {
         @media (max-width: 760px) {
           .container {
             width: min(
-              100% - 20px,
+              calc(100% - 20px),
               1240px
             );
           }
@@ -1568,29 +1589,46 @@ function TokenHeader({ result, label }) {
             grid-column: auto;
           }
 
-          .resultGrid {
+          .resultsPanel {
             overflow-x: auto;
           }
 
-          .resultGrid > .tokenHeader {
-            width: calc(
-              (760px - 150px) / 2
-            );
+          .tokenCards,
+          .metricsTable {
+            min-width: 720px;
           }
 
-          .resultGrid > .centerHeader {
-            width: 150px;
-          }
-
-          .resultGrid {
-            min-width: 760px;
+          .tokenCards {
+            grid-template-columns:
+              minmax(0, 1fr)
+              120px
+              minmax(0, 1fr);
           }
 
           .metricRow {
             grid-template-columns:
               minmax(0, 1fr)
-              150px
+              120px
               minmax(0, 1fr);
+          }
+
+          .tokenCard {
+            padding: 18px;
+          }
+
+          .tokenImage,
+          .tokenFallback {
+            width: 50px !important;
+            height: 50px !important;
+            min-width: 50px;
+            max-width: 50px;
+            min-height: 50px;
+            max-height: 50px;
+            flex-basis: 50px;
+          }
+
+          .tokenName {
+            font-size: 18px;
           }
 
           .insightGrid,

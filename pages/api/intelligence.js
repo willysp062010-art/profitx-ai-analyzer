@@ -1,4 +1,4 @@
-const VERSION = "1.0.0";
+const VERSION = "1.1.0";
 
 function isNumber(value) {
   if (value === null || value === undefined || value === "") {
@@ -81,30 +81,36 @@ function buildScores({
     ),
 
     liquidity: clampScore(
-      components?.liquidity
+      components?.liquidity ??
+        metrics?.liquidity
     ),
 
     distribution: clampScore(
-      components?.distribution
+      components?.distribution ??
+        metrics?.distribution
     ),
 
     maturity: clampScore(
-      components?.maturity
+      components?.maturity ??
+        metrics?.maturity
     ),
 
     security: clampScore(
       security?.securityScore ??
         security?.score ??
-        components?.security
+        components?.security ??
+        metrics?.security
     ),
 
     activity: clampScore(
       score?.activity ??
+        components?.activity ??
         metrics?.activity
     ),
 
     volume: clampScore(
-      metrics?.volume
+      components?.volume ??
+        metrics?.volume
     )
   };
 }
@@ -210,19 +216,31 @@ function getEconomicState(observed) {
     transactions,
     buys,
     sells
-  ].filter((value) => value !== null);
+  ].filter(
+    (value) => value !== null
+  );
 
   if (knownValues.length === 0) {
     return {
       state: "UNKNOWN",
+      volume,
+      transactions,
+      buys,
+      sells,
       text:
         "L'activité économique récente ne peut pas " +
         "être déterminée avec les données disponibles."
     };
   }
 
+  const allFourKnown =
+    volume !== null &&
+    transactions !== null &&
+    buys !== null &&
+    sells !== null;
+
   const allZero =
-    knownValues.length === 4 &&
+    allFourKnown &&
     volume === 0 &&
     transactions === 0 &&
     buys === 0 &&
@@ -231,11 +249,15 @@ function getEconomicState(observed) {
   if (allZero) {
     return {
       state: "INACTIVE",
+      volume,
+      transactions,
+      buys,
+      sells,
       text:
         "Aucune activité économique n'est détectée " +
-        "sur les dernières 24 heures. Les valeurs " +
-        "observées sont de vrais zéros et non des " +
-        "données manquantes."
+        "sur les dernières 24 heures : volume, " +
+        "transactions, achats et ventes observés " +
+        "sont tous à zéro."
     };
   }
 
@@ -247,77 +269,283 @@ function getEconomicState(observed) {
   ) {
     return {
       state: "LOW",
+      volume,
+      transactions,
+      buys,
+      sells,
       text:
-        "Une activité économique récente est détectée, " +
-        "mais elle reste faible sur les dernières " +
-        "24 heures."
+        "Une activité économique est détectée sur " +
+        "les dernières 24 heures, mais elle reste " +
+        "faible au regard des valeurs observées."
     };
   }
 
   return {
     state: "ACTIVE",
+    volume,
+    transactions,
+    buys,
+    sells,
     text:
-      "Une activité économique récente est détectée " +
-      "sur les dernières 24 heures."
+      "Une activité économique récente est clairement " +
+      "détectée sur les dernières 24 heures."
   };
 }
 
+function findMetric(
+  items,
+  key
+) {
+  return items.find(
+    (item) => item.key === key
+  );
+}
+
+function joinLabels(items) {
+  const labels =
+    items.map(
+      (item) => item.label.toLowerCase()
+    );
+
+  if (labels.length === 0) {
+    return "";
+  }
+
+  if (labels.length === 1) {
+    return labels[0];
+  }
+
+  if (labels.length === 2) {
+    return `${labels[0]} et ${labels[1]}`;
+  }
+
+  return (
+    `${labels
+      .slice(0, -1)
+      .join(", ")} et ` +
+    labels[labels.length - 1]
+  );
+}
+
 function buildSummary({
+  tokenName,
   scores,
   economicState,
+  strengths,
+  watchPoints,
   missingData
 }) {
+  const name =
+    tokenName || "Le token";
+
   const structural =
     scores.structural;
 
-  const market =
-    scores.market;
+  let opening;
 
-  let structureText =
-    "La structure ne peut pas être qualifiée complètement avec les données disponibles.";
-
-  if (structural !== null) {
-    if (structural >= 80) {
-      structureText =
-        "Les indicateurs structurels disponibles sont globalement solides.";
-    } else if (structural >= 60) {
-      structureText =
-        "Les indicateurs structurels disponibles présentent un profil intermédiaire à solide.";
-    } else if (structural >= 40) {
-      structureText =
-        "Les indicateurs structurels disponibles présentent un profil intermédiaire.";
-    } else {
-      structureText =
-        "Plusieurs indicateurs structurels observés sont actuellement faibles.";
-    }
+  if (structural === null) {
+    opening =
+      `${name} dispose d'une lecture structurelle ` +
+      `encore partielle avec les données disponibles.`;
+  } else if (structural >= 80) {
+    opening =
+      `${name} présente actuellement une structure ` +
+      `globalement solide selon les indicateurs disponibles.`;
+  } else if (structural >= 60) {
+    opening =
+      `${name} présente actuellement une structure ` +
+      `relativement solide, malgré certains points ` +
+      `qui restent à surveiller.`;
+  } else if (structural >= 40) {
+    opening =
+      `${name} présente actuellement un profil ` +
+      `structurel intermédiaire.`;
+  } else {
+    opening =
+      `${name} présente actuellement plusieurs ` +
+      `faiblesses sur les indicateurs structurels observés.`;
   }
 
-  let marketText = economicState.text;
+  let strengthText = "";
+
+  if (strengths.length > 0) {
+    const mainStrengths =
+      strengths.slice(0, 2);
+
+    strengthText =
+      ` Les principaux points solides observés ` +
+      `concernent ${joinLabels(mainStrengths)}.`;
+  }
+
+  let marketText = "";
 
   if (
-    market !== null &&
-    economicState.state === "UNKNOWN"
+    economicState.state === "INACTIVE"
   ) {
     marketText =
-      `Le score marché disponible est de ` +
-      `${Math.round(market)}/100, mais les données ` +
-      `d'activité détaillées sont insuffisantes ` +
-      `pour compléter cette lecture.`;
+      " La faiblesse actuelle du profil provient " +
+      "notamment de l'absence d'activité de marché " +
+      "sur les dernières 24 heures.";
+  } else if (
+    economicState.state === "LOW"
+  ) {
+    marketText =
+      " L'activité de marché est présente, mais " +
+      "reste faible sur la fenêtre des dernières " +
+      "24 heures.";
+  } else if (
+    economicState.state === "ACTIVE"
+  ) {
+    marketText =
+      " Une activité de marché récente est bien " +
+      "présente sur les dernières 24 heures.";
+  } else {
+    marketText =
+      " L'activité récente ne peut pas être " +
+      "qualifiée complètement avec les données disponibles.";
   }
 
-  let completenessText = "";
+  let watchText = "";
+
+  const nonMarketWatch =
+    watchPoints.filter(
+      (item) =>
+        item.key !== "activity" &&
+        item.key !== "volume"
+    );
+
+  if (nonMarketWatch.length > 0) {
+    const mainWatch =
+      nonMarketWatch.slice(0, 2);
+
+    watchText =
+      ` Un point de vigilance supplémentaire concerne ` +
+      `${joinLabels(mainWatch)}.`;
+  }
+
+  let missingText = "";
 
   if (missingData.length > 0) {
-    completenessText =
+    missingText =
       ` ${missingData.length} donnée(s) restent ` +
       `indisponibles et ne sont pas estimées.`;
   }
 
   return (
-    `${structureText} ` +
-    `${marketText}` +
-    `${completenessText}`
+    opening +
+    strengthText +
+    marketText +
+    watchText +
+    missingText
   ).trim();
+}
+
+function buildEconomicReading(
+  economicState
+) {
+  const {
+    state,
+    volume,
+    transactions,
+    buys,
+    sells
+  } = economicState;
+
+  if (state === "UNKNOWN") {
+    return (
+      "Les données disponibles ne permettent pas " +
+      "de déterminer précisément l'activité économique " +
+      "des dernières 24 heures."
+    );
+  }
+
+  if (state === "INACTIVE") {
+    return (
+      "Sur les dernières 24 heures, l'Analyzer observe " +
+      "0 $ de volume, 0 transaction, 0 achat et 0 vente. " +
+      "Il s'agit de valeurs observées à zéro et non " +
+      "de données remplacées ou estimées."
+    );
+  }
+
+  const parts = [];
+
+  if (volume !== null) {
+    parts.push(
+      `${formatCompactUsd(volume)} de volume`
+    );
+  }
+
+  if (transactions !== null) {
+    parts.push(
+      `${formatCompactNumber(transactions)} transaction${
+        transactions === 1 ? "" : "s"
+      }`
+    );
+  }
+
+  if (buys !== null) {
+    parts.push(
+      `${formatCompactNumber(buys)} achat${
+        buys === 1 ? "" : "s"
+      }`
+    );
+  }
+
+  if (sells !== null) {
+    parts.push(
+      `${formatCompactNumber(sells)} vente${
+        sells === 1 ? "" : "s"
+      }`
+    );
+  }
+
+  const details =
+    parts.length > 0
+      ? parts.join(", ")
+      : "des données d'activité partielles";
+
+  if (state === "LOW") {
+    return (
+      `Sur les dernières 24 heures, l'Analyzer observe ` +
+      `${details}. L'activité existe, mais reste faible ` +
+      `sur la fenêtre observée.`
+    );
+  }
+
+  return (
+    `Sur les dernières 24 heures, l'Analyzer observe ` +
+    `${details}. Ces données confirment une activité ` +
+    `de marché récente sur la fenêtre observée.`
+  );
+}
+
+function formatCompactNumber(value) {
+  if (!isNumber(value)) {
+    return "N/D";
+  }
+
+  return new Intl.NumberFormat(
+    "fr-FR",
+    {
+      maximumFractionDigits: 2
+    }
+  ).format(Number(value));
+}
+
+function formatCompactUsd(value) {
+  if (!isNumber(value)) {
+    return "N/D";
+  }
+
+  return new Intl.NumberFormat(
+    "fr-FR",
+    {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 2
+    }
+  ).format(Number(value));
 }
 
 function buildConclusion({
@@ -334,9 +562,9 @@ function buildConclusion({
   ) {
     return (
       "L'écart principal observé se situe entre une " +
-      "structure relativement solide et une activité " +
-      "de marché actuellement faible. Le score global " +
-      "est donc limité principalement par la composante marché."
+      "structure relativement solide et une composante " +
+      "marché faible. Le score global est donc principalement " +
+      "limité par les indicateurs de marché actuellement observés."
     );
   }
 
@@ -347,9 +575,10 @@ function buildConclusion({
     scores.market >= 60
   ) {
     return (
-      "L'activité de marché observée est plus solide " +
+      "La composante marché observée est plus solide " +
       "que la composante structurelle. Les principaux " +
-      "points de vigilance proviennent donc de la structure du token."
+      "points de vigilance proviennent donc actuellement " +
+      "des indicateurs structurels."
     );
   }
 
@@ -378,21 +607,23 @@ function buildConclusion({
     watchPoints.length === 0
   ) {
     return (
-      "Les indicateurs disponibles sont majoritairement solides, " +
-      "sans supprimer les risques propres au marché des crypto-actifs."
+      "Les indicateurs actuellement disponibles sont " +
+      "majoritairement solides. Cette lecture décrit les " +
+      "données observées et ne constitue pas une prévision."
     );
   }
 
   if (watchPoints.length > 0) {
     return (
-      "Plusieurs indicateurs disponibles restent faibles ou limités " +
-      "et expliquent une partie importante du profil actuellement observé."
+      "Plusieurs indicateurs disponibles restent faibles " +
+      "ou limités et expliquent une partie importante du " +
+      "profil actuellement observé."
     );
   }
 
   return (
-    "La lecture reste partielle et repose uniquement sur " +
-    "les données actuellement disponibles."
+    "La lecture reste partielle et repose uniquement " +
+    "sur les données actuellement disponibles."
   );
 }
 
@@ -448,12 +679,25 @@ function buildIntelligence(analyzer) {
   const economicState =
     getEconomicState(observed);
 
+  const name =
+    analyzer?.token?.name ||
+    analyzer?.token?.symbol ||
+    null;
+
   const summary =
     buildSummary({
+      tokenName: name,
       scores,
       economicState,
+      strengths,
+      watchPoints,
       missingData
     });
+
+  const economicReading =
+    buildEconomicReading(
+      economicState
+    );
 
   const conclusion =
     buildConclusion({
@@ -491,14 +735,23 @@ function buildIntelligence(analyzer) {
         null
     },
 
+    token: {
+      name:
+        analyzer?.token?.name ||
+        null,
+
+      symbol:
+        analyzer?.token?.symbol ||
+        null
+    },
+
     intelligence: {
       summary,
 
       economicState:
         economicState.state,
 
-      economicReading:
-        economicState.text,
+      economicReading,
 
       strengths,
 

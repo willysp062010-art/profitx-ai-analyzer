@@ -336,7 +336,7 @@ function joinLabels(items) {
     labels[labels.length - 1]
   );
 }
-}
+
 
 function buildSummary({
   tokenName,

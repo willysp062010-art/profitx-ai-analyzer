@@ -318,7 +318,7 @@ function buildInsights(a, b) {
     },
     {
       key: "transactions24h",
-      label: "transactions sur 24 h",
+      label: "activité transactionnelle sur 24 h",
       format: (v) => formatNumber(v, 0),
     },
     {

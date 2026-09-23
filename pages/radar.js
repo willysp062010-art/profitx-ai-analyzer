@@ -470,31 +470,62 @@ export default function Radar() {
             </div>
 
             <nav className="navActions">
-              <button
-                type="button"
-                className="navButton"
-                onClick={() => router.push("/")}
-              >
-                ANALYZER
-              </button>
+  <button
+    type="button"
+    className="navButton"
+    onClick={() => router.push("/")}
+  >
+    ANALYZER
+  </button>
 
-              <button
-                type="button"
-                className="navButton"
-                onClick={() =>
-                  router.push("/watchlist")
-                }
-              >
-                WATCHLIST
-              </button>
+  <button
+    type="button"
+    className="navButton activeNav"
+    onClick={() => router.push("/radar")}
+  >
+    RADAR
+  </button>
 
-              <button
-                type="button"
-                className="navButton activeNav"
-              >
-                RADAR
-              </button>
-            </nav>
+  <button
+    type="button"
+    className="navButton"
+    onClick={() => router.push("/compare")}
+  >
+    COMPARE
+  </button>
+
+  <button
+    type="button"
+    className="navButton"
+    onClick={() => router.push("/intelligence")}
+  >
+    INTELLIGENCE
+  </button>
+
+  <button
+    type="button"
+    className="navButton"
+    onClick={() => router.push("/watchlist")}
+  >
+    WATCHLIST
+  </button>
+
+  <button
+    type="button"
+    className="navButton"
+    onClick={() => router.push("/alerts")}
+  >
+    ALERTS
+  </button>
+
+  <button
+    type="button"
+    className="navButton"
+    onClick={() => router.push("/obtenir-pfx")}
+  >
+    OBTENIR PFX
+  </button>
+</nav>
           </header>
 
           <section className="hero">

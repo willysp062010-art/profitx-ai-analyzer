@@ -906,42 +906,55 @@ export default function Alerts() {
             </div>
 
             <nav className="nav">
-              <button
-                type="button"
-                onClick={() =>
-                  router.push("/")
-                }
-              >
-                ANALYZER
-              </button>
+  <button
+    type="button"
+    onClick={() => router.push("/")}
+  >
+    ANALYZER
+  </button>
 
-              <button
-                type="button"
-                onClick={() =>
-                  router.push("/radar")
-                }
-              >
-                RADAR
-              </button>
+  <button
+    type="button"
+    onClick={() => router.push("/radar")}
+  >
+    RADAR
+  </button>
 
-              <button
-                type="button"
-                onClick={() =>
-                  router.push(
-                    "/watchlist"
-                  )
-                }
-              >
-                WATCHLIST
-              </button>
+  <button
+    type="button"
+    onClick={() => router.push("/compare")}
+  >
+    COMPARE
+  </button>
 
-              <button
-                type="button"
-                className="activeNav"
-              >
-                ALERTS
-              </button>
-            </nav>
+  <button
+    type="button"
+    onClick={() => router.push("/intelligence")}
+  >
+    INTELLIGENCE
+  </button>
+
+  <button
+    type="button"
+    onClick={() => router.push("/watchlist")}
+  >
+    WATCHLIST
+  </button>
+
+  <button
+    type="button"
+    className="activeNav"
+  >
+    ALERTS
+  </button>
+
+  <button
+    type="button"
+    onClick={() => router.push("/obtenir-pfx")}
+  >
+    OBTENIR PFX
+  </button>
+</nav>
           </header>
             <section className="hero">
             <div className="heroText">

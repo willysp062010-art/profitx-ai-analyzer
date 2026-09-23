@@ -399,7 +399,7 @@ function TokenHeader({ result, label }) {
           <img
             className="tokenImage"
             src={token.imageUri}
-            alt=""
+            alt={token.name || token.symbol || "Token"}
           />
         ) : (
           <div className="tokenFallback">
@@ -409,7 +409,7 @@ function TokenHeader({ result, label }) {
           </div>
         )}
 
-        <div>
+        <div className="identityText">
           <div className="tokenName">
             {token.name || "Token"}
           </div>
@@ -435,11 +435,136 @@ function TokenHeader({ result, label }) {
           {result?.source || "source N/D"}
         </span>
       </div>
+
+      <style jsx>{`
+        .tokenHeader {
+          display: inline-flex;
+          vertical-align: top;
+          width: calc((100% - 170px) / 2);
+          min-height: 195px;
+          padding: 24px;
+          flex-direction: column;
+          justify-content: center;
+          overflow: hidden;
+        }
+
+        .tokenLabel {
+          margin-bottom: 15px;
+          color: #35ff82;
+          font-size: 10px;
+          font-weight: 900;
+          letter-spacing: 0.16em;
+        }
+
+        .identity {
+          display: flex;
+          align-items: center;
+          gap: 13px;
+          min-width: 0;
+        }
+
+        .tokenImage,
+        .tokenFallback {
+          display: block;
+          width: 56px;
+          height: 56px;
+          min-width: 56px;
+          max-width: 56px;
+          max-height: 56px;
+          flex: 0 0 56px;
+          border-radius: 50%;
+          border: 1px solid #304137;
+          background: #0d1510;
+          object-fit: cover;
+          overflow: hidden;
+        }
+
+        .tokenFallback {
+          display: grid;
+          place-items: center;
+          color: #35ff82;
+          font-weight: 900;
+        }
+
+        .identityText {
+          min-width: 0;
+        }
+
+        .tokenName {
+          overflow: hidden;
+          color: #f4f7f5;
+          font-size: 21px;
+          font-weight: 850;
+          line-height: 1.15;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .symbol {
+          margin-top: 3px;
+          overflow: hidden;
+          color: #7f8c84;
+          font-size: 13px;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .mint {
+          margin-top: 15px;
+          overflow: hidden;
+          color: #66736b;
+          font-family: monospace;
+          font-size: 12px;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .badges {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 7px;
+          margin-top: 12px;
+        }
+
+        .badge {
+          padding: 5px 8px;
+          border-radius: 6px;
+          background: rgba(53, 255, 130, 0.08);
+          color: #35ff82;
+          font-size: 10px;
+          font-weight: 800;
+        }
+
+        .badge.secondary {
+          background: #111813;
+          color: #819087;
+        }
+
+        @media (max-width: 760px) {
+          .tokenHeader {
+            width: 305px;
+            min-height: 180px;
+            padding: 18px;
+          }
+
+          .tokenImage,
+          .tokenFallback {
+            width: 50px;
+            height: 50px;
+            min-width: 50px;
+            max-width: 50px;
+            max-height: 50px;
+            flex-basis: 50px;
+          }
+
+          .tokenName {
+            font-size: 18px;
+          }
+        }
+      `}</style>
     </div>
   );
 }
-
-export default function ComparePage() {
   const router = useRouter();
 
   const [mintA, setMintA] = useState("");

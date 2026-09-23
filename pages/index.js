@@ -645,10 +645,11 @@ export default function Home() {
           }}
         >
           {[
-            ["ANALYZER", "/"],
-            ["RADAR", "/radar"],
-            ["WATCHLIST", "/watchlist"],
-            ["ALERTS", "/alerts"]
+           ["ANALYZER", "/"],
+["RADAR", "/radar"],
+["COMPARE", "/compare"],
+["WATCHLIST", "/watchlist"],
+["ALERTS", "/alerts"]
           ].map(([label, href]) => (
             <a
               key={label}

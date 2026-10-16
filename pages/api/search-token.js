@@ -172,6 +172,14 @@ export default async function handler(req, res) {
     fetchJSON(pumpURL)
   ]);
 
+  if (pumpResponse.status === "rejected") {
+  console.error(
+    "[PROFITX] Erreur API Pump.fun :",
+    pumpResponse.reason?.name,
+    pumpResponse.reason?.message
+  );
+}
+
   const tokens = new Map();
 
   for (const official of OFFICIAL_TOKENS) {

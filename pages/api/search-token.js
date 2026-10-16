@@ -7,7 +7,15 @@ const TOKEN_URL =
 
 const TIMEOUT_MS = 8000;
 const MAX_RESULTS = 20;
+const MAX_QUERY_LENGTH = 80;
 
+const OFFICIAL_TOKENS = [
+  {
+    mint: "6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump",
+    name: "PROFITX",
+    symbol: "PFX"
+  }
+];
 function isMint(value) {
   if (
     typeof value !== "string" ||
@@ -117,7 +125,7 @@ export default async function handler(req, res) {
 
   if (
     query.length < 2 ||
-    query.length > 80
+    query.length > MAX_QUERY_LENGTH
   ) {
     return res.status(400).json({
       ok: false,
@@ -136,6 +144,27 @@ export default async function handler(req, res) {
     const pairs = await fetchPairs(url);
 
     const tokens = new Map();
+
+    for (const official of OFFICIAL_TOKENS) {
+  const q = query.toLowerCase();
+
+  if (
+    query === official.mint ||
+    official.name.toLowerCase().includes(q) ||
+    official.symbol.toLowerCase().includes(q)
+  ) {
+    tokens.set(official.mint, {
+      ...official,
+      liquidityUsd: null,
+      volume24hUsd: null,
+      dexId: null,
+      pairAddress: null,
+      url: null,
+      verified: true,
+      verificationStatus: "OFFICIAL_PROJECT_MINT"
+    });
+  }
+}
 
     for (const pair of pairs) {
       if (pair?.chainId !== "solana") {
@@ -219,10 +248,15 @@ export default async function handler(req, res) {
             url:
               pair?.url || null,
 
-            verified: false,
+            verified: OFFICIAL_TOKENS.some(
+  (official) => official.mint === mint
+),
 
-            verificationStatus:
-              "UNVERIFIED"
+verificationStatus: OFFICIAL_TOKENS.some(
+  (official) => official.mint === mint
+)
+  ? "OFFICIAL_PROJECT_MINT"
+  : "UNVERIFIED"
           });
         }
       }

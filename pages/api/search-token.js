@@ -274,6 +274,15 @@ export default async function handler(req, res) {
   const dexAvailable = dexResponse.status === "fulfilled";
   const pumpAvailable = pumpResponse.status === "fulfilled";
 
+  const pumpError =
+  pumpResponse.status === "rejected"
+    ? String(
+        pumpResponse.reason?.message ||
+        pumpResponse.reason?.name ||
+        "Erreur inconnue"
+      ).slice(0, 150)
+    : null;
+
   if (!dexAvailable && !pumpAvailable && results.length === 0) {
     return res.status(502).json({
       ok: false,
@@ -290,6 +299,9 @@ export default async function handler(req, res) {
       dexscreener: dexAvailable,
       pumpfun: pumpAvailable
     },
+
+    pumpError,
+    
     count: results.length,
     results,
     note:

@@ -6,6 +6,7 @@ const PUMP_URL = "https://frontend-api-v3.pump.fun/coins";
 const TIMEOUT_MS = 8000;
 const MAX_RESULTS = 20;
 const MAX_QUERY_LENGTH = 80;
+const DIAGNOSTIC_VERSION = "PFX-SEARCH-20261016-V2";
 
 const OFFICIAL_TOKENS = [
   {
@@ -19,7 +20,9 @@ function isMint(value) {
   if (
     typeof value !== "string" ||
     !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value)
-  ) return false;
+  ) {
+    return false;
+  }
 
   const alphabet =
     "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
@@ -28,17 +31,21 @@ function isMint(value) {
 
   for (const char of value) {
     const index = alphabet.indexOf(char);
+
     if (index < 0) return false;
+
     number = number * 58n + BigInt(index);
   }
 
   let bytes = 0;
+
   while (number > 0n) {
     bytes++;
     number >>= 8n;
   }
 
   const leadingZeros = value.match(/^1*/)?.[0].length || 0;
+
   return bytes + leadingZeros === 32;
 }
 
@@ -48,19 +55,29 @@ function numeric(value) {
     value === undefined ||
     value === "" ||
     typeof value === "boolean"
-  ) return null;
+  ) {
+    return null;
+  }
 
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
+  const result = Number(value);
+
+  return Number.isFinite(result) ? result : null;
 }
 
 async function fetchJSON(url) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+  const timeout = setTimeout(
+    () => controller.abort(),
+    TIMEOUT_MS
+  );
 
   try {
     const response = await fetch(url, {
-      headers: { Accept: "application/json" },
+      method: "GET",
+      headers: {
+        Accept: "application/json"
+      },
       signal: controller.signal
     });
 
@@ -74,19 +91,27 @@ async function fetchJSON(url) {
   }
 }
 
-function matchesQuery(token, query, mintQuery) {
-  if (mintQuery) return token.mint === query;
-
-  const q = query.toLowerCase();
-
-  return (
-    token.name.toLowerCase().includes(q) ||
-    token.symbol.toLowerCase().includes(q)
+function isOfficial(mint) {
+  return OFFICIAL_TOKENS.some(
+    token => token.mint === mint
   );
 }
 
-function isOfficial(mint) {
-  return OFFICIAL_TOKENS.some(token => token.mint === mint);
+function matchesQuery(token, query, mintQuery) {
+  if (mintQuery) {
+    return token.mint === query;
+  }
+
+  const search = query.toLowerCase();
+
+  return (
+    String(token.name || "")
+      .toLowerCase()
+      .includes(search) ||
+    String(token.symbol || "")
+      .toLowerCase()
+      .includes(search)
+  );
 }
 
 function addToken(tokens, token) {
@@ -119,20 +144,40 @@ function addToken(tokens, token) {
   if (newLiquidity > oldLiquidity) {
     tokens.set(token.mint, {
       ...previous,
-      ...candidate,
-      verified: Boolean(official),
-      verificationStatus: official
-        ? "OFFICIAL_PROJECT_MINT"
-        : "UNVERIFIED"
+      ...candidate
     });
   }
 }
 
+function errorMessage(result) {
+  if (result.status !== "rejected") {
+    return null;
+  }
+
+  const reason = result.reason;
+
+  if (reason?.name === "AbortError") {
+    return "Délai de réponse dépassé (8 secondes).";
+  }
+
+  return String(
+    reason?.message ||
+    reason?.name ||
+    "Erreur inconnue"
+  ).slice(0, 180);
+}
+
 export default async function handler(req, res) {
-  res.setHeader("Cache-Control", "no-store");
+  res.setHeader(
+    "Cache-Control",
+    "no-store, no-cache, must-revalidate"
+  );
+
+  res.setHeader("X-PROFITX-Search-Version", DIAGNOSTIC_VERSION);
 
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
+
     return res.status(405).json({
       ok: false,
       error: "Méthode non autorisée."
@@ -150,7 +195,10 @@ export default async function handler(req, res) {
 
   const query = raw.trim();
 
-  if (query.length < 2 || query.length > MAX_QUERY_LENGTH) {
+  if (
+    query.length < 2 ||
+    query.length > MAX_QUERY_LENGTH
+  ) {
     return res.status(400).json({
       ok: false,
       error: "Recherche de 2 à 80 caractères requise."
@@ -167,21 +215,38 @@ export default async function handler(req, res) {
     `${PUMP_URL}?offset=0&limit=200` +
     "&sort=created_timestamp&order=DESC&includeNsfw=false";
 
-  const [dexResponse, pumpResponse] = await Promise.allSettled([
-    fetchJSON(dexURL),
-    fetchJSON(pumpURL)
-  ]);
+  const [dexResponse, pumpResponse] =
+    await Promise.allSettled([
+      fetchJSON(dexURL),
+      fetchJSON(pumpURL)
+    ]);
 
-  if (pumpResponse.status === "rejected") {
-  console.error(
-    "[PROFITX] Erreur API Pump.fun :",
-    pumpResponse.reason?.name,
-    pumpResponse.reason?.message
-  );
-}
+  const dexAvailable =
+    dexResponse.status === "fulfilled";
+
+  const pumpAvailable =
+    pumpResponse.status === "fulfilled" &&
+    Array.isArray(pumpResponse.value);
+
+  const dexError = errorMessage(dexResponse);
+
+  const pumpError = pumpAvailable
+    ? null
+    : pumpResponse.status === "rejected"
+      ? errorMessage(pumpResponse)
+      : "Format de réponse Pump.fun inattendu.";
+
+  if (dexError) {
+    console.error("[PROFITX] DexScreener :", dexError);
+  }
+
+  if (pumpError) {
+    console.error("[PROFITX] Pump.fun :", pumpError);
+  }
 
   const tokens = new Map();
 
+  // 1. Tokens officiels PROFITX
   for (const official of OFFICIAL_TOKENS) {
     if (matchesQuery(official, query, mintQuery)) {
       addToken(tokens, {
@@ -196,7 +261,8 @@ export default async function handler(req, res) {
     }
   }
 
-  if (dexResponse.status === "fulfilled") {
+  // 2. Recherche DexScreener
+  if (dexAvailable) {
     const pairs = Array.isArray(dexResponse.value?.pairs)
       ? dexResponse.value.pairs
       : [];
@@ -216,7 +282,9 @@ export default async function handler(req, res) {
           symbol: String(token?.symbol || "")
         };
 
-        if (!matchesQuery(candidate, query, mintQuery)) continue;
+        if (!matchesQuery(candidate, query, mintQuery)) {
+          continue;
+        }
 
         addToken(tokens, {
           ...candidate,
@@ -231,20 +299,27 @@ export default async function handler(req, res) {
     }
   }
 
-  if (pumpResponse.status === "fulfilled") {
-    const coins = Array.isArray(pumpResponse.value)
-      ? pumpResponse.value
-      : [];
+  // 3. Recherche parmi les tokens récents Pump.fun
+  if (pumpAvailable) {
+    for (const coin of pumpResponse.value) {
+      if (
+        coin?.is_banned === true ||
+        coin?.nsfw === true
+      ) {
+        continue;
+      }
 
-    for (const coin of coins) {
       const candidate = {
         mint: coin?.mint,
         name: String(coin?.name || ""),
         symbol: String(coin?.symbol || "")
       };
 
-      if (!matchesQuery(candidate, query, mintQuery)) continue;
-      if (coin?.is_banned === true || coin?.nsfw === true) continue;
+      if (!isMint(candidate.mint)) continue;
+
+      if (!matchesQuery(candidate, query, mintQuery)) {
+        continue;
+      }
 
       addToken(tokens, {
         ...candidate,
@@ -255,43 +330,48 @@ export default async function handler(req, res) {
         url: null,
         source: "pumpfun",
         bondingCurveComplete: coin?.complete === true,
-        createdTimestamp: numeric(coin?.created_timestamp)
+        createdTimestamp: numeric(
+          coin?.created_timestamp
+        )
       });
     }
   }
 
+  // 4. Priorité au mint officiel puis à la liquidité
   const results = [...tokens.values()]
     .sort((a, b) => {
       const officialDifference =
-        Number(isOfficial(b.mint)) - Number(isOfficial(a.mint));
+        Number(isOfficial(b.mint)) -
+        Number(isOfficial(a.mint));
 
-      if (officialDifference !== 0) return officialDifference;
+      if (officialDifference !== 0) {
+        return officialDifference;
+      }
 
-      return (b.liquidityUsd ?? -1) - (a.liquidityUsd ?? -1);
+      return (
+        (b.liquidityUsd ?? -1) -
+        (a.liquidityUsd ?? -1)
+      );
     })
     .slice(0, MAX_RESULTS);
 
-  const dexAvailable = dexResponse.status === "fulfilled";
-  const pumpAvailable = pumpResponse.status === "fulfilled";
-
-  const pumpError =
-  pumpResponse.status === "rejected"
-    ? String(
-        pumpResponse.reason?.message ||
-        pumpResponse.reason?.name ||
-        "Erreur inconnue"
-      ).slice(0, 150)
-    : null;
-
-  if (!dexAvailable && !pumpAvailable && results.length === 0) {
+  if (
+    !dexAvailable &&
+    !pumpAvailable &&
+    results.length === 0
+  ) {
     return res.status(502).json({
       ok: false,
+      diagnosticVersion: DIAGNOSTIC_VERSION,
+      dexError,
+      pumpError,
       error: "Services de recherche temporairement indisponibles."
     });
   }
 
   return res.status(200).json({
     ok: true,
+    diagnosticVersion: DIAGNOSTIC_VERSION,
     chain: "solana",
     query,
     source: "dexscreener+pumpfun",
@@ -299,9 +379,8 @@ export default async function handler(req, res) {
       dexscreener: dexAvailable,
       pumpfun: pumpAvailable
     },
-
+    dexError,
     pumpError,
-    
     count: results.length,
     results,
     note:

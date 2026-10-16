@@ -1,9 +1,7 @@
 
-const SEARCH_URL =
-  "https://api.dexscreener.com/latest/dex/search";
-
-const TOKEN_URL =
-  "https://api.dexscreener.com/latest/dex/tokens";
+const SEARCH_URL = "https://api.dexscreener.com/latest/dex/search";
+const TOKEN_URL = "https://api.dexscreener.com/latest/dex/tokens";
+const PUMP_URL = "https://frontend-api-v3.pump.fun/coins";
 
 const TIMEOUT_MS = 8000;
 const MAX_RESULTS = 20;
@@ -16,13 +14,12 @@ const OFFICIAL_TOKENS = [
     symbol: "PFX"
   }
 ];
+
 function isMint(value) {
   if (
     typeof value !== "string" ||
     !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value)
-  ) {
-    return false;
-  }
+  ) return false;
 
   const alphabet =
     "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
@@ -31,25 +28,17 @@ function isMint(value) {
 
   for (const char of value) {
     const index = alphabet.indexOf(char);
-
-    if (index < 0) {
-      return false;
-    }
-
-    number =
-      number * 58n + BigInt(index);
+    if (index < 0) return false;
+    number = number * 58n + BigInt(index);
   }
 
   let bytes = 0;
-
   while (number > 0n) {
     bytes++;
     number >>= 8n;
   }
 
-  const leadingZeros =
-    value.match(/^1*/)?.[0].length || 0;
-
+  const leadingZeros = value.match(/^1*/)?.[0].length || 0;
   return bytes + leadingZeros === 32;
 }
 
@@ -59,44 +48,83 @@ function numeric(value) {
     value === undefined ||
     value === "" ||
     typeof value === "boolean"
-  ) {
-    return null;
-  }
+  ) return null;
 
   const n = Number(value);
-
   return Number.isFinite(n) ? n : null;
 }
 
-async function fetchPairs(url) {
+async function fetchJSON(url) {
   const controller = new AbortController();
-
-  const timeout = setTimeout(
-    () => controller.abort(),
-    TIMEOUT_MS
-  );
+  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
   try {
     const response = await fetch(url, {
-      headers: {
-        Accept: "application/json"
-      },
+      headers: { Accept: "application/json" },
       signal: controller.signal
     });
 
     if (!response.ok) {
-      throw new Error(
-        `DexScreener HTTP ${response.status}`
-      );
+      throw new Error(`HTTP ${response.status}`);
     }
 
-    const body = await response.json();
-
-    return Array.isArray(body?.pairs)
-      ? body.pairs
-      : [];
+    return await response.json();
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+function matchesQuery(token, query, mintQuery) {
+  if (mintQuery) return token.mint === query;
+
+  const q = query.toLowerCase();
+
+  return (
+    token.name.toLowerCase().includes(q) ||
+    token.symbol.toLowerCase().includes(q)
+  );
+}
+
+function isOfficial(mint) {
+  return OFFICIAL_TOKENS.some(token => token.mint === mint);
+}
+
+function addToken(tokens, token) {
+  if (!isMint(token.mint)) return;
+
+  const official = OFFICIAL_TOKENS.find(
+    item => item.mint === token.mint
+  );
+
+  const candidate = {
+    ...token,
+    name: official?.name || token.name,
+    symbol: official?.symbol || token.symbol,
+    verified: Boolean(official),
+    verificationStatus: official
+      ? "OFFICIAL_PROJECT_MINT"
+      : "UNVERIFIED"
+  };
+
+  const previous = tokens.get(token.mint);
+
+  if (!previous) {
+    tokens.set(token.mint, candidate);
+    return;
+  }
+
+  const newLiquidity = candidate.liquidityUsd ?? -1;
+  const oldLiquidity = previous.liquidityUsd ?? -1;
+
+  if (newLiquidity > oldLiquidity) {
+    tokens.set(token.mint, {
+      ...previous,
+      ...candidate,
+      verified: Boolean(official),
+      verificationStatus: official
+        ? "OFFICIAL_PROJECT_MINT"
+        : "UNVERIFIED"
+    });
   }
 }
 
@@ -105,7 +133,6 @@ export default async function handler(req, res) {
 
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
-
     return res.status(405).json({
       ok: false,
       error: "Méthode non autorisée."
@@ -123,179 +150,141 @@ export default async function handler(req, res) {
 
   const query = raw.trim();
 
-  if (
-    query.length < 2 ||
-    query.length > MAX_QUERY_LENGTH
-  ) {
+  if (query.length < 2 || query.length > MAX_QUERY_LENGTH) {
     return res.status(400).json({
       ok: false,
-      error:
-        "Recherche de 2 à 80 caractères requise."
+      error: "Recherche de 2 à 80 caractères requise."
     });
   }
 
-  try {
-    const mintQuery = isMint(query);
+  const mintQuery = isMint(query);
 
-    const url = mintQuery
-      ? `${TOKEN_URL}/${encodeURIComponent(query)}`
-      : `${SEARCH_URL}?q=${encodeURIComponent(query)}`;
+  const dexURL = mintQuery
+    ? `${TOKEN_URL}/${encodeURIComponent(query)}`
+    : `${SEARCH_URL}?q=${encodeURIComponent(query)}`;
 
-    const pairs = await fetchPairs(url);
+  const pumpURL =
+    `${PUMP_URL}?offset=0&limit=200` +
+    "&sort=created_timestamp&order=DESC&includeNsfw=false";
 
-    const tokens = new Map();
+  const [dexResponse, pumpResponse] = await Promise.allSettled([
+    fetchJSON(dexURL),
+    fetchJSON(pumpURL)
+  ]);
 
-    for (const official of OFFICIAL_TOKENS) {
-  const q = query.toLowerCase();
+  const tokens = new Map();
 
-  if (
-    query === official.mint ||
-    official.name.toLowerCase().includes(q) ||
-    official.symbol.toLowerCase().includes(q)
-  ) {
-    tokens.set(official.mint, {
-      ...official,
-      liquidityUsd: null,
-      volume24hUsd: null,
-      dexId: null,
-      pairAddress: null,
-      url: null,
-      verified: true,
-      verificationStatus: "OFFICIAL_PROJECT_MINT"
-    });
+  for (const official of OFFICIAL_TOKENS) {
+    if (matchesQuery(official, query, mintQuery)) {
+      addToken(tokens, {
+        ...official,
+        liquidityUsd: null,
+        volume24hUsd: null,
+        dexId: null,
+        pairAddress: null,
+        url: null,
+        source: "official"
+      });
+    }
   }
-}
+
+  if (dexResponse.status === "fulfilled") {
+    const pairs = Array.isArray(dexResponse.value?.pairs)
+      ? dexResponse.value.pairs
+      : [];
 
     for (const pair of pairs) {
-      if (pair?.chainId !== "solana") {
-        continue;
-      }
+      if (pair?.chainId !== "solana") continue;
 
-      for (const side of [
-        "baseToken",
-        "quoteToken"
-      ]) {
+      for (const side of ["baseToken", "quoteToken"]) {
         const token = pair?.[side];
-
         const mint = token?.address;
 
-        if (!isMint(mint)) {
-          continue;
-        }
+        if (!isMint(mint)) continue;
 
-        if (
-          mintQuery &&
-          mint !== query
-        ) {
-          continue;
-        }
+        const candidate = {
+          mint,
+          name: String(token?.name || ""),
+          symbol: String(token?.symbol || "")
+        };
 
-        if (!mintQuery) {
-          const q = query.toLowerCase();
+        if (!matchesQuery(candidate, query, mintQuery)) continue;
 
-          const name = String(
-            token.name || ""
-          ).toLowerCase();
-
-          const symbol = String(
-            token.symbol || ""
-          ).toLowerCase();
-
-          if (
-            !name.includes(q) &&
-            !symbol.includes(q)
-          ) {
-            continue;
-          }
-        }
-
-        const liquidityUsd = numeric(
-          pair?.liquidity?.usd
-        );
-
-        const volume24hUsd = numeric(
-          pair?.volume?.h24
-        );
-
-        const previous = tokens.get(mint);
-
-        if (
-          !previous ||
-          (liquidityUsd ?? -1) >
-            (previous.liquidityUsd ?? -1)
-        ) {
-          tokens.set(mint, {
-            mint,
-
-            name: String(
-              token.name || ""
-            ),
-
-            symbol: String(
-              token.symbol || ""
-            ),
-
-            liquidityUsd,
-
-            volume24hUsd,
-
-            dexId:
-              pair?.dexId || null,
-
-            pairAddress:
-              pair?.pairAddress || null,
-
-            url:
-              pair?.url || null,
-
-            verified: OFFICIAL_TOKENS.some(
-  (official) => official.mint === mint
-),
-
-verificationStatus: OFFICIAL_TOKENS.some(
-  (official) => official.mint === mint
-)
-  ? "OFFICIAL_PROJECT_MINT"
-  : "UNVERIFIED"
-          });
-        }
+        addToken(tokens, {
+          ...candidate,
+          liquidityUsd: numeric(pair?.liquidity?.usd),
+          volume24hUsd: numeric(pair?.volume?.h24),
+          dexId: pair?.dexId || null,
+          pairAddress: pair?.pairAddress || null,
+          url: pair?.url || null,
+          source: "dexscreener"
+        });
       }
     }
+  }
 
-    const results = [
-      ...tokens.values()
-    ]
-      .sort(
-        (a, b) =>
-          (b.liquidityUsd ?? -1) -
-          (a.liquidityUsd ?? -1)
-      )
-      .slice(0, MAX_RESULTS);
+  if (pumpResponse.status === "fulfilled") {
+    const coins = Array.isArray(pumpResponse.value)
+      ? pumpResponse.value
+      : [];
 
-    return res.status(200).json({
-      ok: true,
+    for (const coin of coins) {
+      const candidate = {
+        mint: coin?.mint,
+        name: String(coin?.name || ""),
+        symbol: String(coin?.symbol || "")
+      };
 
-      chain: "solana",
+      if (!matchesQuery(candidate, query, mintQuery)) continue;
+      if (coin?.is_banned === true || coin?.nsfw === true) continue;
 
-      query,
+      addToken(tokens, {
+        ...candidate,
+        liquidityUsd: null,
+        volume24hUsd: null,
+        dexId: null,
+        pairAddress: null,
+        url: null,
+        source: "pumpfun",
+        bondingCurveComplete: coin?.complete === true,
+        createdTimestamp: numeric(coin?.created_timestamp)
+      });
+    }
+  }
 
-      source: "dexscreener",
+  const results = [...tokens.values()]
+    .sort((a, b) => {
+      const officialDifference =
+        Number(isOfficial(b.mint)) - Number(isOfficial(a.mint));
 
-      count: results.length,
+      if (officialDifference !== 0) return officialDifference;
 
-      results,
+      return (b.liquidityUsd ?? -1) - (a.liquidityUsd ?? -1);
+    })
+    .slice(0, MAX_RESULTS);
 
-      note:
-        "Les résultats ne prouvent pas l'authenticité d'un token. Vérifiez son adresse mint officielle."
-    });
-  } catch (error) {
+  const dexAvailable = dexResponse.status === "fulfilled";
+  const pumpAvailable = pumpResponse.status === "fulfilled";
+
+  if (!dexAvailable && !pumpAvailable && results.length === 0) {
     return res.status(502).json({
       ok: false,
-
-      error:
-        error?.name === "AbortError"
-          ? "Recherche expirée, réessayez."
-          : "Service de recherche temporairement indisponible."
+      error: "Services de recherche temporairement indisponibles."
     });
   }
+
+  return res.status(200).json({
+    ok: true,
+    chain: "solana",
+    query,
+    source: "dexscreener+pumpfun",
+    sources: {
+      dexscreener: dexAvailable,
+      pumpfun: pumpAvailable
+    },
+    count: results.length,
+    results,
+    note:
+      "Le statut OFFICIAL_PROJECT_MINT identifie le mint déclaré par PROFITX, pas un audit indépendant. Les autres tokens restent non vérifiés."
+  });
 }

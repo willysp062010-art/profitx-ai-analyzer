@@ -8,7 +8,9 @@ const PUMP_SOL_PRICE_URL =
   "https://frontend-api-v3.pump.fun/sol-price";
 
 const DEFAULT_RPC =
-  "https://api.mainnet-beta.solana.com";
+  process.env.HELIUS_API_KEY
+    ? `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`
+    : "https://api.mainnet-beta.solana.com";
 
 const TIMEOUT = 12000;
 const VERSION = "4.5.0";

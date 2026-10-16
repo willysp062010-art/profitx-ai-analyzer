@@ -405,7 +405,9 @@ function buildProfitxDiagnostic({
 export default function Home() {
   const [mint, setMint] =
     useState(DEFAULT_MINT);
-
+const [tokenResults, setTokenResults] = useState([]);
+const [tokenSearchLoading, setTokenSearchLoading] = useState(false);
+const [tokenSearchError, setTokenSearchError] = useState("");
   const [data, setData] =
     useState(null);
 
@@ -427,7 +429,40 @@ export default function Home() {
     }
   }, []);
 
+async function searchToken(query) {
+  const text = query.trim();
 
+  setTokenResults([]);
+  setTokenSearchError("");
+
+  if (text.length < 2) return;
+
+  setTokenSearchLoading(true);
+
+  try {
+    const response = await fetch(
+      `/api/search-token?q=${encodeURIComponent(text)}`
+    );
+
+    if (!response.ok) {
+      throw new Error("Recherche indisponible");
+    }
+
+    const result = await response.json();
+
+    if (!result.ok) {
+      throw new Error("Recherche impossible");
+    }
+
+    setTokenResults(result.results || []);
+  } catch (err) {
+    setTokenSearchError(
+      "Impossible de rechercher les tokens pour le moment."
+    );
+  } finally {
+    setTokenSearchLoading(false);
+  }
+}
   async function analyze() {
     const cleanMint = mint.trim();
 
@@ -909,19 +944,75 @@ export default function Home() {
 
           <input
             value={mint}
-            onChange={(e) =>
-              setMint(e.target.value)
-            }
+           onChange={(e) => {
+  const value = e.target.value;
+  setMint(value);
+  setTokenResults([]);
+  searchToken(value);
+}}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 analyze();
               }
             }}
-            placeholder="Adresse mint Solana"
+            placeholder="Nom, symbole ou adresse mint Solana"
             spellCheck="false"
             autoComplete="off"
           />
+{tokenSearchLoading && (
+  <p>Recherche des tokens Solana...</p>
+)}
 
+{tokenSearchError && (
+  <p style={{ color: "#ff7070" }}>
+    {tokenSearchError}
+  </p>
+)}
+
+{tokenResults.length > 0 && (
+  <div style={{
+    width: "100%",
+    maxHeight: "280px",
+    overflowY: "auto",
+    background: "#101a16",
+    border: "1px solid #32ff85",
+    borderRadius: "8px",
+    padding: "8px"
+  }}>
+    {tokenResults.map((token) => (
+      <button
+        key={token.mint}
+        type="button"
+        onClick={() => {
+          setMint(token.mint);
+          setTokenResults([]);
+          setTokenSearchError("");
+        }}
+        style={{
+          display: "block",
+          width: "100%",
+          textAlign: "left",
+          padding: "10px",
+          marginBottom: "5px",
+          background: "#17251d",
+          color: "#ffffff",
+          border: "1px solid #344c3c",
+          borderRadius: "6px",
+          cursor: "pointer",
+          overflowWrap: "anywhere"
+        }}
+      >
+        <strong>{token.name} ({token.symbol})</strong>
+        <div style={{ fontSize: "11px", opacity: 0.8 }}>
+          {token.mint}
+        </div>
+        <div style={{ fontSize: "11px", color: "#ffcb66" }}>
+          {token.verificationStatus || "UNVERIFIED"}
+        </div>
+      </button>
+    ))}
+  </div>
+)}
           <button
             onClick={analyze}
             disabled={

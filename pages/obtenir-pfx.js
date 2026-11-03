@@ -1,14 +1,17 @@
+
 import { useState } from "react";
 import Head from "next/head";
 
 const PFX_MINT =
   "6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump";
 
-const PUMP_URL =
-  `https://pump.fun/coin/${PFX_MINT}`;
+const RAYDIUM_URL =
+  `https://raydium.io/swap/?inputMint=sol&outputMint=${PFX_MINT}`;
 
-const PHANTOM_URL =
-  "https://phantom.com/";
+const DEXSCREENER_URL =
+  "https://dexscreener.com/solana/8xezT7zFCg3adVTyME72qiA42upJdy8SATFyhZJcX9jb";
+
+const PHANTOM_URL = "https://phantom.com/";
 
 export default function ObtenirPFX() {
   const [copied, setCopied] = useState(false);
@@ -29,10 +32,10 @@ export default function ObtenirPFX() {
   return (
     <>
       <Head>
-        <title>Obtenir PFX | PROFITX AI</title>
+        <title>Obtenir PFX sur Raydium | PROFITX AI</title>
         <meta
           name="description"
-          content="Guide simple pour accéder au token officiel PFX de ProfitX AI sur Solana."
+          content="Guide officiel pour obtenir PROFITX PFX sur Raydium, réseau Solana. Vérifiez le mint et les risques avant toute transaction."
         />
       </Head>
 
@@ -43,17 +46,17 @@ export default function ObtenirPFX() {
             <span>PROFITX AI</span>
           </a>
 
-         <nav className="nav">
-  <a href="/">ANALYZER</a>
-  <a href="/radar">RADAR</a>
-  <a href="/compare">COMPARE</a>
-  <a href="/intelligence">INTELLIGENCE</a>
-  <a href="/watchlist">WATCHLIST</a>
-  <a href="/alerts">ALERTS</a>
-  <a href="/obtenir-pfx" className="activeNav">
-    OBTENIR PFX
-  </a>
-</nav>
+          <nav className="nav">
+            <a href="/">ANALYZER</a>
+            <a href="/radar">RADAR</a>
+            <a href="/compare">COMPARE</a>
+            <a href="/intelligence">INTELLIGENCE</a>
+            <a href="/watchlist">WATCHLIST</a>
+            <a href="/alerts">ALERTS</a>
+            <a href="/obtenir-pfx" className="activeNav">
+              OBTENIR PFX
+            </a>
+          </nav>
         </header>
 
         <section className="hero">
@@ -66,10 +69,16 @@ export default function ObtenirPFX() {
           </h1>
 
           <p className="lead">
-            Nouveau sur Solana ? Ce guide vous accompagne
-            étape par étape jusqu&apos;à la page officielle
-            de PFX.
+            PROFITX PFX dispose désormais de son pool
+            officiel PFX/SOL sur Raydium.
+            Ce guide vous accompagne étape par étape
+            pour accéder au token officiel.
           </p>
+
+          <div className="status">
+            <span className="statusDot" />
+            POOL PFX/SOL CRÉÉ SUR RAYDIUM
+          </div>
 
           <div className="official">
             <div>
@@ -92,18 +101,26 @@ export default function ObtenirPFX() {
           </div>
 
           <div className="warning">
-            <strong>IMPORTANT</strong>
+            <strong>IMPORTANT — SÉCURITÉ</strong>
 
             <p>
-              Vérifiez toujours cette adresse avant toute
-              transaction. Ne communiquez jamais votre phrase
-              de récupération, votre clé privée ou vos codes
-              d&apos;accès.
+              Vérifiez toujours le mint officiel avant
+              toute transaction. Ne communiquez jamais
+              votre phrase de récupération, votre clé
+              privée ou vos codes d&apos;accès.
             </p>
 
             <p>
-              ProfitX ne vous demandera jamais l&apos;accès à
-              votre wallet.
+              ProfitX ne vous demandera jamais
+              l&apos;accès à votre wallet.
+            </p>
+
+            <p>
+              La liquidité du pool PFX/SOL est actuellement
+              très faible. Les transactions peuvent entraîner
+              un impact important sur le prix, du slippage
+              et des pertes financières. Vérifiez toujours
+              le montant reçu avant de confirmer.
             </p>
           </div>
         </section>
@@ -119,18 +136,51 @@ export default function ObtenirPFX() {
             </h2>
 
             <p>
-              Vous pouvez accéder directement à la page
-              officielle PFX sur Pump.fun.
+              Accédez directement à Raydium pour
+              consulter le marché PFX/SOL.
+              Vérifiez le token et les conditions
+              de transaction avant tout échange.
             </p>
           </div>
 
           <a
-            href={PUMP_URL}
+            href={RAYDIUM_URL}
             target="_blank"
-            rel="noreferrer"
+            rel="noopener noreferrer"
             className="primaryButton"
           >
-            OUVRIR PFX SUR PUMP.FUN →
+            OUVRIR PFX SUR RAYDIUM →
+          </a>
+        </section>
+
+        <section className="market">
+          <div className="eyebrow">
+            MARCHÉ PFX/SOL
+          </div>
+
+          <h2>
+            Suivre PFX sur DexScreener
+          </h2>
+
+          <p>
+            Consultez les transactions, la liquidité,
+            les volumes et l&apos;évolution du marché
+            directement sur DexScreener.
+          </p>
+
+          <p>
+            Les données de marché peuvent évoluer
+            rapidement. Le référencement ne constitue
+            pas une validation de sécurité du token.
+          </p>
+
+          <a
+            href={DEXSCREENER_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="secondaryButton"
+          >
+            VOIR PFX SUR DEXSCREENER →
           </a>
         </section>
 
@@ -141,11 +191,12 @@ export default function ObtenirPFX() {
             </div>
 
             <h2>
-              Comment obtenir PFX ?
+              Comment obtenir PFX sur Raydium ?
             </h2>
 
             <p>
-              Suivez simplement les étapes dans l&apos;ordre.
+              Suivez simplement les étapes
+              dans l&apos;ordre.
             </p>
           </div>
 
@@ -162,21 +213,23 @@ export default function ObtenirPFX() {
               </h3>
 
               <p>
-                Phantom est un wallet compatible avec Solana.
-                Si vous ne l&apos;avez pas encore, utilisez
-                uniquement le site officiel.
+                Phantom est un wallet compatible avec
+                Solana. Si vous ne l&apos;avez pas
+                encore, utilisez uniquement son
+                site officiel.
               </p>
 
               <p className="securityText">
-                Lors de la création du wallet, conservez vos
-                informations de récupération dans un endroit
-                sûr et ne les communiquez à personne.
+                Lors de la création du wallet,
+                conservez vos informations de
+                récupération dans un endroit sûr
+                et ne les communiquez à personne.
               </p>
 
               <a
                 href={PHANTOM_URL}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 className="secondaryButton"
               >
                 SITE OFFICIEL PHANTOM →
@@ -197,21 +250,24 @@ export default function ObtenirPFX() {
               </h3>
 
               <p>
-                L&apos;achat de PFX s&apos;effectue sur le
-                réseau Solana. Votre wallet doit donc contenir
-                du SOL.
+                Les échanges PFX/SOL s&apos;effectuent
+                sur le réseau Solana. Votre wallet
+                doit donc contenir du SOL.
               </p>
 
               <p>
-                Selon votre pays et votre appareil, Phantom
-                peut proposer différentes méthodes pour obtenir
-                du SOL. Vous pouvez également transférer du SOL
-                depuis une plateforme que vous utilisez déjà.
+                Selon votre pays et votre appareil,
+                Phantom peut proposer différentes
+                méthodes pour obtenir du SOL.
+                Vous pouvez également transférer
+                du SOL depuis une plateforme
+                que vous utilisez déjà.
               </p>
 
               <div className="tip">
-                Gardez également une petite quantité de SOL
-                disponible pour les frais du réseau.
+                Gardez également une petite quantité
+                de SOL disponible pour les frais
+                du réseau.
               </div>
             </div>
           </article>
@@ -229,10 +285,15 @@ export default function ObtenirPFX() {
               </h3>
 
               <p>
-                Le nom ou le logo d&apos;un token ne suffit
-                jamais pour vérifier son identité. Comparez
-                toujours son adresse avec le mint officiel
-                publié par ProfitX.
+                Le nom ou le logo d&apos;un token
+                ne suffit jamais pour vérifier
+                son identité.
+              </p>
+
+              <p>
+                Comparez toujours son adresse
+                avec le mint officiel publié
+                par PROFITX AI.
               </p>
 
               <div className="mintBox">
@@ -259,26 +320,40 @@ export default function ObtenirPFX() {
 
             <div className="content">
               <div className="stepLabel">
-                PUMP.FUN
+                RAYDIUM
               </div>
 
               <h3>
-                Ouvrir la page officielle PFX
+                Ouvrir Raydium
               </h3>
 
               <p>
-                Utilisez le bouton ci-dessous. Il contient
-                directement l&apos;adresse officielle PFX afin
-                d&apos;éviter une recherche manuelle du token.
+                Raydium est désormais la plateforme
+                d&apos;échange principale présentée
+                par PROFITX AI pour le token PFX.
+              </p>
+
+              <p>
+                Utilisez le bouton ci-dessous.
+                Le lien prépare une recherche
+                d&apos;échange SOL vers PFX
+                avec le mint officiel.
+              </p>
+
+              <p>
+                Vérifiez que Raydium affiche bien
+                le token correspondant à notre
+                adresse officielle avant
+                de poursuivre.
               </p>
 
               <a
-                href={PUMP_URL}
+                href={RAYDIUM_URL}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 className="primaryButton"
               >
-                OUVRIR PFX SUR PUMP.FUN →
+                OUVRIR PFX SUR RAYDIUM →
               </a>
             </div>
           </article>
@@ -296,17 +371,38 @@ export default function ObtenirPFX() {
               </h3>
 
               <p>
-                Sur Pump.fun, connectez votre wallet compatible
-                Solana, choisissez le montant que vous souhaitez
-                échanger et vérifiez attentivement les
-                informations affichées avant de confirmer.
+                Sur Raydium, connectez votre wallet
+                compatible Solana si vous souhaitez
+                effectuer un échange.
+              </p>
+
+              <p>
+                Sélectionnez SOL comme token de départ
+                et vérifiez que le token de destination
+                est bien le PFX officiel.
+              </p>
+
+              <p>
+                Avant toute confirmation, examinez
+                le montant de PFX attendu, le taux
+                de change, les frais, le slippage
+                et l&apos;impact sur le prix.
               </p>
 
               <div className="tip">
-                Vous restez seul décisionnaire du montant et de
-                la transaction. PFX est un actif spéculatif :
-                aucune performance ou valeur future n&apos;est
-                garantie.
+                ATTENTION : la liquidité PFX/SOL
+                est actuellement très limitée.
+                Même un échange de faible montant
+                peut entraîner une variation
+                importante du prix.
+              </div>
+
+              <div className="tip">
+                Vous restez seul décisionnaire
+                du montant et de la transaction.
+                PFX est un actif spéculatif :
+                aucune performance ou valeur future
+                n&apos;est garantie.
               </div>
             </div>
           </article>
@@ -324,14 +420,26 @@ export default function ObtenirPFX() {
               </h3>
 
               <p>
-                Une fois la transaction confirmée sur Solana,
-                vérifiez votre wallet. L&apos;affichage d&apos;un
-                token peut parfois demander un court délai selon
-                les services utilisés.
+                Une fois la transaction confirmée
+                sur Solana, vérifiez votre wallet.
+                L&apos;affichage d&apos;un token peut
+                parfois demander un court délai
+                selon les services utilisés.
               </p>
 
-              <a href="/" className="secondaryButton">
-                RETOUR À PROFITX ANALYZER →
+              <p>
+                Vous pouvez également consulter
+                les informations de marché
+                PFX/SOL sur DexScreener.
+              </p>
+
+              <a
+                href={DEXSCREENER_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="secondaryButton"
+              >
+                SUIVRE PFX SUR DEXSCREENER →
               </a>
             </div>
           </article>
@@ -339,16 +447,23 @@ export default function ObtenirPFX() {
 
         <section className="finalCta">
           <div className="eyebrow">
-            PROFITX AI • PFX
+            PROFITX AI • PFX • SOLANA
           </div>
 
           <h2>
-            Prêt à continuer ?
+            PFX est disponible sur Raydium
           </h2>
 
           <p>
-            Vérifiez une dernière fois le mint officiel avant
-            toute interaction.
+            Retrouvez notre pool officiel PFX/SOL
+            sur Raydium et suivez son activité
+            sur DexScreener.
+          </p>
+
+          <p>
+            Vérifiez une dernière fois le mint
+            officiel et les risques avant toute
+            interaction.
           </p>
 
           <div className="finalButtons">
@@ -357,16 +472,27 @@ export default function ObtenirPFX() {
               onClick={copyMint}
               className="secondaryButton buttonReset"
             >
-              {copied ? "MINT COPIÉ ✓" : "COPIER LE MINT"}
+              {copied
+                ? "MINT COPIÉ ✓"
+                : "COPIER LE MINT"}
             </button>
 
             <a
-              href={PUMP_URL}
+              href={RAYDIUM_URL}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               className="primaryButton"
             >
-              OUVRIR PFX →
+              ACCÉDER À RAYDIUM →
+            </a>
+
+            <a
+              href={DEXSCREENER_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="secondaryButton"
+            >
+              DEXSCREENER →
             </a>
           </div>
         </section>
@@ -375,10 +501,18 @@ export default function ObtenirPFX() {
           <strong>PROFITX AI</strong>
 
           <p>
-            Ce guide est fourni à titre informatif. Il ne
-            constitue pas un conseil financier ni une promesse
-            de rendement. Les crypto-actifs présentent un risque
+            Ce guide est fourni à titre informatif.
+            Il ne constitue pas un conseil financier
+            ni une promesse de rendement.
+            Les crypto-actifs présentent un risque
             de perte en capital.
+          </p>
+
+          <p>
+            Le pool Raydium est distinct du marché
+            Pump.fun existant. La création du pool
+            ne ferme pas automatiquement
+            la bonding curve Pump.fun.
           </p>
         </footer>
       </main>
@@ -446,37 +580,39 @@ export default function ObtenirPFX() {
         }
 
         .nav {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 8px;
-}
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
 
-.nav a {
-  min-height: 42px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 14px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
-  background: transparent;
-  color: #a9b5af;
-  text-decoration: none;
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: 0.8px;
-}
+        .nav a {
+          min-height: 42px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0 14px;
+          border:
+            1px solid rgba(255, 255, 255, 0.12);
+          border-radius: 10px;
+          background: transparent;
+          color: #a9b5af;
+          text-decoration: none;
+          font-size: 10px;
+          font-weight: 900;
+          letter-spacing: 0.8px;
+        }
 
-.nav a:hover,
-.nav .activeNav {
-  border-color: #21f28b;
-  color: #21f28b;
-}
+        .nav a:hover,
+        .nav .activeNav {
+          border-color: #21f28b;
+          color: #21f28b;
+        }
 
         .hero,
         .quick,
+        .market,
         .guide,
         .finalCta,
         .footer {
@@ -528,6 +664,30 @@ export default function ObtenirPFX() {
           color: #a9b5af;
           font-size: 18px;
           line-height: 1.7;
+        }
+
+        .status {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          margin-top: 26px;
+          padding: 12px 18px;
+          border:
+            1px solid rgba(33, 242, 139, 0.3);
+          border-radius: 999px;
+          background: rgba(33, 242, 139, 0.06);
+          color: #21f28b;
+          font-size: 12px;
+          font-weight: 900;
+          letter-spacing: 0.7px;
+        }
+
+        .statusDot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: #21f28b;
         }
 
         .official {
@@ -600,6 +760,7 @@ export default function ObtenirPFX() {
         }
 
         .quick p,
+        .market p,
         .sectionTitle p,
         .content p,
         .finalCta p,
@@ -614,7 +775,7 @@ export default function ObtenirPFX() {
           align-items: center;
           justify-content: center;
           min-height: 50px;
-          padding: 0 20px;
+          padding: 12px 20px;
           border-radius: 10px;
           text-decoration: none;
           text-align: center;
@@ -644,6 +805,19 @@ export default function ObtenirPFX() {
           border: 1px solid #21f28b;
           background: #07100c;
           color: #21f28b;
+        }
+
+        .market {
+          margin-top: 22px;
+          padding: 30px;
+          border:
+            1px solid rgba(33, 242, 139, 0.18);
+          border-radius: 18px;
+          background: rgba(33, 242, 139, 0.025);
+        }
+
+        .market .secondaryButton {
+          margin-top: 12px;
         }
 
         .guide {
@@ -806,6 +980,10 @@ export default function ObtenirPFX() {
 
           .quick {
             text-align: center;
+          }
+
+          .market {
+            padding: 24px 20px;
           }
 
           .step {

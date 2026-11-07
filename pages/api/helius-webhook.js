@@ -3,10 +3,11 @@ import crypto from "node:crypto";
 
 const TABLE = "pfx_radar_tokens";
 const MAX_EVENTS = 100;
-const MAX_BODY_BYTES = 1024 * 1024;
 
 function secureEqual(a, b) {
-  if (!a || !b) return false;
+  if (typeof a !== "string" || typeof b !== "string") {
+    return false;
+  }
 
   const left = crypto.createHash("sha256").update(a).digest();
   const right = crypto.createHash("sha256").update(b).digest();
@@ -24,80 +25,100 @@ function validAddress(value) {
 }
 
 function cleanText(value, max = 200) {
-  return typeof value === "string"
-    ? value.trim().slice(0, max) || null
-    : null;
+  if (typeof value !== "string") return null;
+  return value.trim().slice(0, max) || null;
 }
 
 function timestampToISO(value) {
   if (!Number.isFinite(value) || value <= 0) return null;
 
   const date = new Date(value * 1000);
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  return Number.isNaN(date.getTime())
+    ? null
+    : date.toISOString();
 }
 
 function extractMint(event) {
   const candidates = [];
 
-  const tokenMint = event.events?.tokenMint;
+  const tokenMint = event?.events?.tokenMint;
+
   if (tokenMint && typeof tokenMint === "object") {
-    candidates.push(tokenMint.mint, tokenMint.tokenMint);
+    candidates.push(tokenMint.mint);
+    candidates.push(tokenMint.tokenMint);
   }
 
-  if (Array.isArray(event.tokenTransfers)) {
-    for (const transfer of event.tokenTransfers) {
-      candidates.push(transfer?.mint);
+  const tokenTransfers = Array.isArray(event?.tokenTransfers)
+    ? event.tokenTransfers
+    : [];
+
+  for (const transfer of tokenTransfers) {
+    if (transfer && typeof transfer === "object") {
+      candidates.push(transfer.mint);
     }
   }
 
-  // On ne déduit jamais un mint depuis une adresse
-  // quelconque présente dans les instructions.
-  const unique = [...new Set(candidates.filter(validAddress))];
+  const unique = [
+    ...new Set(candidates.filter(validAddress))
+  ];
 
-  // Plusieurs mints possibles : ne pas inventer lequel
-  // correspond à la création.
+  // Never guess between multiple token addresses.
   return unique.length === 1 ? unique[0] : null;
 }
 
 function parseEvent(event) {
-  if (!event || typeof event !== "object") return null;
-  if (event.transactionError != null) return null;
+  if (!event || typeof event !== "object") {
+    return null;
+  }
 
-  // TOKEN_MINT ne garantit pas à lui seul qu'un
-  // nouveau token Pump.fun vient d'être créé.
-  if (event.type !== "TOKEN_MINT") return null;
+  if (event.transactionError != null) {
+    return null;
+  }
+
+  const type = cleanText(event.type, 80)?.toUpperCase();
+  const source = cleanText(event.source, 80)?.toUpperCase();
+
+  // Only Pump.fun creation events.
+  if (type !== "CREATE" || source !== "PUMP_FUN") {
+    return null;
+  }
 
   const mint = extractMint(event);
-  if (!mint) return null;
 
-  const source = cleanText(event.source, 80) || "UNKNOWN";
-  const isPump = source.toUpperCase() === "PUMP_FUN";
+  if (!mint) {
+    return null;
+  }
+
+  const now = new Date().toISOString();
 
   return {
     chain_id: "solana",
     mint,
     source: "helius",
-    launch_platform: isPump ? "pump.fun" : null,
+    launch_platform: "pump.fun",
     creator_address: validAddress(event.feePayer)
       ? event.feePayer
       : null,
     creation_signature: cleanText(event.signature, 150),
+    detected_at: now,
     created_onchain_at: timestampToISO(event.timestamp),
-    last_seen_at: new Date().toISOString(),
+    last_seen_at: now,
     analysis_status: "pending",
     metadata: {
-      helius_type: event.type,
+      helius_type: type,
       helius_source: source,
-      slot: Number.isSafeInteger(event.slot) ? event.slot : null,
-      classification: "mint_event_unverified",
-      note: "La création initiale du token reste à confirmer."
+      slot: Number.isSafeInteger(event.slot)
+        ? event.slot
+        : null,
+      classification: "pump_create_candidate",
+      verified_creation: false,
+      note:
+        "Pump.fun CREATE candidate. Initial token creation must be independently verified."
     }
   };
 }
 
 async function saveToken(token, url, key) {
-  // L'unicité (chain_id, mint) empêche les doublons.
-  // Ne pas écraser les analyses existantes.
   const endpoint =
     `${url}/rest/v1/${TABLE}?on_conflict=chain_id,mint`;
 
@@ -114,10 +135,7 @@ async function saveToken(token, url, key) {
   });
 
   if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(
-      `Supabase HTTP ${response.status}: ${detail.slice(0, 300)}`
-    );
+    throw new Error(`Supabase HTTP ${response.status}`);
   }
 }
 
@@ -126,14 +144,17 @@ export default async function handler(req, res) {
   res.setHeader("Allow", "POST");
 
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).json({
+      error: "Method not allowed"
+    });
   }
 
   const expectedSecret = process.env.HELIUS_WEBHOOK_SECRET;
   const supabaseUrl = process.env.SUPABASE_URL;
+
   const supabaseKey =
-    process.env.SUPABASE_SECRET_KEY ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY;
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SECRET_KEY;
 
   if (!expectedSecret || !supabaseUrl || !supabaseKey) {
     return res.status(503).json({
@@ -143,48 +164,58 @@ export default async function handler(req, res) {
 
   const receivedSecret = req.headers.authorization;
 
-  if (
-    typeof receivedSecret !== "string" ||
-    !secureEqual(receivedSecret, expectedSecret)
-  ) {
-    return res.status(401).json({ error: "Unauthorized" });
+  if (!secureEqual(receivedSecret, expectedSecret)) {
+    return res.status(401).json({
+      error: "Unauthorized"
+    });
   }
 
-  const events = req.body;
-
-  if (!Array.isArray(events)) {
+  if (!Array.isArray(req.body)) {
     return res.status(400).json({
       error: "Expected an array of Helius events"
     });
   }
 
-  if (events.length > MAX_EVENTS) {
-    return res.status(413).json({ error: "Too many events" });
+  if (req.body.length > MAX_EVENTS) {
+    return res.status(413).json({
+      error: "Too many events"
+    });
   }
 
   const tokens = new Map();
 
-  for (const event of events) {
+  for (const event of req.body) {
     const token = parseEvent(event);
-    if (token) tokens.set(token.mint, token);
+
+    if (token) {
+      tokens.set(token.mint, token);
+    }
   }
 
-  let saved = 0;
+  let processed = 0;
 
   try {
     for (const token of tokens.values()) {
-      await saveToken(token, supabaseUrl.replace(/\/$/, ""), supabaseKey);
-      saved++;
+      await saveToken(
+        token,
+        supabaseUrl.replace(/\/$/, ""),
+        supabaseKey
+      );
+
+      processed++;
     }
 
     return res.status(200).json({
       ok: true,
-      received: events.length,
+      received: req.body.length,
       accepted: tokens.size,
-      processed: saved
+      processed
     });
   } catch (error) {
-    console.error("Helius webhook processing failed:", error.message);
+    console.error(
+      "PFX Radar webhook database error:",
+      error.message
+    );
 
     return res.status(500).json({
       error: "Database write failed"

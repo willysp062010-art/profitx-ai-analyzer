@@ -1,8 +1,9 @@
 
+import crypto from "node:crypto";
+
 const TABLE = "pfx_radar_tokens";
 const BATCH_SIZE = 15;
-const HELIUS_TIMEOUT_MS = 8000;
-const SUPABASE_TIMEOUT_MS = 8000;
+const TIMEOUT_MS = 8000;
 
 function validAddress(value) {
   return (
@@ -14,8 +15,20 @@ function validAddress(value) {
 }
 
 function cleanText(value, max = 200) {
-  if (typeof value !== "string") return null;
-  return value.trim().slice(0, max) || null;
+  return typeof value === "string"
+    ? value.trim().slice(0, max) || null
+    : null;
+}
+
+function secureEqual(a, b) {
+  if (typeof a !== "string" || typeof b !== "string") {
+    return false;
+  }
+
+  const left = crypto.createHash("sha256").update(a).digest();
+  const right = crypto.createHash("sha256").update(b).digest();
+
+  return crypto.timingSafeEqual(left, right);
 }
 
 async function supabaseRequest(url, key, path, options = {}) {
@@ -27,25 +40,28 @@ async function supabaseRequest(url, key, path, options = {}) {
       "Content-Type": "application/json",
       ...(options.headers || {})
     },
-    signal: AbortSignal.timeout(SUPABASE_TIMEOUT_MS)
+    signal: AbortSignal.timeout(TIMEOUT_MS)
   });
 
   if (!response.ok) {
     const detail = await response.text();
+
     throw new Error(
       `Supabase HTTP ${response.status}: ${detail.slice(0, 200)}`
     );
   }
 
   if (response.status === 204) return null;
-  return response.json();
+
+  const body = await response.text();
+  return body ? JSON.parse(body) : null;
 }
 
 async function getPendingTokens(url, key) {
   return supabaseRequest(
     url,
     key,
-    `${TABLE}?select=id,mint,metadata` +
+    `${TABLE}?select=id,mint,metadata,name,symbol` +
       `&analysis_status=eq.pending` +
       `&order=detected_at.asc` +
       `&limit=${BATCH_SIZE}`
@@ -71,7 +87,7 @@ async function getHeliusAssets(mints, apiKey) {
           }
         }
       }),
-      signal: AbortSignal.timeout(HELIUS_TIMEOUT_MS)
+      signal: AbortSignal.timeout(TIMEOUT_MS)
     }
   );
 
@@ -95,17 +111,16 @@ async function getHeliusAssets(mints, apiKey) {
 }
 
 function extractIdentity(asset) {
-  if (!asset || typeof asset !== "object") return null;
+  if (!asset || typeof asset !== "object") {
+    return null;
+  }
 
   const name = cleanText(asset.content?.metadata?.name);
   const symbol = cleanText(asset.content?.metadata?.symbol, 40);
 
   if (!name && !symbol) return null;
 
-  return {
-    name,
-    symbol
-  };
+  return { name, symbol };
 }
 
 async function updateToken(url, key, id, data) {
@@ -146,7 +161,12 @@ export default async function handler(req, res) {
     });
   }
 
-  if (req.headers.authorization !== `Bearer ${expectedSecret}`) {
+  if (
+    !secureEqual(
+      req.headers.authorization,
+      `Bearer ${expectedSecret}`
+    )
+  ) {
     return res.status(401).json({
       error: "Unauthorized"
     });
@@ -167,6 +187,7 @@ export default async function handler(req, res) {
         ok: true,
         checked: 0,
         enriched: 0,
+        missing: 0,
         message: "No pending tokens"
       });
     }
@@ -189,17 +210,32 @@ export default async function handler(req, res) {
       const asset = byMint.get(token.mint);
       const identity = extractIdentity(asset);
 
+      const metadata = {
+        ...(token.metadata || {}),
+        enrichment_source: "helius_das",
+        enrichment_checked_at: new Date().toISOString()
+      };
+
       if (!identity) {
+        await updateToken(supabaseUrl, supabaseKey, token.id, {
+          analysis_status: "metadata_missing",
+          metadata: {
+            ...metadata,
+            enrichment_result: "metadata_missing"
+          }
+        });
+
         missing++;
         continue;
       }
 
       await updateToken(supabaseUrl, supabaseKey, token.id, {
-        name: identity.name,
-        symbol: identity.symbol,
+        name: identity.name || token.name || null,
+        symbol: identity.symbol || token.symbol || null,
+        analysis_status: "enriched",
         metadata: {
-          ...(token.metadata || {}),
-          enrichment_source: "helius_das",
+          ...metadata,
+          enrichment_result: "success",
           enriched_at: new Date().toISOString()
         }
       });
@@ -214,7 +250,10 @@ export default async function handler(req, res) {
       missing
     });
   } catch (error) {
-    console.error("PFX Radar enrichment failed:", error.message);
+    console.error(
+      "PFX Radar enrichment failed:",
+      error.message
+    );
 
     return res.status(500).json({
       error: "Radar enrichment failed"

@@ -427,7 +427,7 @@ const [tokenSearchError, setTokenSearchError] = useState("");
       throw new Error("Décimales du token indisponibles : cotation suspendue.");
     }
     const clean = String(value).trim().replace(",", ".");
-    if (!/^(?:[0-9]+)(?:\\.[0-9]+)?$/.test(clean)) {
+    if (!/^(?:[0-9]+)(?:\.[0-9]+)?$/.test(clean)) {
       throw new Error("Saisissez une quantité de tokens valide.");
     }
     const [whole, fraction = ""] = clean.split(".");

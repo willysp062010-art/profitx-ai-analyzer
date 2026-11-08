@@ -1494,6 +1494,39 @@ async function searchToken(query) {
 
 
           <div className="panel">
+            <h2>Revente du token — preuves disponibles</h2>
+            <div className="observed">
+              <div>
+                <span>Diagnostic</span>
+                <strong>
+                  {data.sellability?.status === "SELLS_OBSERVED_24H"
+                    ? "Ventes observées sur 24 h"
+                    : data.sellability?.status === "HISTORICAL_SELLS_OBSERVED"
+                      ? "Ventes historiques observées"
+                      : "Revente non vérifiée"}
+                </strong>
+              </div>
+              <div>
+                <span>Ventes sur 24 h</span>
+                <strong>{fmtNumber(data.sellability?.sells24h)}</strong>
+              </div>
+              <div>
+                <span>Ventes historiques détectées</span>
+                <strong>{fmtNumber(data.sellability?.historicalSells)}</strong>
+              </div>
+              <div>
+                <span>Revente exécutable maintenant</span>
+                <strong>Non vérifiée</strong>
+              </div>
+            </div>
+            <p style={{ marginTop: "12px", opacity: 0.85, lineHeight: 1.6 }}>
+              Des ventes passées ne garantissent pas qu'un détenteur puisse
+              revendre aujourd'hui. Une simulation de swap actualisée reste
+              nécessaire pour évaluer l'exécution, les frais et le slippage.
+            </p>
+          </div>
+
+          <div className="panel">
 
             <h2>
               Activité économique

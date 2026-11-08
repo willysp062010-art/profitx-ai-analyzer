@@ -417,6 +417,36 @@ const [tokenSearchError, setTokenSearchError] = useState("");
   const [error, setError] =
     useState("");
 
+  const [sellQuote, setSellQuote] = useState(null);
+  const [sellQuoteLoading, setSellQuoteLoading] = useState(false);
+  const [sellQuoteError, setSellQuoteError] = useState("");
+  const [sellQuoteAmount, setSellQuoteAmount] = useState("1000000");
+
+  async function testSellQuote() {
+    const tokenMint = data?.mint;
+    if (!tokenMint || !/^[1-9][0-9]{0,17}$/.test(sellQuoteAmount)) {
+      setSellQuoteError("Quantité brute invalide ou token non analysé.");
+      return;
+    }
+    setSellQuoteLoading(true);
+    setSellQuote(null);
+    setSellQuoteError("");
+    try {
+      const response = await fetch(
+        `/api/sell-quote?mint=${encodeURIComponent(tokenMint)}&amount=${encodeURIComponent(sellQuoteAmount)}`
+      );
+      const result = await response.json();
+      if (!response.ok || result?.ok !== true) {
+        throw new Error(result?.error || "Cotation indisponible.");
+      }
+      setSellQuote(result);
+    } catch (err) {
+      setSellQuoteError(err?.message || "Service de cotation indisponible.");
+    } finally {
+      setSellQuoteLoading(false);
+    }
+  }
+
   useEffect(() => {
     const params =
       new URLSearchParams(window.location.search);
@@ -476,6 +506,8 @@ async function searchToken(query) {
     setLoading(true);
     setError("");
     setData(null);
+    setSellQuote(null);
+    setSellQuoteError("");
 
     try {
       const response =
@@ -1524,6 +1556,38 @@ async function searchToken(query) {
               revendre aujourd'hui. Une simulation de swap actualisée reste
               nécessaire pour évaluer l'exécution, les frais et le slippage.
             </p>
+            <div style={{ marginTop: "16px", display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
+              <label htmlFor="sell-quote-amount">Quantité brute de tokens</label>
+              <input
+                id="sell-quote-amount"
+                aria-label="Quantité brute de tokens à coter"
+                inputMode="numeric"
+                value={sellQuoteAmount}
+                onChange={(event) => setSellQuoteAmount(event.target.value)}
+                style={{ maxWidth: "180px", padding: "8px", color: "#111" }}
+              />
+              <button type="button" disabled={sellQuoteLoading} onClick={testSellQuote}>
+                {sellQuoteLoading ? "Cotation en cours..." : "Tester une cotation de vente vers SOL"}
+              </button>
+            </div>
+            <p style={{ opacity: 0.8, fontSize: "0.9em" }}>
+              Quantité brute = unités minimales du token (selon ses décimales), pas nombre de tokens affichés.
+              Aucun portefeuille ni aucune transaction ne sont utilisés.
+            </p>
+            {sellQuoteError && <p role="alert">{sellQuoteError}</p>}
+            {sellQuote && (
+              <div className="observed" aria-live="polite">
+                <div><span>Résultat Jupiter</span><strong>{sellQuote.status === "ROUTE_QUOTED" ? "Route cotée (indicative)" : "Cotation indisponible"}</strong></div>
+                {sellQuote.outputAmountRaw != null && (
+                  <div><span>Sortie SOL estimée</span><strong>{Number(sellQuote.outputAmountRaw) / 1e9} SOL</strong></div>
+                )}
+                {sellQuote.priceImpactPct != null && (
+                  <div><span>Impact prix déclaré par Jupiter</span><strong>{sellQuote.priceImpactPct}%</strong></div>
+                )}
+                {sellQuote.reason && <div><span>Motif</span><strong>{sellQuote.reason}</strong></div>}
+                <div><span>Exécution réelle</span><strong>Non garantie / non vérifiée</strong></div>
+              </div>
+            )}
           </div>
 
           <div className="panel">

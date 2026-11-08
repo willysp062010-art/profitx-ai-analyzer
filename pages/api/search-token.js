@@ -343,6 +343,40 @@ export default async function handler(req, res) {
     }
   }
 
+  // Enrichissement des images manquantes depuis le registre Jupiter.
+  // La correspondance se fait uniquement sur l'adresse mint, jamais sur le symbole.
+  const missingImages = [...tokens.values()]
+    .filter((token) => !token.imageUri)
+    .sort((a, b) => (b.liquidityUsd ?? -1) - (a.liquidityUsd ?? -1))
+    .slice(0, mintQuery ? 1 : 12);
+
+  if (missingImages.length) {
+    try {
+      const lookup = mintQuery
+        ? query
+        : missingImages.map((token) => token.mint).join(",");
+      const jupiterResponse = await fetchJSON(
+        "https://lite-api.jup.ag/tokens/v2/search?query=" + encodeURIComponent(lookup)
+      );
+      if (Array.isArray(jupiterResponse)) {
+        const byMint = new Map(
+          jupiterResponse
+            .filter((token) => typeof token?.id === "string")
+            .map((token) => [token.id, token])
+        );
+        for (const candidate of missingImages) {
+          const metadata = byMint.get(candidate.mint);
+          const icon = metadata?.icon || metadata?.logoURI;
+          if (typeof icon === "string" && /^https:\/\//i.test(icon)) {
+            tokens.set(candidate.mint, { ...tokens.get(candidate.mint), imageUri: icon });
+          }
+        }
+      }
+    } catch (error) {
+      console.warn("[PROFITX] Jupiter logos indisponibles :", error?.message);
+    }
+  }
+
   // 4. Priorité au mint officiel puis à la liquidité
   const results = [...tokens.values()]
     .sort((a, b) => {

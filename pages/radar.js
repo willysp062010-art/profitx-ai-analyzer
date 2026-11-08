@@ -519,6 +519,7 @@ export default function Radar() {
               {[
                 ["/", "ANALYZER"],
                 ["/radar", "RADAR"],
+                ["/repertoire-solana", "RÉPERTOIRE SOLANA"],
                 ["/compare", "COMPARE"],
                 ["/intelligence", "INTELLIGENCE"],
                 ["/watchlist", "WATCHLIST"],

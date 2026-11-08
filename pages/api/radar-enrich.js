@@ -2,7 +2,7 @@
 import crypto from "node:crypto";
 
 const TABLE = "pfx_radar_tokens";
-const BATCH_SIZE = 30;
+const BATCH_SIZE = 15;
 const CANDIDATE_LIMIT = 200;
 const RETRY_DELAY_MS = 10 * 60 * 1000;
 const MAX_ATTEMPTS = 8;
@@ -245,31 +245,25 @@ export default async function handler(req, res) {
         enrichment_attempts: (Number(existingMetadata.enrichment_attempts) || 0) + 1
       };
 
-      if (!identity) {
-        await updateToken(supabaseUrl, supabaseKey, token.id, {
-          analysis_status: "metadata_missing",
-          metadata: {
-            ...metadata,
-            enrichment_result: "metadata_missing"
-          }
-        });
-
-        missing++;
-        continue;
-      }
-
-      await updateToken(supabaseUrl, supabaseKey, token.id, {
-        name: identity.name || token.name || null,
-        symbol: identity.symbol || token.symbol || null,
-        analysis_status: "enriched",
+      const name = identity?.name ||
+        (token.name !== "Token inconnu" ? token.name : null) || null;
+      const symbol = identity?.symbol ||
+        (token.symbol !== "N/D" ? token.symbol : null) || null;
+      const complete = Boolean(name && symbol);
+      const patch = {
+        analysis_status: complete ? "enriched" : "metadata_missing",
         metadata: {
           ...metadata,
-          enrichment_result: "success",
-          enriched_at: new Date().toISOString()
+          enrichment_result: complete ? "success" : "metadata_missing",
+          ...(complete ? { enriched_at: new Date().toISOString() } : {})
         }
-      });
+      };
+      if (name) patch.name = name;
+      if (symbol) patch.symbol = symbol;
+      await updateToken(supabaseUrl, supabaseKey, token.id, patch);
 
-      enriched++;
+      if (complete) enriched++;
+      else missing++;
     }
 
     return res.status(200).json({

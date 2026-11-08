@@ -420,12 +420,35 @@ const [tokenSearchError, setTokenSearchError] = useState("");
   const [sellQuote, setSellQuote] = useState(null);
   const [sellQuoteLoading, setSellQuoteLoading] = useState(false);
   const [sellQuoteError, setSellQuoteError] = useState("");
-  const [sellQuoteAmount, setSellQuoteAmount] = useState("1000000");
+  const [sellQuoteAmount, setSellQuoteAmount] = useState("1");
+
+  function tokenAmountToRaw(value, decimals) {
+    if (!Number.isInteger(decimals) || decimals < 0 || decimals > 18) {
+      throw new Error("Décimales du token indisponibles : cotation suspendue.");
+    }
+    const clean = String(value).trim().replace(",", ".");
+    if (!/^(?:[0-9]+)(?:\\.[0-9]+)?$/.test(clean)) {
+      throw new Error("Saisissez une quantité de tokens valide.");
+    }
+    const [whole, fraction = ""] = clean.split(".");
+    if (fraction.length > decimals) {
+      throw new Error(`Ce token accepte au maximum ${decimals} décimales.`);
+    }
+    const raw = BigInt(whole) * (10n ** BigInt(decimals)) + BigInt((fraction.padEnd(decimals, "0")) || "0");
+    if (raw <= 0n || raw.toString().length > 18) {
+      throw new Error("Quantité trop faible ou trop élevée pour cette cotation.");
+    }
+    return raw.toString();
+  }
 
   async function testSellQuote() {
     const tokenMint = data?.mint;
-    if (!tokenMint || !/^[1-9][0-9]{0,17}$/.test(sellQuoteAmount)) {
-      setSellQuoteError("Quantité brute invalide ou token non analysé.");
+    let rawAmount;
+    try {
+      if (!tokenMint) throw new Error("Token non analysé.");
+      rawAmount = tokenAmountToRaw(sellQuoteAmount, data?.data?.decimals);
+    } catch (err) {
+      setSellQuoteError(err?.message || "Quantité invalide.");
       return;
     }
     setSellQuoteLoading(true);
@@ -433,7 +456,7 @@ const [tokenSearchError, setTokenSearchError] = useState("");
     setSellQuoteError("");
     try {
       const response = await fetch(
-        `/api/sell-quote?mint=${encodeURIComponent(tokenMint)}&amount=${encodeURIComponent(sellQuoteAmount)}`
+        `/api/sell-quote?mint=${encodeURIComponent(tokenMint)}&amount=${encodeURIComponent(rawAmount)}`
       );
       const result = await response.json();
       if (!response.ok || result?.ok !== true) {
@@ -1557,7 +1580,7 @@ async function searchToken(query) {
               nécessaire pour évaluer l'exécution, les frais et le slippage.
             </p>
             <div style={{ marginTop: "16px", display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
-              <label htmlFor="sell-quote-amount">Quantité brute de tokens</label>
+              <label htmlFor="sell-quote-amount">Quantité de tokens à vendre (simulation)</label>
               <input
                 id="sell-quote-amount"
                 aria-label="Quantité brute de tokens à coter"
@@ -1571,18 +1594,18 @@ async function searchToken(query) {
               </button>
             </div>
             <p style={{ opacity: 0.8, fontSize: "0.9em" }}>
-              Quantité brute = unités minimales du token (selon ses décimales), pas nombre de tokens affichés.
-              Aucun portefeuille ni aucune transaction ne sont utilisés.
+              Quantité en tokens entiers ou décimaux (ex. 1 ou 0,5). Décimales détectées : {data?.data?.decimals ?? "N/D"}.
+              Conversion automatique en unités minimales. Aucun portefeuille ni aucune transaction ne sont utilisés.
             </p>
             {sellQuoteError && <p role="alert">{sellQuoteError}</p>}
             {sellQuote && (
               <div className="observed" aria-live="polite">
                 <div><span>Résultat Jupiter</span><strong>{sellQuote.status === "ROUTE_QUOTED" ? "Route cotée (indicative)" : "Cotation indisponible"}</strong></div>
                 {sellQuote.outputAmountRaw != null && (
-                  <div><span>Sortie SOL estimée</span><strong>{Number(sellQuote.outputAmountRaw) / 1e9} SOL</strong></div>
+                  <div><span>Sortie SOL estimée</span><strong>{new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 9 }).format(Number(sellQuote.outputAmountRaw) / 1e9)} SOL</strong></div>
                 )}
                 {sellQuote.priceImpactPct != null && (
-                  <div><span>Impact prix déclaré par Jupiter</span><strong>{sellQuote.priceImpactPct}%</strong></div>
+                  <div><span>Impact prix déclaré par Jupiter</span><strong>{new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 4 }).format(Number(sellQuote.priceImpactPct))}%</strong></div>
                 )}
                 {sellQuote.reason && <div><span>Motif</span><strong>{sellQuote.reason}</strong></div>}
                 <div><span>Exécution réelle</span><strong>Non garantie / non vérifiée</strong></div>

@@ -13,6 +13,7 @@ export default function RepertoireSolana(){
   const [q,setQ]=useState("");
   const [term,setTerm]=useState("");
   const [page,setPage]=useState(1);
+  const [identifiedOnly,setIdentifiedOnly]=useState(false);
   const [external,setExternal]=useState({loading:false,results:[],error:""});
   const [state,setState]=useState({loading:true,tokens:[],count:null,hasMore:false,error:""});
   useEffect(()=>{
@@ -21,7 +22,7 @@ export default function RepertoireSolana(){
   },[q]);
   useEffect(()=>{
     const ctl=new AbortController();
-    const params=new URLSearchParams({q:term,page:String(page)});
+    const params=new URLSearchParams({q:term,page:String(page),identified:String(identifiedOnly)});
     setState(old=>({...old,loading:true,error:""}));
     fetch("/api/token-directory?"+params.toString(),{signal:ctl.signal})
       .then(async response=>{
@@ -32,7 +33,7 @@ export default function RepertoireSolana(){
       .then(data=>setState({loading:false,tokens:data.tokens,count:data.count,hasMore:data.hasMore,error:""}))
       .catch(err=>{if(err.name!=="AbortError")setState(old=>({...old,loading:false,error:err.message}));});
     return ()=>ctl.abort();
-  },[term,page]);
+  },[term,page,identifiedOnly]);
   useEffect(()=>{
     if(term.length<2){setExternal({loading:false,results:[],error:""});return;}
     const ctrl=new AbortController();
@@ -76,6 +77,11 @@ export default function RepertoireSolana(){
       </div>
       <div style={{marginTop:24}}>
         <input aria-label="Rechercher un token" style={styles.input} value={q} onChange={e=>setQ(e.target.value)} placeholder="Nom, symbole ou adresse mint Solana..." maxLength={64}/>
+      </div>
+      <div style={{marginTop:16}}>
+        <button type="button" style={styles.btn} onClick={()=>{setIdentifiedOnly(!identifiedOnly);setPage(1);}}>
+          {identifiedOnly?"Afficher tous les tokens":"Afficher seulement les tokens identifiés"}
+        </button>
       </div>
       <p style={styles.muted}>{state.loading?"Recherche en cours...":state.error?"Erreur : "+state.error:state.count===null?"Résultats disponibles":state.count.toLocaleString("fr-FR")+" tokens trouvés"} · Page {page}</p>
       {!state.loading&&!state.error&&state.tokens.length===0&&<div style={styles.card}>Aucun token trouvé dans notre base actuelle. Cela ne prouve pas son inexistence sur Solana.</div>}

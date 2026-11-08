@@ -2,7 +2,10 @@
 import crypto from "node:crypto";
 
 const TABLE = "pfx_radar_tokens";
-const BATCH_SIZE = 15;
+const BATCH_SIZE = 30;
+const CANDIDATE_LIMIT = 200;
+const RETRY_DELAY_MS = 10 * 60 * 1000;
+const MAX_ATTEMPTS = 8;
 const TIMEOUT_MS = 8000;
 
 function validAddress(value) {
@@ -57,14 +60,30 @@ async function supabaseRequest(url, key, path, options = {}) {
 }
 
 async function getPendingTokens(url, key) {
-  return supabaseRequest(
-    url,
-    key,
-    `${TABLE}?select=id,mint,metadata,name,symbol` +
-      `&analysis_status=eq.pending` +
-      `&order=detected_at.asc` +
-      `&limit=${BATCH_SIZE}`
-  );
+  const params = new URLSearchParams({
+    select: "id,mint,metadata,name,symbol,analysis_status,detected_at",
+    chain_id: "eq.solana",
+    analysis_status: "in.(pending,metadata_missing)",
+    order: "detected_at.desc",
+    limit: String(CANDIDATE_LIMIT)
+  });
+  return supabaseRequest(url, key, `${TABLE}?${params}`);
+}
+
+function eligibleForEnrichment(token, now) {
+  if (!validAddress(token.mint)) return false;
+
+  const metadata = token.metadata &&
+    typeof token.metadata === "object" && !Array.isArray(token.metadata)
+      ? token.metadata : {};
+  const attempts = Number(metadata.enrichment_attempts) || 0;
+  if (attempts >= MAX_ATTEMPTS) return false;
+
+  const lastCheckedAt = Date.parse(metadata.enrichment_checked_at);
+  if (Number.isFinite(lastCheckedAt) && now - lastCheckedAt < RETRY_DELAY_MS) {
+    return false;
+  }
+  return true;
 }
 
 async function getHeliusAssets(mints, apiKey) {
@@ -183,9 +202,10 @@ export default async function handler(req, res) {
       supabaseKey
     );
 
-    const tokens = (pending || []).filter(
-      (token) => validAddress(token.mint)
-    );
+    const now = Date.now();
+    const tokens = (pending || [])
+      .filter((token) => eligibleForEnrichment(token, now))
+      .slice(0, BATCH_SIZE);
 
     if (!tokens.length) {
       return res.status(200).json({
@@ -215,10 +235,14 @@ export default async function handler(req, res) {
       const asset = byMint.get(token.mint);
       const identity = extractIdentity(asset);
 
+      const existingMetadata = token.metadata &&
+        typeof token.metadata === "object" && !Array.isArray(token.metadata)
+          ? token.metadata : {};
       const metadata = {
-        ...(token.metadata || {}),
+        ...existingMetadata,
         enrichment_source: "helius_das",
-        enrichment_checked_at: new Date().toISOString()
+        enrichment_checked_at: new Date().toISOString(),
+        enrichment_attempts: (Number(existingMetadata.enrichment_attempts) || 0) + 1
       };
 
       if (!identity) {

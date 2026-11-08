@@ -52,6 +52,7 @@ export default async function handler(req, res) {
     }
 
     const rows = await response.json();
+    if (!Array.isArray(rows)) throw new Error("Invalid Supabase response");
 
     const tokens = rows.map((row) => ({
       mint: row.mint,
@@ -67,7 +68,7 @@ export default async function handler(req, res) {
       utilityScore: row.utility_score,
       speculationRiskScore: row.speculation_risk_score,
       status: row.analysis_status,
-      score: row.security_score
+      score: null // Aucun score PFX global n'est calculé ici.
     }));
 
     return res.status(200).json({

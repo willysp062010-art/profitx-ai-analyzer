@@ -13,6 +13,7 @@ export default function RepertoireSolana(){
   const [q,setQ]=useState("");
   const [term,setTerm]=useState("");
   const [page,setPage]=useState(1);
+  const [identifiedOnly,setIdentifiedOnly]=useState(false);
   const [external,setExternal]=useState({loading:false,results:[],error:""});
   const [state,setState]=useState({loading:true,tokens:[],count:null,hasMore:false,error:""});
   useEffect(()=>{
@@ -21,7 +22,7 @@ export default function RepertoireSolana(){
   },[q]);
   useEffect(()=>{
     const ctl=new AbortController();
-    const params=new URLSearchParams({q:term,page:String(page)});
+    const params=new URLSearchParams({q:term,page:String(page),identified:String(identifiedOnly)});
     setState(old=>({...old,loading:true,error:""}));
     fetch("/api/token-directory?"+params.toString(),{signal:ctl.signal})
       .then(async response=>{
@@ -32,7 +33,7 @@ export default function RepertoireSolana(){
       .then(data=>setState({loading:false,tokens:data.tokens,count:data.count,hasMore:data.hasMore,error:""}))
       .catch(err=>{if(err.name!=="AbortError")setState(old=>({...old,loading:false,error:err.message}));});
     return ()=>ctl.abort();
-  },[term,page]);
+  },[term,page,identifiedOnly]);
   useEffect(()=>{
     if(term.length<2){setExternal({loading:false,results:[],error:""});return;}
     const ctrl=new AbortController();
@@ -77,9 +78,16 @@ export default function RepertoireSolana(){
       <div style={{marginTop:24}}>
         <input aria-label="Rechercher un token" style={styles.input} value={q} onChange={e=>setQ(e.target.value)} placeholder="Nom, symbole ou adresse mint Solana..." maxLength={64}/>
       </div>
+      <label style={{display:"flex",alignItems:"center",gap:10,marginTop:16,cursor:"pointer"}}>
+        <input type="checkbox" checked={identifiedOnly} onChange={e=>{setIdentifiedOnly(e.target.checked);setPage(1);}} />
+        Afficher uniquement les tokens avec nom et symbole renseignés
+      </label>
       <p style={styles.muted}>{state.loading?"Recherche en cours...":state.error?"Erreur : "+state.error:state.count===null?"Résultats disponibles":state.count.toLocaleString("fr-FR")+" tokens trouvés"} · Page {page}</p>
-      {!state.loading&&!state.error&&state.tokens.length===0&&<div style={styles.card}>Aucun token trouvé dans notre base actuelle. Cela ne prouve pas son inexistence sur Solana.</div>}
+      {!state.loading&&!state.error&&state.tokens.length===0&&<div style={styles.card}>{identifiedOnly?"Aucun token identifié ne correspond à cette recherche dans notre base.":"Aucun token trouvé dans notre base actuelle."} Cela ne prouve pas son inexistence sur Solana.</div>
       {state.tokens.map(t=><article key={t.mint} style={styles.card}>
+        <div style={{fontSize:12,marginBottom:12,fontWeight:700,color:t.identityStatus==="metadata_present"?"#42f9a1":"#eac17b"}}>
+          {t.identityStatus==="metadata_present"?"IDENTITÉ RENSEIGNÉE · NON AUDITÉ":"IDENTITÉ NON CONFIRMÉE"}
+        </div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12}}>
           <div><strong style={{fontSize:20}}>{t.name}</strong> <span style={{color:"#42f9a1"}}>{t.symbol!=="N/D"?"$"+t.symbol:""}</span>
             <div style={{...styles.muted,fontSize:12,marginTop:5,overflowWrap:"anywhere"}}>{t.mint}</div></div>
@@ -90,7 +98,7 @@ export default function RepertoireSolana(){
           <div><span style={styles.muted}>Détecté le</span><div>{date(t.detectedAt)}</div></div>
           <div><span style={styles.muted}>Liquidité observée</span><div>{money(t.liquidityUsd)}</div></div>
           <div><span style={styles.muted}>Volume 24 h</span><div>{money(t.volume24hUsd)}</div></div>
-          <div><span style={styles.muted}>Analyse</span><div>{t.status||"N/D"}</div></div>
+          <div><span style={styles.muted}>Données de marché</span><div>{t.marketDataStatus==="not_available"?"Non disponibles":"Partielles · non garanties"}</div></div>
         </div>
       </article>)}
       {showOfficial&&<section style={{...styles.card,borderColor:"#42f9a1"}}>

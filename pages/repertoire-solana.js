@@ -13,6 +13,7 @@ export default function RepertoireSolana(){
   const [q,setQ]=useState("");
   const [term,setTerm]=useState("");
   const [page,setPage]=useState(1);
+  const [external,setExternal]=useState({loading:false,results:[],error:""});
   const [state,setState]=useState({loading:true,tokens:[],count:null,hasMore:false,error:""});
   useEffect(()=>{
     const timer=setTimeout(()=>{setTerm(q.trim());setPage(1);},350);
@@ -32,6 +33,24 @@ export default function RepertoireSolana(){
       .catch(err=>{if(err.name!=="AbortError")setState(old=>({...old,loading:false,error:err.message}));});
     return ()=>ctl.abort();
   },[term,page]);
+  useEffect(()=>{
+    if(term.length<2){setExternal({loading:false,results:[],error:""});return;}
+    const ctrl=new AbortController();
+    setExternal({loading:true,results:[],error:""});
+    fetch("/api/search-token?q="+encodeURIComponent(term),{signal:ctrl.signal})
+      .then(async response=>{
+        const data=await response.json();
+        if(!response.ok||!data.ok)throw new Error(data.error||"Recherche de marché indisponible");
+        return data;
+      })
+      .then(data=>setExternal({loading:false,results:Array.isArray(data.results)?data.results:[],error:""}))
+      .catch(error=>{
+        if(error.name!=="AbortError")setExternal({loading:false,results:[],error:error.message});
+      });
+    return ()=>ctrl.abort();
+  },[term]);
+  const officialMint="6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump";
+  const showOfficial=term.length>=2&&("profitx".includes(term.toLowerCase())||"pfx".includes(term.toLowerCase())||officialMint===term);
   const styles={
     page:{minHeight:"100vh",background:"#070b0a",color:"#e7f5ed",fontFamily:"Arial, sans-serif",padding:"24px"},
     shell:{maxWidth:1180,margin:"0 auto"},
@@ -74,6 +93,26 @@ export default function RepertoireSolana(){
           <div><span style={styles.muted}>Analyse</span><div>{t.status||"N/D"}</div></div>
         </div>
       </article>)}
+      {showOfficial&&<section style={{...styles.card,borderColor:"#42f9a1"}}>
+        <div style={{color:"#42f9a1",fontWeight:800}}>MINT DÉCLARÉ PAR PROFITX AI — NON AUDITÉ</div>
+        <h2>PROFITX — PFX</h2>
+        <p style={{...styles.muted,overflowWrap:"anywhere"}}>{officialMint}</p>
+        <p style={styles.muted}>Cette adresse est déclarée officiellement par le projet. Elle ne garantit ni la sécurité ni la rentabilité du token. Attention aux homonymes.</p>
+        <Link href={"/?mint="+officialMint} style={styles.link}>Analyser le mint PFX →</Link>
+      </section>}
+      {term.length>=2&&<section style={{marginTop:35}}>
+        <h2 style={{color:"#42f9a1"}}>Résultats des marchés Solana</h2>
+        <p style={styles.muted}>Recherche complémentaire DexScreener / Pump.fun. Résultats distincts de notre base : aucun token tiers n'est audité ou vérifié par PROFITX AI.</p>
+        {external.loading&&<p>Recherche des marchés...</p>}
+        {external.error&&<p style={{color:"#f7d894"}}>Recherche complémentaire indisponible : {external.error}</p>}
+        {!external.loading&&!external.error&&external.results.filter(t=>t.mint!==officialMint&&!state.tokens.some(row=>row.mint===t.mint)).slice(0,15).map(t=><article key={t.mint} style={{...styles.card,borderColor:"#736039"}}>
+          <strong>{t.name||"Token inconnu"}</strong> <span style={styles.link}>{t.symbol?"$"+t.symbol:""}</span>
+          <p style={{...styles.muted,fontSize:12,overflowWrap:"anywhere"}}>{t.mint}</p>
+          <p style={styles.muted}>Source : {t.source||"N/D"} · Liquidité observée : {money(t.liquidityUsd)} · Non vérifié</p>
+          <Link href={"/?mint="+encodeURIComponent(t.mint)} style={styles.link}>Analyser ce mint →</Link>
+        </article>)}
+        {!external.loading&&!external.error&&external.results.length===0&&<p style={styles.muted}>Aucun marché correspondant trouvé dans les sources externes disponibles.</p>}
+      </section>}
       <div style={{display:"flex",gap:12,marginTop:24,alignItems:"center"}}>
         <button style={styles.btn} disabled={page===1||state.loading} onClick={()=>setPage(n=>Math.max(1,n-1))}>← Précédent</button>
         <span>Page {page}</span>

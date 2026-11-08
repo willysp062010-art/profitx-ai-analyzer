@@ -141,6 +141,7 @@ function normalizeToken(token, index) {
     concentrationChecked: token?.concentrationChecked === true,
     top1AccountPercent: num(token?.top1AccountPercent),
     top10AccountsPercent: num(token?.top10AccountsPercent),
+    sellabilityEvidence: token?.sellabilityEvidence || "not_verified",
     creatorAddress: token?.creatorAddress || null,
     creatorSeenTokenCount: num(token?.creatorSeenTokenCount),
     largestTokenAccountAddress: token?.largestTokenAccountAddress || null,
@@ -861,14 +862,13 @@ export default function Radar() {
                         </span>
                       )}
                       <span>
-                        Revente : {token.tokenExtensions?.some((item) =>
-                          ["nontransferable","transferhook","pausable"].includes(
-                            item.replace(/[^a-z]/gi,"").toLowerCase()
-                          )
-                        ) ? "RESTRICTIONS POSSIBLES ⚠" :
-                          token.liquidity !== null && token.liquidity > 0
-                            ? "Marché observé, vente NON TESTÉE"
-                            : "NON VÉRIFIÉE"}
+                        Revente : {token.sellabilityEvidence === "transfer_restriction_observed"
+                          ? "RESTRICTIONS DE TRANSFERT ⚠ — VENTE NON TESTÉE"
+                          : token.sellabilityEvidence === "historical_sales_observed"
+                            ? "VENTES OBSERVÉES SUR UNE PAIRE (24 H) — VOTRE REVENTE NON GARANTIE"
+                            : token.liquidity !== null && token.liquidity > 0
+                              ? "MARCHÉ OBSERVÉ — VENTE NON TESTÉE"
+                              : "NON VÉRIFIÉE"}
                       </span>
                       {token.tokenProgram === "token-2022" && (
                         <span>Token-2022 : {token.tokenExtensions?.length ? `extensions déclarées : ${token.tokenExtensions.join(", ")}. ` : ""}Extensions et restrictions supplémentaires non auditées.</span>

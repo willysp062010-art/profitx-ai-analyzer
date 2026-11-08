@@ -191,8 +191,10 @@ async function enrichMarketRows(rows, supabaseUrl, supabaseKey) {
     // Do not present fully diluted valuation as actual market capitalization.
     const marketCap = finiteNonNegative(pair?.marketCap);
     const priceUsd = finiteNonNegative(pair?.priceUsd);
+    const buys24h = finiteNonNegative(pair?.txns?.h24?.buys);
+    const sells24h = finiteNonNegative(pair?.txns?.h24?.sells);
     const values = {
-      liquidityUsd, volume24h, marketCap, priceUsd,
+      liquidityUsd, volume24h, marketCap, priceUsd, buys24h, sells24h,
       dexId: typeof pair.dexId === "string" ? pair.dexId : null,
       pairAddress: typeof pair.pairAddress === "string" ? pair.pairAddress : null,
       pairUrl: typeof pair.url === "string" ? pair.url : null,
@@ -484,6 +486,17 @@ export default async function handler(req, res) {
       liquidityUsd: liveMarkets.get(row.mint)?.liquidityUsd ?? row.liquidity_usd,
       volume24h: liveMarkets.get(row.mint)?.volume24h ?? row.volume_24h_usd,
       marketCap: liveMarkets.get(row.mint)?.marketCap ?? row.market_cap_usd,
+      buys24h: liveMarkets.get(row.mint)?.buys24h ?? null,
+      sells24h: liveMarkets.get(row.mint)?.sells24h ?? null,
+      // Observed sales are historical market activity, NOT a personal sellability test.
+      sellabilityEvidence:
+        (onchainChecks.get(row.mint)?.tokenExtensions || [])
+          .some((name) => ["nontransferable", "transferhook", "pausable"]
+            .includes(String(name).replace(/[^a-z]/gi, "").toLowerCase()))
+          ? "transfer_restriction_observed"
+          : (liveMarkets.get(row.mint)?.sells24h > 0
+            ? "historical_sales_observed"
+            : "not_verified"),
       securityScore: row.security_score,
       utilityScore: row.utility_score,
       speculationRiskScore: row.speculation_risk_score,

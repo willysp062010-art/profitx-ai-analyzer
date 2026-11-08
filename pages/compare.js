@@ -411,6 +411,7 @@ function buildInsights(a, b) {
 function TokenLogo({ mint, token, selected }) {
   const [fallback, setFallback] = useState(false);
   const [remoteLogo, setRemoteLogo] = useState("");
+  const officialPfx = mint === "6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump";
   const image = token?.imageUri || selected?.imageUri || remoteLogo;
   useEffect(() => {
     setFallback(false);
@@ -432,6 +433,8 @@ function TokenLogo({ mint, token, selected }) {
   return image && !fallback ? (
     <img className="tokenImage" src={image} alt={"Logo " + (token?.symbol || selected?.symbol || "token")}
       onError={() => setFallback(true)} style={{ objectFit: "contain" }} />
+  ) : officialPfx ? (
+    <div className="tokenFallback" title="PROFITX PFX — emblème de secours, logo officiel non disponible" style={{ background: "radial-gradient(circle at 30% 25%, #174a33, #040b09 70%)", color: "#37ff8d", border: "2px solid #27ed7d", fontWeight: 900, letterSpacing: "-1px", fontSize: 19 }}>PFX</div>
   ) : (
     <div className="tokenFallback">{(token?.symbol || selected?.symbol || "?").slice(0, 2).toUpperCase()}</div>
   );
@@ -625,8 +628,10 @@ export default function ComparePage() {
     ? buildInsights(resultA, resultB)
     : [];
 
-  const tokenA = resultA?.token || {};
-  const tokenB = resultB?.token || {};
+  const tokenA = resultA?.mint === "6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump" ? { name: "PROFITX", symbol: "PFX", ...(resultA?.token || {}) } : resultA?.token || {};
+  const tokenB = resultB?.mint === "6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump" ? { name: "PROFITX", symbol: "PFX", ...(resultB?.token || {}) } : resultB?.token || {};
+  if (resultA?.mint === "6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump") { tokenA.name = tokenA.name || "PROFITX"; tokenA.symbol = tokenA.symbol || "PFX"; }
+  if (resultB?.mint === "6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump") { tokenB.name = tokenB.name || "PROFITX"; tokenB.symbol = tokenB.symbol || "PFX"; }
 
   return (
     <>

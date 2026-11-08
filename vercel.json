@@ -1,8 +1,7 @@
-
 {
   "crons": [
     {
-      "path": "/api/radar-enrich",
+      "path": "/api/radar-enrichissement",
       "schedule": "0 3 * * *"
     }
   ]

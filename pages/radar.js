@@ -138,6 +138,7 @@ function normalizeToken(token, index) {
       token?.mintAuthorityEnabled === false ? false : null,
     freezeAuthorityEnabled: token?.freezeAuthorityEnabled === true ? true :
       token?.freezeAuthorityEnabled === false ? false : null,
+    tokenProgram: token?.tokenProgram || null,
     utilityScore:
       num(token?.utilityScore) ??
       num(token?.utility_score),
@@ -779,10 +780,13 @@ export default function Radar() {
                         <span>
                           Émission : {token.mintAuthorityEnabled ? "AUTORISÉE ⚠" : "DÉSACTIVÉE"}
                           {" • "}
-                          Gel : {token.freezeAuthorityEnabled ? "POSSIBLE ⚠" : "NON AUTORISÉ"}
+                          Gel : {token.freezeAuthorityEnabled ? "AUTORITÉ ACTIVE ⚠" : "AUTORITÉ ABSENTE"}
                         </span>
                       ) : (
                         <span>Non vérifiées — vérification Solana RPC indisponible</span>
+                      )}
+                      {token.tokenProgram === "token-2022" && (
+                        <span>Token-2022 : extensions et restrictions de transfert supplémentaires non auditées.</span>
                       )}
                     </div>
                   )}

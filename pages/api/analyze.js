@@ -2268,6 +2268,20 @@ export default async function handler(
 
       observed,
 
+      sellability: {
+        status:
+          num(metrics.sells24h) > 0
+            ? "SELLS_OBSERVED_24H"
+            : num(activity.historicalSells) > 0
+              ? "HISTORICAL_SELLS_OBSERVED"
+              : "NOT_VERIFIED",
+        sells24h: num(metrics.sells24h),
+        historicalSells: num(activity.historicalSells),
+        executableNow: null,
+        note:
+          "Des ventes observées ne prouvent pas qu'un détenteur donné peut revendre maintenant. Une simulation de swap actualisée serait nécessaire pour évaluer l'exécution, les frais et le slippage."
+      },
+
       data,
 
       market: {

@@ -331,12 +331,38 @@ async function fetchConcentration(rows, checks) {
     const amounts = amountTexts.map((value) => BigInt(value));
     const supply = BigInt(checks.get(row.mint).mintSupplyRaw);
     const percentage = (amount) => Math.min(100, Number(amount * 10000n / supply) / 100);
+    let largestOwner = null;
+    let largestFrozen = null;
+    const largestAddress = payload.result.value[0]?.address;
+    if (validMint(largestAddress)) {
+      try {
+        const ownerResponse = await fetch("https://mainnet.helius-rpc.com/?api-key=" + encodeURIComponent(key), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({jsonrpc:"2.0",id:"pfx-owner",method:"getAccountInfo",
+            params:[largestAddress,{encoding:"jsonParsed",commitment:"confirmed"}]}),
+          signal: AbortSignal.timeout(4500)
+        });
+        if (!ownerResponse.ok) throw Error("RPC HTTP " + ownerResponse.status);
+        const ownerBody = await ownerResponse.json();
+        const account = ownerBody.result?.value;
+        const info = account?.data?.parsed?.info;
+        if (info?.mint === row.mint && validMint(info.owner) &&
+            [TOKEN_PROGRAM_ID,TOKEN_2022_PROGRAM_ID].includes(account.owner)) {
+          largestOwner = info.owner;
+          largestFrozen = info.state === "frozen";
+        }
+      } catch (error) { console.warn("PFX largest owner:",error.message); }
+    }
     return {
       mint: row.mint,
       concentrationChecked: true,
       top1AccountPercent: percentage(amounts[0]),
       top10AccountsPercent: percentage(amounts.reduce((sum, value) => sum + value, 0n)),
       largestAccountsObserved: amounts.length,
+      largestTokenAccountAddress: validMint(largestAddress) ? largestAddress : null,
+      largestTokenAccountOwner: largestOwner,
+      largestTokenAccountFrozen: largestFrozen,
       concentrationSource: "Solana getTokenLargestAccounts"
     };
   }));

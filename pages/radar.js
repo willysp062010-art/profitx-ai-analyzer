@@ -4,6 +4,15 @@ import { useRouter } from "next/router";
 
 const REFRESH_INTERVAL = 60000;
 const WATCHLIST_KEY = "profitx-watchlist-v1";
+const OFFICIAL_PFX_MINT = "6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump";
+const OFFICIAL_PFX_TOKEN = {
+  mint: OFFICIAL_PFX_MINT,
+  name: "PROFITX",
+  symbol: "PFX",
+  source: "Mint déclaré par PROFITX AI",
+  status: "Identité déclarée, pas un audit",
+  officialPfx: true,
+};
 
 function num(value) {
   if (value === null || value === undefined || value === "") return null;
@@ -171,6 +180,7 @@ function normalizeToken(token, index) {
       token?.marketState ||
       "OBSERVÉ",
     source: token?.source || "Solana",
+    officialPfx: mint === OFFICIAL_PFX_MINT,
   };
 }
 
@@ -284,6 +294,9 @@ export default function Radar() {
   const [autoRefresh, setAutoRefresh] = useState(false);
 
   const [search, setSearch] = useState("");
+  const [searchCandidates, setSearchCandidates] = useState([]);
+  const [searchPending, setSearchPending] = useState(false);
+  const [searchError, setSearchError] = useState("");
   const [sortBy, setSortBy] = useState("recent");
   const [minimumLiquidity, setMinimumLiquidity] = useState(0);
 
@@ -424,10 +437,64 @@ export default function Radar() {
     return () => clearInterval(interval);
   }, [autoRefresh, loadRadar]);
 
+  // Search beyond the 100 latest detections; the official PFX mint is
+  // also pinned locally so the result is immediate and never depends on
+  // indexing by external market providers.
+  useEffect(() => {
+    const query = search.trim();
+    if (query.length < 2) {
+      setSearchCandidates([]);
+      setSearchPending(false);
+      setSearchError("");
+      return;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setSearchPending(true);
+      setSearchError("");
+      try {
+        const response = await fetch(
+          "/api/search-token?q=" + encodeURIComponent(query),
+          { signal: controller.signal, cache: "no-store" }
+        );
+        const result = await response.json();
+        if (!response.ok || result?.ok === false) {
+          throw new Error(result?.error || "Recherche Solana indisponible");
+        }
+        const found = Array.isArray(result?.results) ? result.results : [];
+        setSearchCandidates(found.map(normalizeToken).filter((token) => token.mint));
+      } catch (err) {
+        if (err?.name !== "AbortError") {
+          setSearchCandidates([]);
+          setSearchError("Recherche globale temporairement indisponible ; le Radar reste accessible.");
+        }
+      } finally {
+        if (!controller.signal.aborted) setSearchPending(false);
+      }
+    }, 300);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [search]);
+
   const displayedTokens = useMemo(() => {
     const query = search.trim().toLowerCase();
 
-    const filtered = tokens.filter((token) => {
+    const pfxMatches = query.length > 0 && (
+      "pfx".includes(query) ||
+      "profitx".includes(query) ||
+      OFFICIAL_PFX_MINT.toLowerCase() === query
+    );
+    const candidates = query.length >= 2
+      ? [...tokens, ...searchCandidates]
+      : tokens;
+    if (pfxMatches) candidates.unshift(normalizeToken(OFFICIAL_PFX_TOKEN, 0));
+    // The locally declared mint must take priority over discovered copies.
+    const uniqueTokens = Array.from(
+      new Map([...candidates].reverse().map((token) => [token.mint, token])).values()
+    );
+    const filtered = uniqueTokens.filter((token) => {
       const matchesSearch =
         !query ||
         token.name.toLowerCase().includes(query) ||
@@ -462,6 +529,9 @@ export default function Radar() {
     };
 
     return [...filtered].sort((a, b) => {
+      if (pfxMatches && a.officialPfx !== b.officialPfx) {
+        return a.officialPfx ? -1 : 1;
+      }
       const av = num(getSortValue(a));
       const bv = num(getSortValue(b));
 
@@ -470,7 +540,7 @@ export default function Radar() {
       if (bv === null) return -1;
       return bv - av;
     });
-  }, [tokens, search, sortBy, minimumLiquidity]);
+  }, [tokens, searchCandidates, search, sortBy, minimumLiquidity]);
 
   async function copyMint(mint) {
     if (!mint) return;
@@ -701,6 +771,15 @@ export default function Radar() {
             </div>
           </section>
 
+          {searchPending && search.trim().length >= 2 && (
+            <section className="message" role="status">
+              Recherche des tokens Solana au-delà des dernières détections...
+            </section>
+          )}
+          {searchError && search.trim().length >= 2 && (
+            <section className="message" role="status">{searchError}</section>
+          )}
+
           {error && (
             <section className="message errorMessage">
               <strong>MOTEUR RADAR</strong>
@@ -731,6 +810,18 @@ export default function Radar() {
             <section className="tokenGrid">
               {displayedTokens.map((token, index) => (
                 <article className="tokenCard" key={token.id}>
+                  {token.officialPfx && (
+                    <div role="note" style={{
+                      border: "1px solid #24e397", borderRadius: 10,
+                      padding: "10px 12px", marginBottom: 12,
+                      color: "#5bffc0", fontWeight: 700
+                    }}>
+                      PFX — MINT DÉCLARÉ PAR PROFITX AI
+                      <div style={{fontSize: 12, fontWeight: 400, marginTop: 4}}>
+                        Adresse déclarée par le projet · identité non auditée · sécurité et revente non garanties
+                      </div>
+                    </div>
+                  )}
                   {riskWarningFor(token) && (
                     <div
                       className={`riskWarning ${riskWarningFor(token).level}`}

@@ -2,129 +2,70 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
 
-const REFRESH_INTERVAL = 60_000;
+const REFRESH_INTERVAL = 60000;
+const WATCHLIST_KEY = "profitx-watchlist-v1";
 
-function number(value) {
+function num(value) {
   if (value === null || value === undefined || value === "") return null;
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
 }
 
-function formatMoney(value) {
-  const n = number(value);
+function money(value) {
+  const n = num(value);
   if (n === null) return "N/D";
-
-  if (Math.abs(n) >= 1_000_000_000) {
-    return `${(n / 1_000_000_000).toFixed(2)} Md$`;
-  }
-
-  if (Math.abs(n) >= 1_000_000) {
-    return `${(n / 1_000_000).toFixed(2)} M$`;
-  }
-
-  if (Math.abs(n) >= 1_000) {
-    return `${(n / 1_000).toFixed(1)} k$`;
-  }
-
-  return new Intl.NumberFormat("fr-FR", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 2,
-  }).format(n);
-}
-
-function formatPrice(value) {
-  const n = number(value);
-  if (n === null) return "N/D";
-
-  if (n >= 1) {
-    return `${n.toLocaleString("fr-FR", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 6,
-    })} $`;
-  }
-
-  if (n >= 0.01) {
-    return `${n.toLocaleString("fr-FR", {
-      minimumFractionDigits: 4,
-      maximumFractionDigits: 8,
-    })} $`;
-  }
-
+  if (Math.abs(n) >= 1e9) return `${(n / 1e9).toFixed(2)} Md$`;
+  if (Math.abs(n) >= 1e6) return `${(n / 1e6).toFixed(2)} M$`;
+  if (Math.abs(n) >= 1e3) return `${(n / 1e3).toFixed(1)} k$`;
   return `${n.toLocaleString("fr-FR", {
-    minimumFractionDigits: 6,
-    maximumFractionDigits: 12,
+    maximumFractionDigits: 2,
   })} $`;
 }
 
-function formatInteger(value) {
-  const n = number(value);
+function price(value) {
+  const n = num(value);
   if (n === null) return "N/D";
-
-  return Math.round(n).toLocaleString("fr-FR");
+  return `${n.toLocaleString("fr-FR", {
+    maximumFractionDigits: n < 0.01 ? 12 : 6,
+  })} $`;
 }
 
-function formatPercent(value) {
-  const n = number(value);
-  if (n === null) return "N/D";
-
-  const sign = n > 0 ? "+" : "";
-  return `${sign}${n.toFixed(2)} %`;
+function integer(value) {
+  const n = num(value);
+  return n === null ? "N/D" : Math.round(n).toLocaleString("fr-FR");
 }
 
-function formatAge(value) {
-  const n = number(value);
+function percent(value) {
+  const n = num(value);
+  return n === null ? "N/D" : `${n > 0 ? "+" : ""}${n.toFixed(2)} %`;
+}
+
+function age(value) {
+  const n = num(value);
   if (n === null || n < 0) return "N/D";
-
-  const minutes = Math.floor(n / 60_000);
-
-  if (minutes < 60) {
-    return `${Math.max(1, minutes)} min`;
-  }
-
-  const hours = Math.floor(minutes / 60);
-
-  if (hours < 24) {
-    return `${hours} h`;
-  }
-
-  const days = Math.floor(hours / 24);
-
-  if (days < 30) {
-    return `${days} j`;
-  }
-
-  const months = Math.floor(days / 30);
-
-  if (months < 12) {
-    return `${months} mois`;
-  }
-
-  return `${(days / 365).toFixed(1)} an`;
+  const minutes = Math.floor(n / 60000);
+  if (minutes < 1) return "< 1 min";
+  if (minutes < 60) return `${minutes} min`;
+  if (minutes < 1440) return `${Math.floor(minutes / 60)} h`;
+  return `${Math.floor(minutes / 1440)} j`;
 }
 
-function shortMint(value) {
-  if (!value || typeof value !== "string") return "N/D";
-  if (value.length <= 18) return value;
-
-  return `${value.slice(0, 8)}...${value.slice(-8)}`;
+function shortMint(mint) {
+  if (!mint) return "N/D";
+  return mint.length > 18
+    ? `${mint.slice(0, 8)}...${mint.slice(-8)}`
+    : mint;
 }
 
-function scoreClass(score) {
-  const n = number(score);
-
-  if (n === null) return "neutral";
-  if (n >= 75) return "high";
-  if (n >= 50) return "medium";
-
-  return "low";
-}
-
-function changeClass(value) {
-  const n = number(value);
-
-  if (n === null || n === 0) return "neutral";
-  return n > 0 ? "positive" : "negative";
+function timestamp(value) {
+  if (!value) return null;
+  const n = num(value);
+  if (n !== null) {
+    const ms = n < 1e11 ? n * 1000 : n;
+    return Number.isFinite(ms) ? ms : null;
+  }
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function normalizeToken(token, index) {
@@ -135,75 +76,97 @@ function normalizeToken(token, index) {
     token?.baseToken?.address ||
     "";
 
+  const detectedAt =
+    token?.detectedAt ||
+    token?.detected_at ||
+    token?.createdOnchainAt ||
+    token?.created_onchain_at ||
+    null;
+
+  const createdTime =
+    timestamp(token?.createdOnchainAt) ??
+    timestamp(token?.created_onchain_at) ??
+    timestamp(detectedAt) ??
+    timestamp(token?.pairCreatedAt);
+
+  const liquidityObject =
+    token?.liquidity && typeof token.liquidity === "object"
+      ? token.liquidity.usd
+      : token?.liquidity;
+
+  const txBuys = num(token?.txns?.h24?.buys);
+  const txSells = num(token?.txns?.h24?.sells);
+
   return {
-    id: mint || token?.id || `token-${index}`,
-    rank: number(token?.rank) ?? index + 1,
+    id: mint || `token-${index}`,
     mint,
-    name:
-      token?.name ||
-      token?.baseToken?.name ||
-      "Token inconnu",
-    symbol:
-      token?.symbol ||
-      token?.baseToken?.symbol ||
-      "N/D",
-    priceUsd:
-      number(token?.priceUsd) ??
-      number(token?.price),
+    name: token?.name || token?.baseToken?.name || "Token inconnu",
+    symbol: token?.symbol || token?.baseToken?.symbol || "N/D",
+    priceUsd: num(token?.priceUsd) ?? num(token?.price),
     marketCap:
-      number(token?.marketCap) ??
-      number(token?.fdv),
+      num(token?.marketCap) ??
+      num(token?.marketCapUsd) ??
+      num(token?.fdv),
     liquidity:
-      number(token?.liquidity) ??
-      number(token?.liquidityUsd) ??
-      number(token?.liquidity?.usd),
+      num(token?.liquidityUsd) ??
+      num(liquidityObject),
     volume24h:
-      number(token?.volume24h) ??
-      number(token?.volume?.h24),
+      num(token?.volume24h) ??
+      num(token?.volume24hUsd) ??
+      num(token?.volume?.h24),
     transactions24h:
-      number(token?.transactions24h) ??
-      number(token?.txns24h) ??
-      (
-        number(token?.txns?.h24?.buys) !== null ||
-        number(token?.txns?.h24?.sells) !== null
-          ? (number(token?.txns?.h24?.buys) || 0) +
-            (number(token?.txns?.h24?.sells) || 0)
-          : null
-      ),
-    buys24h:
-      number(token?.buys24h) ??
-      number(token?.txns?.h24?.buys),
-    sells24h:
-      number(token?.sells24h) ??
-      number(token?.txns?.h24?.sells),
+      num(token?.transactions24h) ??
+      num(token?.txns24h) ??
+      (txBuys !== null || txSells !== null
+        ? (txBuys || 0) + (txSells || 0)
+        : null),
+    buys24h: num(token?.buys24h) ?? txBuys,
+    sells24h: num(token?.sells24h) ?? txSells,
     change24h:
-      number(token?.change24h) ??
-      number(token?.priceChange24h) ??
-      number(token?.priceChange?.h24),
-    ageMs:
-      number(token?.ageMs) ??
-      (
-        number(token?.pairCreatedAt) !== null
-          ? Math.max(0, Date.now() - number(token?.pairCreatedAt))
-          : null
-      ),
+      num(token?.change24h) ??
+      num(token?.priceChange24h) ??
+      num(token?.priceChange?.h24),
     score:
-      number(token?.score) ??
-      number(token?.radarScore) ??
-      number(token?.profitxScore),
+      num(token?.score) ??
+      num(token?.radarScore) ??
+      num(token?.profitxScore),
+    securityScore:
+      num(token?.securityScore) ??
+      num(token?.security_score),
+    utilityScore:
+      num(token?.utilityScore) ??
+      num(token?.utility_score),
+    speculationRiskScore:
+      num(token?.speculationRiskScore) ??
+      num(token?.speculation_risk_score),
+    detectedAt,
+    createdTime,
+    ageMs:
+      num(token?.ageMs) ??
+      (createdTime !== null
+        ? Math.max(0, Date.now() - createdTime)
+        : null),
     status:
       token?.status ||
+      token?.analysis_status ||
       token?.marketState ||
       "OBSERVÉ",
-    source:
-      token?.source ||
-      "Solana",
+    source: token?.source || "Solana",
   };
+}
+
+function scoreColor(value) {
+  const n = num(value);
+  if (n === null) return "neutral";
+  if (n >= 75) return "good";
+  if (n >= 50) return "medium";
+  return "bad";
 }
 
 export default function Radar() {
   const router = useRouter();
 
+  const [source, setSource] = useState("live");
   const [tokens, setTokens] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -212,150 +175,138 @@ export default function Radar() {
   const [autoRefresh, setAutoRefresh] = useState(false);
 
   const [search, setSearch] = useState("");
-  const [sortBy, setSortBy] = useState("score");
+  const [sortBy, setSortBy] = useState("recent");
   const [minimumLiquidity, setMinimumLiquidity] = useState(0);
 
-  const [copiedMint, setCopiedMint] = useState("");
   const [watchlist, setWatchlist] = useState([]);
+  const [copiedMint, setCopiedMint] = useState("");
 
   useEffect(() => {
     try {
-      const saved = window.localStorage.getItem(
-        "profitx-watchlist-v1"
+      const saved = JSON.parse(
+        window.localStorage.getItem(WATCHLIST_KEY) || "[]"
       );
-
-      if (!saved) return;
-
-      const parsed = JSON.parse(saved);
-
-      if (Array.isArray(parsed)) {
-        setWatchlist(parsed);
-      }
+      if (Array.isArray(saved)) setWatchlist(saved);
     } catch {
       setWatchlist([]);
     }
   }, []);
 
-  function isInWatchlist(mint) {
-    return watchlist.some(
+  const isInWatchlist = (mint) =>
+    watchlist.some(
       (item) =>
         item.chainId === "solana" &&
         item.tokenAddress === mint
     );
-  }
 
   function addToWatchlist(token) {
     if (!token?.mint || isInWatchlist(token.mint)) return;
 
-    const newItem = {
-      id: `solana:${token.mint}`,
-      chainId: "solana",
-      tokenAddress: token.mint,
-      addedAt: new Date().toISOString(),
-    };
-
-    const updated = [newItem, ...watchlist];
+    const updated = [
+      {
+        id: `solana:${token.mint}`,
+        chainId: "solana",
+        tokenAddress: token.mint,
+        addedAt: new Date().toISOString(),
+      },
+      ...watchlist,
+    ];
 
     setWatchlist(updated);
 
     try {
       window.localStorage.setItem(
-        "profitx-watchlist-v1",
+        WATCHLIST_KEY,
         JSON.stringify(updated)
       );
     } catch {}
   }
 
-  const loadRadar = useCallback(async (manual = false) => {
-    if (manual) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
+  const loadRadar = useCallback(
+    async (manual = false) => {
+      if (manual) setRefreshing(true);
+      else setLoading(true);
 
-    setError("");
+      setError("");
 
-    try {
       const controller = new AbortController();
-
-      const timeout = setTimeout(() => {
-        controller.abort();
-      }, 15_000);
-
-      const response = await fetch("/api/radar", {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-        },
-        cache: "no-store",
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeout);
-
-      const text = await response.text();
-
-      let result = null;
+      const timeout = setTimeout(() => controller.abort(), 15000);
 
       try {
-        result = text ? JSON.parse(text) : null;
-      } catch {
-        throw new Error(
-          `Réponse Radar invalide (${response.status}).`
+        const endpoint =
+          source === "live" ? "/api/radar-live" : "/api/radar";
+
+        const response = await fetch(endpoint, {
+          method: "GET",
+          headers: { Accept: "application/json" },
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        const text = await response.text();
+        let result;
+
+        try {
+          result = text ? JSON.parse(text) : null;
+        } catch {
+          throw new Error(
+            `Réponse Radar invalide (${response.status}).`
+          );
+        }
+
+        if (!response.ok || result?.ok === false) {
+          throw new Error(
+            result?.error ||
+              result?.message ||
+              `Radar indisponible (${response.status}).`
+          );
+        }
+
+        const rawTokens = Array.isArray(result)
+          ? result
+          : Array.isArray(result?.tokens)
+          ? result.tokens
+          : Array.isArray(result?.data)
+          ? result.data
+          : [];
+
+        const normalized = rawTokens
+          .map(normalizeToken)
+          .filter((token) => token.mint);
+
+        const unique = Array.from(
+          new Map(normalized.map((token) => [token.mint, token])).values()
         );
-      }
 
-      if (!response.ok) {
-        throw new Error(
-          result?.error ||
-            result?.message ||
-            `Radar indisponible (${response.status}).`
-        );
-      }
+        setTokens(unique);
 
-      const rawTokens = Array.isArray(result)
-        ? result
-        : Array.isArray(result?.tokens)
-        ? result.tokens
-        : Array.isArray(result?.data)
-        ? result.data
-        : [];
+        const updated =
+          timestamp(result?.updatedAt) ??
+          timestamp(result?.timestamp) ??
+          Date.now();
 
-      const normalized = rawTokens
-        .map(normalizeToken)
-        .filter((token) => token.mint);
-
-      setTokens(normalized);
-
-      const serverTime =
-        result?.updatedAt ||
-        result?.timestamp ||
-        Date.now();
-
-      setLastUpdated(new Date(serverTime));
-    } catch (err) {
-      if (err?.name === "AbortError") {
+        setLastUpdated(new Date(updated));
+      } catch (err) {
         setError(
-          "Le moteur Radar met trop de temps à répondre. Réessayez dans quelques instants."
+          err?.name === "AbortError"
+            ? "Le Radar met trop de temps à répondre."
+            : err?.message || "Impossible de charger les données."
         );
-      } else {
-        setError(
-          err?.message ||
-            "Impossible de charger les données Radar."
-        );
+      } finally {
+        clearTimeout(timeout);
+        setLoading(false);
+        setRefreshing(false);
       }
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
+    },
+    [source]
+  );
 
   useEffect(() => {
     loadRadar(false);
   }, [loadRadar]);
 
   useEffect(() => {
-    if (!autoRefresh) return undefined;
+    if (!autoRefresh) return;
 
     const interval = setInterval(() => {
       loadRadar(true);
@@ -363,7 +314,8 @@ export default function Radar() {
 
     return () => clearInterval(interval);
   }, [autoRefresh, loadRadar]);
-    const displayedTokens = useMemo(() => {
+
+  const displayedTokens = useMemo(() => {
     const query = search.trim().toLowerCase();
 
     const filtered = tokens.filter((token) => {
@@ -373,47 +325,40 @@ export default function Radar() {
         token.symbol.toLowerCase().includes(query) ||
         token.mint.toLowerCase().includes(query);
 
-      const liquidity = number(token.liquidity);
-
       const matchesLiquidity =
-        minimumLiquidity <= 0 ||
-        (liquidity !== null &&
-          liquidity >= minimumLiquidity);
+        minimumLiquidity === 0 ||
+        (token.liquidity !== null &&
+          token.liquidity >= minimumLiquidity);
 
       return matchesSearch && matchesLiquidity;
     });
 
-    return [...filtered].sort((a, b) => {
-      const av =
-        sortBy === "score"
-          ? number(a.score)
-          : sortBy === "liquidity"
-          ? number(a.liquidity)
-          : sortBy === "volume"
-          ? number(a.volume24h)
-          : sortBy === "marketCap"
-          ? number(a.marketCap)
-          : sortBy === "change"
-          ? number(a.change24h)
-          : null;
+    const getSortValue = (token) => {
+      switch (sortBy) {
+        case "recent":
+          return token.createdTime;
+        case "score":
+          return token.score;
+        case "liquidity":
+          return token.liquidity;
+        case "volume":
+          return token.volume24h;
+        case "marketCap":
+          return token.marketCap;
+        case "change":
+          return token.change24h;
+        default:
+          return null;
+      }
+    };
 
-      const bv =
-        sortBy === "score"
-          ? number(b.score)
-          : sortBy === "liquidity"
-          ? number(b.liquidity)
-          : sortBy === "volume"
-          ? number(b.volume24h)
-          : sortBy === "marketCap"
-          ? number(b.marketCap)
-          : sortBy === "change"
-          ? number(b.change24h)
-          : null;
+    return [...filtered].sort((a, b) => {
+      const av = num(getSortValue(a));
+      const bv = num(getSortValue(b));
 
       if (av === null && bv === null) return 0;
       if (av === null) return 1;
       if (bv === null) return -1;
-
       return bv - av;
     });
   }, [tokens, search, sortBy, minimumLiquidity]);
@@ -424,33 +369,28 @@ export default function Radar() {
     try {
       await navigator.clipboard.writeText(mint);
       setCopiedMint(mint);
-
-      setTimeout(() => {
-        setCopiedMint("");
-      }, 1500);
+      setTimeout(() => setCopiedMint(""), 1500);
     } catch {
       setCopiedMint("");
     }
   }
 
-  function analyzeToken(mint) {
-    if (!mint) return;
-
-    router.push({
-      pathname: "/",
-      query: {
-        mint,
-      },
-    });
+  function changeSource(nextSource) {
+    if (nextSource === source) return;
+    setTokens([]);
+    setSource(nextSource);
+    setSortBy(nextSource === "live" ? "recent" : "score");
+    setMinimumLiquidity(0);
+    setSearch("");
   }
 
   return (
     <>
       <Head>
-        <title>PFX Radar — PROFITX AI</title>
+        <title>PFX Radar V2 — PROFITX AI</title>
         <meta
           name="description"
-          content="PFX Radar — surveillance et présélection de tokens Solana par PROFITX AI."
+          content="PROFITX AI Radar V2 — détection de nouveaux tokens Solana et surveillance du marché."
         />
         <meta name="robots" content="index,follow" />
       </Head>
@@ -460,72 +400,34 @@ export default function Radar() {
           <header className="radarHeader">
             <div className="brandBlock">
               <div className="brandMark">PFX</div>
-
               <div>
                 <div className="brandName">PROFITX AI</div>
-                <div className="brandSub">
-                  SOLANA INTELLIGENCE
-                </div>
+                <div className="brandSub">SOLANA INTELLIGENCE</div>
               </div>
             </div>
 
             <nav className="navActions">
-  <button
-    type="button"
-    className="navButton"
-    onClick={() => router.push("/")}
-  >
-    ANALYZER
-  </button>
-
-  <button
-    type="button"
-    className="navButton activeNav"
-    onClick={() => router.push("/radar")}
-  >
-    RADAR
-  </button>
-
-  <button
-    type="button"
-    className="navButton"
-    onClick={() => router.push("/compare")}
-  >
-    COMPARE
-  </button>
-
-  <button
-    type="button"
-    className="navButton"
-    onClick={() => router.push("/intelligence")}
-  >
-    INTELLIGENCE
-  </button>
-
-  <button
-    type="button"
-    className="navButton"
-    onClick={() => router.push("/watchlist")}
-  >
-    WATCHLIST
-  </button>
-
-  <button
-    type="button"
-    className="navButton"
-    onClick={() => router.push("/alerts")}
-  >
-    ALERTS
-  </button>
-
-  <button
-    type="button"
-    className="navButton"
-    onClick={() => router.push("/obtenir-pfx")}
-  >
-    OBTENIR PFX
-  </button>
-</nav>
+              {[
+                ["/", "ANALYZER"],
+                ["/radar", "RADAR"],
+                ["/compare", "COMPARE"],
+                ["/intelligence", "INTELLIGENCE"],
+                ["/watchlist", "WATCHLIST"],
+                ["/alerts", "ALERTS"],
+                ["/obtenir-pfx", "OBTENIR PFX"],
+              ].map(([path, label]) => (
+                <button
+                  key={path}
+                  type="button"
+                  className={`navButton ${
+                    path === "/radar" ? "activeNav" : ""
+                  }`}
+                  onClick={() => router.push(path)}
+                >
+                  {label}
+                </button>
+              ))}
+            </nav>
           </header>
 
           <section className="hero">
@@ -533,23 +435,18 @@ export default function Radar() {
               <div className="eyebrow">
                 PROFITX INTELLIGENCE MODULE
               </div>
-
               <h1>
                 PFX <span>RADAR</span>
               </h1>
-
               <p>
-                Détection et présélection de tokens Solana à
-                examiner. Les données affichées sont des signaux
-                observables et ne constituent ni une prédiction de
-                prix ni une recommandation d&apos;achat.
+                Détection de nouveaux tokens Solana via Helius,
+                surveillance du marché et présélection pour analyse.
+                Les données présentées ne constituent ni une prédiction
+                de prix ni une recommandation d&apos;achat.
               </p>
             </div>
 
-            <div
-              className="radarPulse"
-              aria-hidden="true"
-            >
+            <div className="radarPulse" aria-hidden="true">
               <div className="pulseRing ringOne" />
               <div className="pulseRing ringTwo" />
               <div className="pulseRing ringThree" />
@@ -563,30 +460,23 @@ export default function Radar() {
             <div className="statusLeft">
               <span
                 className={`statusDot ${
-                  error
-                    ? "statusError"
-                    : "statusOnline"
+                  error ? "statusError" : "statusOnline"
                 }`}
               />
-
               <div>
                 <strong>
                   {error
                     ? "RADAR TEMPORAIREMENT INDISPONIBLE"
+                    : loading
+                    ? "CHARGEMENT DU RADAR"
                     : "RADAR OPÉRATIONNEL"}
                 </strong>
-
                 <span>
                   {lastUpdated
                     ? `Dernière mise à jour : ${lastUpdated.toLocaleTimeString(
-                        "fr-FR",
-                        {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          second: "2-digit",
-                        }
+                        "fr-FR"
                       )}`
-                    : "En attente des données du moteur Radar"}
+                    : "En attente des données"}
                 </span>
               </div>
             </div>
@@ -597,9 +487,7 @@ export default function Radar() {
                   type="checkbox"
                   checked={autoRefresh}
                   onChange={(event) =>
-                    setAutoRefresh(
-                      event.target.checked
-                    )
+                    setAutoRefresh(event.target.checked)
                   }
                 />
                 Auto 60 s
@@ -608,61 +496,62 @@ export default function Radar() {
               <button
                 type="button"
                 className="refreshButton"
-                disabled={refreshing}
+                disabled={refreshing || loading}
                 onClick={() => loadRadar(true)}
               >
-                {refreshing
-                  ? "ACTUALISATION..."
-                  : "ACTUALISER"}
+                {refreshing ? "ACTUALISATION..." : "ACTUALISER"}
               </button>
             </div>
           </section>
 
+          <section className="sourceSelector">
+            <button
+              type="button"
+              className={source === "live" ? "sourceActive" : ""}
+              onClick={() => changeSource("live")}
+            >
+              HELIUS · NOUVEAUX TOKENS
+            </button>
+            <button
+              type="button"
+              className={source === "market" ? "sourceActive" : ""}
+              onClick={() => changeSource("market")}
+            >
+              RADAR MARCHÉ · EXISTANT
+            </button>
+            <span>
+              {source === "live"
+                ? "Détections Helius enregistrées dans Supabase — données non auditées"
+                : "Signaux du moteur Radar historique"}
+            </span>
+          </section>
+
           <section className="controls">
             <div className="searchBox">
-              <label htmlFor="radar-search">
-                RECHERCHER
-              </label>
-
+              <label htmlFor="radar-search">RECHERCHER</label>
               <input
                 id="radar-search"
                 type="search"
                 value={search}
-                onChange={(event) =>
-                  setSearch(event.target.value)
-                }
+                onChange={(event) => setSearch(event.target.value)}
                 placeholder="Nom, symbole ou mint..."
                 autoComplete="off"
               />
             </div>
 
             <div className="controlBox">
-              <label htmlFor="radar-sort">
-                CLASSER PAR
-              </label>
-
+              <label htmlFor="radar-sort">CLASSER PAR</label>
               <select
                 id="radar-sort"
                 value={sortBy}
-                onChange={(event) =>
-                  setSortBy(event.target.value)
-                }
+                onChange={(event) => setSortBy(event.target.value)}
               >
-                <option value="score">
-                  Score PFX
-                </option>
-                <option value="liquidity">
-                  Liquidité
-                </option>
-                <option value="volume">
-                  Volume 24 h
-                </option>
-                <option value="marketCap">
-                  Market cap
-                </option>
-                <option value="change">
-                  Variation 24 h
-                </option>
+                <option value="recent">Plus récents</option>
+                <option value="score">Score PFX</option>
+                <option value="liquidity">Liquidité</option>
+                <option value="volume">Volume 24 h</option>
+                <option value="marketCap">Market cap</option>
+                <option value="change">Variation 24 h</option>
               </select>
             </div>
 
@@ -670,40 +559,25 @@ export default function Radar() {
               <label htmlFor="radar-liquidity">
                 LIQUIDITÉ MIN.
               </label>
-
               <select
                 id="radar-liquidity"
                 value={minimumLiquidity}
                 onChange={(event) =>
-                  setMinimumLiquidity(
-                    Number(event.target.value)
-                  )
+                  setMinimumLiquidity(Number(event.target.value))
                 }
               >
                 <option value={0}>Toutes</option>
-                <option value={5000}>
-                  5 000 $
-                </option>
-                <option value={10000}>
-                  10 000 $
-                </option>
-                <option value={25000}>
-                  25 000 $
-                </option>
-                <option value={50000}>
-                  50 000 $
-                </option>
-                <option value={100000}>
-                  100 000 $
-                </option>
+                <option value={5000}>5 000 $</option>
+                <option value={10000}>10 000 $</option>
+                <option value={25000}>25 000 $</option>
+                <option value={50000}>50 000 $</option>
+                <option value={100000}>100 000 $</option>
               </select>
             </div>
 
             <div className="resultCounter">
               <span>TOKENS AFFICHÉS</span>
-              <strong>
-                {displayedTokens.length}
-              </strong>
+              <strong>{displayedTokens.length}</strong>
             </div>
           </section>
 
@@ -712,8 +586,8 @@ export default function Radar() {
               <strong>MOTEUR RADAR</strong>
               <p>{error}</p>
               <p>
-                L&apos;Analyzer PROFITX existant reste
-                indépendant et n&apos;est pas affecté.
+                L&apos;Analyzer PROFITX reste indépendant et
+                n&apos;est pas affecté.
               </p>
             </section>
           )}
@@ -721,265 +595,194 @@ export default function Radar() {
           {loading ? (
             <section className="loadingPanel">
               <div className="loader" />
-              <strong>
-                INITIALISATION PFX RADAR
-              </strong>
-              <span>
-                Récupération des signaux Solana...
-              </span>
+              <strong>INITIALISATION PFX RADAR</strong>
+              <span>Récupération des signaux Solana...</span>
             </section>
-          ) : !error &&
-            displayedTokens.length === 0 ? (
+          ) : !error && displayedTokens.length === 0 ? (
             <section className="emptyPanel">
               <div className="emptyIcon">◎</div>
-              <strong>
-                AUCUN TOKEN À AFFICHER
-              </strong>
+              <strong>AUCUN TOKEN À AFFICHER</strong>
               <p>
-                Aucun résultat ne correspond
-                actuellement aux critères sélectionnés.
+                Aucun résultat ne correspond actuellement aux
+                critères sélectionnés.
               </p>
             </section>
           ) : (
             <section className="tokenGrid">
-              {displayedTokens.map(
-                (token, index) => (
-                  <article
-                    className="tokenCard"
-                    key={token.id}
-                  >
-                    <div className="cardTop">
-                      <div className="rank">
-                        #{index + 1}
-                      </div>
+              {displayedTokens.map((token, index) => (
+                <article className="tokenCard" key={token.id}>
+                  <div className="cardTop">
+                    <div className="rank">#{index + 1}</div>
 
-                      <div
-                        className={`scoreBadge ${scoreClass(
-                          token.score
-                        )}`}
-                      >
-                        <span>SCORE PFX</span>
-                        <strong>
-                          {number(token.score) !==
-                          null
-                            ? Math.round(
-                                token.score
-                              )
-                            : "N/D"}
-                        </strong>
-                        <small>/100</small>
-                      </div>
-                    </div>
-
-                    <div className="tokenIdentity">
-                      <div className="tokenIcon">
-                        {token.symbol !== "N/D"
-                          ? token.symbol
-                              .slice(0, 2)
-                              .toUpperCase()
-                          : "?"}
-                      </div>
-
-                      <div className="tokenTitle">
-                        <h2>{token.name}</h2>
-                        <div>
-                          ${token.symbol}
-                        </div>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      className="mintButton"
-                      onClick={() =>
-                        copyMint(token.mint)
-                      }
-                      title="Copier le mint"
+                    <div
+                      className={`scoreBadge ${scoreColor(token.score)}`}
                     >
-                      <span>
-                        {shortMint(token.mint)}
-                      </span>
-
+                      <span>SCORE PFX</span>
                       <strong>
-                        {copiedMint === token.mint
-                          ? "COPIÉ"
-                          : "COPIER"}
+                        {token.score !== null
+                          ? Math.round(token.score)
+                          : "N/D"}
                       </strong>
-                    </button>
-
-                    <div className="metrics">
-                      <div className="metric">
-                        <span>PRIX</span>
-                        <strong>
-                          {formatPrice(
-                            token.priceUsd
-                          )}
-                        </strong>
-                      </div>
-
-                      <div className="metric">
-                        <span>MARKET CAP</span>
-                        <strong>
-                          {formatMoney(
-                            token.marketCap
-                          )}
-                        </strong>
-                      </div>
-
-                      <div className="metric">
-                        <span>LIQUIDITÉ</span>
-                        <strong>
-                          {formatMoney(
-                            token.liquidity
-                          )}
-                        </strong>
-                      </div>
-
-                      <div className="metric">
-                        <span>VOLUME 24 H</span>
-                        <strong>
-                          {formatMoney(
-                            token.volume24h
-                          )}
-                        </strong>
-                      </div>
-
-                      <div className="metric">
-                        <span>
-                          TRANSACTIONS 24 H
-                        </span>
-                        <strong>
-                          {formatInteger(
-                            token.transactions24h
-                          )}
-                        </strong>
-                      </div>
-
-                      <div className="metric">
-                        <span>ÂGE</span>
-                        <strong>
-                          {formatAge(
-                            token.ageMs
-                          )}
-                        </strong>
-                      </div>
+                      <small>/100</small>
                     </div>
+                  </div>
 
-                    <div className="marketLine">
+                  <div className="tokenIdentity">
+                    <div className="tokenIcon">
+                      {token.symbol !== "N/D"
+                        ? token.symbol.slice(0, 2).toUpperCase()
+                        : "?"}
+                    </div>
+                    <div className="tokenTitle">
+                      <h2>{token.name}</h2>
                       <div>
-                        <span>
-                          VARIATION 24 H
-                        </span>
-                        <strong
-                          className={changeClass(
-                            token.change24h
-                          )}
-                        >
-                          {formatPercent(
-                            token.change24h
-                          )}
-                        </strong>
-                      </div>
-
-                      <div>
-                        <span>
-                          ACHATS / VENTES
-                        </span>
-                        <strong>
-                          {formatInteger(
-                            token.buys24h
-                          )}
-                          {" / "}
-                          {formatInteger(
-                            token.sells24h
-                          )}
-                        </strong>
+                        {token.symbol === "N/D"
+                          ? "Symbole en attente"
+                          : `$${token.symbol}`}
                       </div>
                     </div>
+                  </div>
 
-                    <div className="cardFooter">
-                      <div className="tokenStatus">
-                        <span>STATUT</span>
-                        <strong>
-                          {token.status}
-                        </strong>
+                  <button
+                    type="button"
+                    className="mintButton"
+                    onClick={() => copyMint(token.mint)}
+                    title="Copier le mint"
+                  >
+                    <span>{shortMint(token.mint)}</span>
+                    <strong>
+                      {copiedMint === token.mint ? "COPIÉ" : "COPIER"}
+                    </strong>
+                  </button>
+
+                  <div className="metrics">
+                    {[
+                      ["PRIX", price(token.priceUsd)],
+                      ["MARKET CAP", money(token.marketCap)],
+                      ["LIQUIDITÉ", money(token.liquidity)],
+                      ["VOLUME 24 H", money(token.volume24h)],
+                      [
+                        "TRANSACTIONS 24 H",
+                        integer(token.transactions24h),
+                      ],
+                      ["ÂGE", age(token.ageMs)],
+                    ].map(([label, value]) => (
+                      <div className="metric" key={label}>
+                        <span>{label}</span>
+                        <strong>{value}</strong>
                       </div>
+                    ))}
+                  </div>
 
-                      <div className="cardActions">
-                        <button
-                          type="button"
-                          className={`watchlistButton ${
-                            isInWatchlist(
-                              token.mint
-                            )
-                              ? "watchlistAdded"
-                              : ""
-                          }`}
-                          onClick={() =>
-                            addToWatchlist(token)
-                          }
-                          disabled={isInWatchlist(
-                            token.mint
-                          )}
-                        >
-                          {isInWatchlist(
-                            token.mint
-                          )
-                            ? "AJOUTÉ ✓"
-                            : "+ WATCHLIST"}
-                        </button>
-
-                        <button
-                          type="button"
-                          className="analyzeButton"
-                          onClick={() =>
-                            analyzeToken(
-                              token.mint
-                            )
-                          }
-                        >
-                          ANALYSER →
-                        </button>
-                      </div>
+                  <div className="marketLine">
+                    <div>
+                      <span>VARIATION 24 H</span>
+                      <strong
+                        className={
+                          token.change24h === null
+                            ? "neutral"
+                            : token.change24h > 0
+                            ? "positive"
+                            : token.change24h < 0
+                            ? "negative"
+                            : "neutral"
+                        }
+                      >
+                        {percent(token.change24h)}
+                      </strong>
                     </div>
-                  </article>
-                )
-              )}
+
+                    <div>
+                      <span>ACHATS / VENTES</span>
+                      <strong>
+                        {integer(token.buys24h)}
+                        {" / "}
+                        {integer(token.sells24h)}
+                      </strong>
+                    </div>
+                  </div>
+
+                  {source === "live" && (
+                    <div className="analysisLine">
+                      <span>ANALYSE DE SÉCURITÉ</span>
+                      <strong>
+                        {token.securityScore !== null
+                          ? `${Math.round(token.securityScore)}/100`
+                          : "EN ATTENTE"}
+                      </strong>
+                    </div>
+                  )}
+
+                  <div className="cardFooter">
+                    <div className="tokenStatus">
+                      <span>STATUT</span>
+                      <strong>
+                        {token.status === "pending"
+                          ? "EN ATTENTE"
+                          : token.status === "enriched"
+                          ? "ENRICHI"
+                          : token.status}
+                      </strong>
+                    </div>
+
+                    <div className="cardActions">
+                      <button
+                        type="button"
+                        className={`watchlistButton ${
+                          isInWatchlist(token.mint)
+                            ? "watchlistAdded"
+                            : ""
+                        }`}
+                        disabled={isInWatchlist(token.mint)}
+                        onClick={() => addToWatchlist(token)}
+                      >
+                        {isInWatchlist(token.mint)
+                          ? "AJOUTÉ ✓"
+                          : "+ WATCHLIST"}
+                      </button>
+
+                      <button
+                        type="button"
+                        className="analyzeButton"
+                        onClick={() =>
+                          router.push({
+                            pathname: "/",
+                            query: { mint: token.mint },
+                          })
+                        }
+                      >
+                        ANALYSER →
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              ))}
             </section>
           )}
 
           <section className="methodology">
             <div>
-              <span className="methodNumber">
-                01
-              </span>
-              <strong>OBSERVATION</strong>
+              <span className="methodNumber">01</span>
+              <strong>DÉTECTION</strong>
               <p>
-                Radar collecte uniquement des données
-                disponibles et observables.
+                Helius détecte de nouveaux tokens Solana et
+                les enregistre dans Supabase.
               </p>
             </div>
-
             <div>
-              <span className="methodNumber">
-                02
-              </span>
-              <strong>PRÉSÉLECTION</strong>
+              <span className="methodNumber">02</span>
+              <strong>ENRICHISSEMENT</strong>
               <p>
-                Le score sert à organiser les résultats
-                selon plusieurs signaux mesurables.
+                Les informations disponibles sont complétées
+                progressivement. Les valeurs absentes restent N/D.
               </p>
             </div>
-
             <div>
-              <span className="methodNumber">
-                03
-              </span>
+              <span className="methodNumber">03</span>
               <strong>ANALYSE</strong>
               <p>
-                Un token repéré peut ensuite être envoyé
-                vers PROFITX AI Analyzer pour une analyse
-                détaillée.
+                Chaque token peut être transmis à PROFITX AI
+                Analyzer pour un examen approfondi.
               </p>
             </div>
           </section>
@@ -987,42 +790,31 @@ export default function Radar() {
           <footer className="radarFooter">
             <div>
               <strong>PROFITX AI</strong>
-              <span>PFX RADAR V1</span>
+              <span>PFX RADAR V2</span>
             </div>
-
             <p>
-              Outil informatif. Les scores et données ne
-              constituent pas un conseil financier, une
-              garantie de performance ou une prédiction
-              de prix.
+              Outil informatif. Une détection ou un score ne
+              garantit ni la sécurité ni la performance d&apos;un token.
+              Aucun conseil financier.
             </p>
           </footer>
         </div>
       </main>
+
       <style jsx>{`
         .radarPage {
           min-height: 100vh;
           background:
-            radial-gradient(
-              circle at 80% 10%,
-              rgba(33, 242, 139, 0.08),
-              transparent 28%
-            ),
-            radial-gradient(
-              circle at 15% 35%,
-              rgba(89, 72, 255, 0.07),
-              transparent 30%
-            ),
+            radial-gradient(circle at 80% 10%, rgba(33,242,139,.08), transparent 28%),
+            radial-gradient(circle at 15% 35%, rgba(89,72,255,.07), transparent 30%),
             #050807;
           color: #f4f7f5;
         }
-
         .radarShell {
           width: min(1380px, calc(100% - 48px));
           margin: 0 auto;
           padding-bottom: 60px;
         }
-
         .radarHeader {
           min-height: 92px;
           display: flex;
@@ -1031,13 +823,11 @@ export default function Radar() {
           gap: 24px;
           border-bottom: 1px solid #1d3028;
         }
-
         .brandBlock {
           display: flex;
           align-items: center;
           gap: 14px;
         }
-
         .brandMark {
           width: 46px;
           height: 46px;
@@ -1049,48 +839,41 @@ export default function Radar() {
           font-size: 13px;
           font-weight: 900;
           letter-spacing: 1px;
-          box-shadow:
-            inset 0 0 20px rgba(33, 242, 139, 0.05),
-            0 0 24px rgba(33, 242, 139, 0.06);
+          box-shadow: 0 0 24px rgba(33,242,139,.08);
         }
-
         .brandName {
           font-size: 15px;
           font-weight: 900;
           letter-spacing: 2px;
         }
-
         .brandSub {
           margin-top: 5px;
           color: #789087;
           font-size: 10px;
           letter-spacing: 2px;
         }
-
         .navActions {
           display: flex;
+          flex-wrap: wrap;
           gap: 8px;
         }
-
         .navButton {
           min-height: 40px;
-          padding: 0 18px;
+          padding: 0 14px;
           border: 1px solid #294138;
           border-radius: 10px;
           background: transparent;
           color: #9cb0a8;
           cursor: pointer;
-          font-size: 11px;
+          font-size: 10px;
           font-weight: 800;
           letter-spacing: 1px;
         }
-
         .navButton:hover,
         .activeNav {
           border-color: #21f28b;
           color: #21f28b;
         }
-
         .hero {
           min-height: 410px;
           display: flex;
@@ -1100,31 +883,26 @@ export default function Radar() {
           padding: 65px 0;
           overflow: hidden;
         }
-
         .heroCopy {
           position: relative;
           z-index: 2;
           max-width: 780px;
         }
-
         .eyebrow {
           color: #21f28b;
           font-size: 11px;
           font-weight: 900;
           letter-spacing: 3px;
         }
-
         .hero h1 {
           margin: 18px 0 20px;
           font-size: clamp(58px, 8vw, 118px);
-          line-height: 0.9;
+          line-height: .9;
           letter-spacing: -7px;
         }
-
         .hero h1 span {
           color: #21f28b;
         }
-
         .hero p {
           max-width: 720px;
           margin: 0;
@@ -1132,7 +910,6 @@ export default function Radar() {
           font-size: 15px;
           line-height: 1.8;
         }
-
         .radarPulse {
           position: relative;
           flex: 0 0 300px;
@@ -1141,28 +918,14 @@ export default function Radar() {
           display: grid;
           place-items: center;
         }
-
         .pulseRing {
           position: absolute;
-          border: 1px solid rgba(33, 242, 139, 0.25);
+          border: 1px solid rgba(33,242,139,.25);
           border-radius: 50%;
         }
-
-        .ringOne {
-          width: 100%;
-          height: 100%;
-        }
-
-        .ringTwo {
-          width: 68%;
-          height: 68%;
-        }
-
-        .ringThree {
-          width: 36%;
-          height: 36%;
-        }
-
+        .ringOne { width: 100%; height: 100%; }
+        .ringTwo { width: 68%; height: 68%; }
+        .ringThree { width: 36%; height: 36%; }
         .pulseLine {
           position: absolute;
           width: 100%;
@@ -1170,19 +933,12 @@ export default function Radar() {
           background: linear-gradient(
             90deg,
             transparent,
-            rgba(33, 242, 139, 0.6),
+            rgba(33,242,139,.6),
             transparent
           );
         }
-
-        .lineOne {
-          transform: rotate(45deg);
-        }
-
-        .lineTwo {
-          transform: rotate(-45deg);
-        }
-
+        .lineOne { transform: rotate(45deg); }
+        .lineTwo { transform: rotate(-45deg); }
         .pulseCore {
           position: relative;
           z-index: 2;
@@ -1195,11 +951,8 @@ export default function Radar() {
           background: #07100c;
           color: #21f28b;
           font-weight: 900;
-          box-shadow:
-            0 0 40px rgba(33, 242, 139, 0.2),
-            inset 0 0 25px rgba(33, 242, 139, 0.08);
+          box-shadow: 0 0 40px rgba(33,242,139,.2);
         }
-
         .statusBar {
           display: flex;
           align-items: center;
@@ -1208,54 +961,45 @@ export default function Radar() {
           padding: 18px 20px;
           border: 1px solid #1c3128;
           border-radius: 14px;
-          background: rgba(8, 15, 12, 0.8);
+          background: rgba(8,15,12,.8);
         }
-
         .statusLeft {
           display: flex;
           align-items: center;
           gap: 13px;
         }
-
         .statusLeft strong,
         .statusLeft span {
           display: block;
         }
-
         .statusLeft strong {
           font-size: 11px;
           letter-spacing: 1px;
         }
-
         .statusLeft span {
           margin-top: 5px;
           color: #71857d;
           font-size: 11px;
         }
-
         .statusDot {
           width: 9px;
           height: 9px;
           flex: 0 0 9px;
           border-radius: 50%;
         }
-
         .statusOnline {
           background: #21f28b;
           box-shadow: 0 0 15px #21f28b;
         }
-
         .statusError {
           background: #ff5d68;
-          box-shadow: 0 0 15px rgba(255, 93, 104, 0.6);
+          box-shadow: 0 0 15px rgba(255,93,104,.6);
         }
-
         .statusActions {
           display: flex;
           align-items: center;
           gap: 14px;
         }
-
         .autoRefresh {
           display: flex;
           align-items: center;
@@ -1264,36 +1008,63 @@ export default function Radar() {
           font-size: 11px;
           cursor: pointer;
         }
-
         .autoRefresh input {
           accent-color: #21f28b;
         }
-
         .refreshButton {
           min-height: 40px;
           padding: 0 18px;
           border: 1px solid #21f28b;
           border-radius: 9px;
-          background: rgba(33, 242, 139, 0.08);
+          background: rgba(33,242,139,.08);
           color: #21f28b;
           font-size: 10px;
           font-weight: 900;
           letter-spacing: 1px;
           cursor: pointer;
         }
-
         .refreshButton:disabled {
-          opacity: 0.5;
+          opacity: .5;
           cursor: wait;
         }
-
+        .sourceSelector {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 10px;
+          margin-top: 18px;
+          padding: 15px;
+          border: 1px solid #1c3128;
+          border-radius: 12px;
+          background: #080d0b;
+        }
+        .sourceSelector button {
+          min-height: 42px;
+          padding: 0 16px;
+          border: 1px solid #294138;
+          border-radius: 9px;
+          background: #0a1410;
+          color: #a0b4aa;
+          font-size: 10px;
+          font-weight: 900;
+          letter-spacing: .5px;
+          cursor: pointer;
+        }
+        .sourceSelector button.sourceActive {
+          border-color: #21f28b;
+          background: rgba(33,242,139,.12);
+          color: #21f28b;
+        }
+        .sourceSelector span {
+          color: #71857d;
+          font-size: 11px;
+        }
         .controls {
           display: grid;
           grid-template-columns: 2fr 1fr 1fr 160px;
           gap: 12px;
           margin: 18px 0 24px;
         }
-
         .searchBox,
         .controlBox,
         .resultCounter {
@@ -1303,7 +1074,6 @@ export default function Radar() {
           border-radius: 12px;
           background: #080d0b;
         }
-
         .searchBox label,
         .controlBox label,
         .resultCounter span {
@@ -1314,7 +1084,6 @@ export default function Radar() {
           font-weight: 900;
           letter-spacing: 1.5px;
         }
-
         .searchBox input,
         .controlBox select {
           width: 100%;
@@ -1325,32 +1094,26 @@ export default function Radar() {
           color: #f4f7f5;
           font-size: 13px;
         }
-
         .searchBox input::placeholder {
           color: #44554e;
         }
-
         .controlBox select {
           cursor: pointer;
         }
-
         .controlBox option {
           background: #0b110e;
           color: #fff;
         }
-
         .resultCounter {
           display: flex;
           flex-direction: column;
           justify-content: center;
           text-align: right;
         }
-
         .resultCounter strong {
           color: #21f28b;
           font-size: 27px;
         }
-
         .message,
         .loadingPanel,
         .emptyPanel {
@@ -1361,22 +1124,18 @@ export default function Radar() {
           background: #080d0b;
           text-align: center;
         }
-
         .errorMessage {
-          border-color: rgba(255, 93, 104, 0.35);
+          border-color: rgba(255,93,104,.35);
         }
-
         .errorMessage strong {
           color: #ff7881;
           letter-spacing: 2px;
         }
-
         .errorMessage p,
         .emptyPanel p {
           color: #81938c;
           line-height: 1.7;
         }
-
         .loadingPanel {
           display: flex;
           flex-direction: column;
@@ -1384,12 +1143,10 @@ export default function Radar() {
           gap: 12px;
           color: #82958d;
         }
-
         .loadingPanel strong {
           color: #f4f7f5;
           letter-spacing: 2px;
         }
-
         .loader {
           width: 38px;
           height: 38px;
@@ -1397,59 +1154,47 @@ export default function Radar() {
           border: 2px solid #1b3328;
           border-top-color: #21f28b;
           border-radius: 50%;
-          animation: spin 0.8s linear infinite;
+          animation: spin .8s linear infinite;
         }
-
         @keyframes spin {
-          to {
-            transform: rotate(360deg);
-          }
+          to { transform: rotate(360deg); }
         }
-
         .emptyIcon {
           margin-bottom: 12px;
           color: #21f28b;
           font-size: 40px;
         }
-
         .tokenGrid {
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
           gap: 16px;
         }
-
         .tokenCard {
+          min-width: 0;
           padding: 22px;
           border: 1px solid #1b3027;
           border-radius: 16px;
-          background:
-            linear-gradient(
-              145deg,
-              rgba(13, 23, 19, 0.96),
-              rgba(6, 10, 8, 0.98)
-            );
-          transition:
-            transform 0.2s ease,
-            border-color 0.2s ease;
+          background: linear-gradient(
+            145deg,
+            rgba(13,23,19,.96),
+            rgba(6,10,8,.98)
+          );
+          transition: transform .2s ease, border-color .2s ease;
         }
-
         .tokenCard:hover {
           transform: translateY(-2px);
           border-color: #315244;
         }
-
         .cardTop {
           display: flex;
           align-items: flex-start;
           justify-content: space-between;
         }
-
         .rank {
           color: #52665e;
           font-size: 12px;
           font-weight: 900;
         }
-
         .scoreBadge {
           display: flex;
           align-items: baseline;
@@ -1458,7 +1203,6 @@ export default function Radar() {
           border: 1px solid #283b34;
           border-radius: 9px;
         }
-
         .scoreBadge span {
           margin-right: 5px;
           color: #6f817a;
@@ -1466,39 +1210,23 @@ export default function Radar() {
           font-weight: 900;
           letter-spacing: 1px;
         }
-
         .scoreBadge strong {
           font-size: 22px;
         }
-
         .scoreBadge small {
           color: #61736c;
           font-size: 9px;
         }
-
-        .scoreBadge.high strong {
-          color: #21f28b;
-        }
-
-        .scoreBadge.medium strong {
-          color: #ffcf5a;
-        }
-
-        .scoreBadge.low strong {
-          color: #ff7881;
-        }
-
-        .scoreBadge.neutral strong {
-          color: #8b9c95;
-        }
-
+        .scoreBadge.good strong { color: #21f28b; }
+        .scoreBadge.medium strong { color: #ffcf5a; }
+        .scoreBadge.bad strong { color: #ff7881; }
+        .scoreBadge.neutral strong { color: #8b9c95; }
         .tokenIdentity {
           display: flex;
           align-items: center;
           gap: 14px;
           margin: 22px 0 14px;
         }
-
         .tokenIcon {
           width: 48px;
           height: 48px;
@@ -1512,19 +1240,20 @@ export default function Radar() {
           font-size: 12px;
           font-weight: 900;
         }
-
+        .tokenTitle {
+          min-width: 0;
+        }
         .tokenTitle h2 {
           margin: 0 0 5px;
+          overflow-wrap: anywhere;
           font-size: 21px;
-          letter-spacing: -0.5px;
+          letter-spacing: -.5px;
         }
-
         .tokenTitle div {
           color: #758880;
           font-size: 11px;
           font-weight: 800;
         }
-
         .mintButton {
           width: 100%;
           min-height: 38px;
@@ -1539,37 +1268,35 @@ export default function Radar() {
           color: #778a82;
           cursor: pointer;
         }
-
         .mintButton span {
           overflow: hidden;
           font-family: monospace;
           font-size: 11px;
           text-overflow: ellipsis;
         }
-
         .mintButton strong {
           color: #21f28b;
           font-size: 8px;
           letter-spacing: 1px;
         }
-                .metrics {
+        .metrics {
           display: grid;
-          grid-template-columns: repeat(3, 1fr);
+          grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 8px;
           margin-top: 18px;
         }
-
         .metric {
           min-height: 75px;
+          min-width: 0;
           padding: 12px;
           border: 1px solid #16261f;
           border-radius: 9px;
-          background: rgba(4, 8, 6, 0.55);
+          background: rgba(4,8,6,.55);
         }
-
         .metric span,
         .marketLine span,
-        .tokenStatus span {
+        .tokenStatus span,
+        .analysisLine span {
           display: block;
           margin-bottom: 9px;
           color: #596d64;
@@ -1577,40 +1304,44 @@ export default function Radar() {
           font-weight: 900;
           letter-spacing: 1px;
         }
-
         .metric strong {
+          overflow-wrap: anywhere;
           font-size: 13px;
         }
-
         .marketLine {
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 8px;
           margin-top: 8px;
         }
-
         .marketLine > div {
           padding: 12px;
           border: 1px solid #16261f;
           border-radius: 9px;
         }
-
         .marketLine strong {
           font-size: 12px;
         }
-
-        .positive {
-          color: #21f28b;
+        .positive { color: #21f28b; }
+        .negative { color: #ff6570; }
+        .neutral { color: #93a39d; }
+        .analysisLine {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          margin-top: 8px;
+          padding: 12px;
+          border: 1px solid #16261f;
+          border-radius: 9px;
         }
-
-        .negative {
-          color: #ff6570;
+        .analysisLine span {
+          margin-bottom: 0;
         }
-
-        .neutral {
-          color: #93a39d;
+        .analysisLine strong {
+          color: #9fb6aa;
+          font-size: 11px;
         }
-
         .cardFooter {
           display: flex;
           align-items: center;
@@ -1620,18 +1351,15 @@ export default function Radar() {
           padding-top: 17px;
           border-top: 1px solid #172820;
         }
-
         .tokenStatus strong {
           font-size: 10px;
           letter-spacing: 1px;
         }
-
         .cardActions {
           display: flex;
           align-items: center;
           gap: 8px;
         }
-
         .watchlistButton {
           min-height: 42px;
           padding: 0 16px;
@@ -1644,18 +1372,15 @@ export default function Radar() {
           letter-spacing: 1px;
           cursor: pointer;
         }
-
         .watchlistButton:hover:not(:disabled) {
-          background: rgba(33, 242, 139, 0.08);
+          background: rgba(33,242,139,.08);
         }
-
-        .watchlistButton.watchlistAdded {
+        .watchlistAdded {
           border-color: #315244;
-          background: rgba(33, 242, 139, 0.08);
+          background: rgba(33,242,139,.08);
           color: #7fae99;
           cursor: default;
         }
-
         .analyzeButton {
           min-height: 42px;
           padding: 0 20px;
@@ -1668,11 +1393,9 @@ export default function Radar() {
           letter-spacing: 1px;
           cursor: pointer;
         }
-
         .analyzeButton:hover {
-          box-shadow: 0 0 25px rgba(33, 242, 139, 0.2);
+          box-shadow: 0 0 25px rgba(33,242,139,.2);
         }
-
         .methodology {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
@@ -1683,12 +1406,10 @@ export default function Radar() {
           overflow: hidden;
           background: #1a2c24;
         }
-
         .methodology > div {
           padding: 25px;
           background: #080d0b;
         }
-
         .methodNumber {
           display: block;
           margin-bottom: 20px;
@@ -1696,19 +1417,16 @@ export default function Radar() {
           font-size: 10px;
           font-weight: 900;
         }
-
         .methodology strong {
           font-size: 11px;
           letter-spacing: 1.5px;
         }
-
         .methodology p {
           margin: 10px 0 0;
           color: #72857d;
           font-size: 11px;
           line-height: 1.7;
         }
-
         .radarFooter {
           display: flex;
           justify-content: space-between;
@@ -1717,18 +1435,15 @@ export default function Radar() {
           padding-top: 25px;
           border-top: 1px solid #172820;
         }
-
         .radarFooter div {
           display: flex;
           gap: 12px;
           font-size: 10px;
           letter-spacing: 1px;
         }
-
         .radarFooter div span {
           color: #21f28b;
         }
-
         .radarFooter p {
           max-width: 700px;
           margin: 0;
@@ -1737,104 +1452,86 @@ export default function Radar() {
           line-height: 1.6;
           text-align: right;
         }
-
+        @media (max-width: 1100px) {
+          .radarHeader {
+            align-items: flex-start;
+            flex-direction: column;
+            padding: 20px 0;
+          }
+        }
         @media (max-width: 900px) {
           .radarShell {
-            width: min(100% - 28px, 1380px);
+            width: calc(100% - 28px);
           }
-
           .hero {
             min-height: auto;
             padding: 70px 0;
           }
-
           .radarPulse {
             display: none;
           }
-
           .hero h1 {
             letter-spacing: -4px;
           }
-
           .controls {
             grid-template-columns: 1fr 1fr;
           }
-
           .searchBox {
             grid-column: 1 / -1;
           }
-
           .tokenGrid {
             grid-template-columns: 1fr;
           }
-
           .methodology {
             grid-template-columns: 1fr;
           }
         }
-
         @media (max-width: 620px) {
-          .radarHeader,
           .statusBar,
           .cardFooter,
           .radarFooter {
             align-items: stretch;
             flex-direction: column;
           }
-
-          .radarHeader {
-            padding: 18px 0;
-          }
-
           .navActions,
           .statusActions {
             width: 100%;
+            flex-wrap: wrap;
           }
-
           .navButton,
           .refreshButton {
             flex: 1;
           }
-
           .hero {
             padding: 55px 0;
           }
-
           .hero h1 {
             font-size: 58px;
             letter-spacing: -4px;
           }
-
           .controls {
             grid-template-columns: 1fr;
           }
-
           .searchBox {
             grid-column: auto;
           }
-
           .resultCounter {
             text-align: left;
           }
-
           .metrics {
             grid-template-columns: 1fr 1fr;
           }
-
           .marketLine {
             grid-template-columns: 1fr;
           }
-
           .cardActions {
             width: 100%;
             flex-direction: column;
           }
-
           .watchlistButton,
           .analyzeButton {
             width: 100%;
           }
-
           .radarFooter p {
             text-align: left;
           }

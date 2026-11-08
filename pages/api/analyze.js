@@ -1207,7 +1207,7 @@ function structuralScore({
     total:
       availableWeight >= 40
         ? Math.round(
-            weightedTotal / 100
+            weightedTotal / availableWeight
           )
         : null,
 

@@ -232,6 +232,66 @@ async function enrichMarketRows(rows, supabaseUrl, supabaseKey) {
   return market;
 }
 
+
+const TOKEN_PROGRAM_ID = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
+const TOKEN_2022_PROGRAM_ID = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
+
+/**
+ * Read-only Solana RPC check, not an audit.
+ * Only return conclusions when the RPC returns a parsed SPL mint account.
+ */
+async function fetchOnchainAuthorities(rows) {
+  const apiKey = process.env.HELIUS_API_KEY;
+  if (!apiKey) return new Map();
+  const addresses = [...new Set(rows.map((row) => row.mint).filter(validMint))]
+    .slice(0, 100);
+  if (!addresses.length) return new Map();
+
+  const response = await fetch(
+    "https://mainnet.helius-rpc.com/?api-key=" + encodeURIComponent(apiKey),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: "pfx-radar-mint-authorities",
+        method: "getMultipleAccounts",
+        params: [addresses, { encoding: "jsonParsed", commitment: "confirmed" }]
+      }),
+      signal: AbortSignal.timeout(7000)
+    }
+  );
+  if (!response.ok) throw new Error("Solana RPC HTTP " + response.status);
+  const payload = await response.json();
+  if (payload.error || !Array.isArray(payload.result?.value) ||
+      payload.result.value.length !== addresses.length) {
+    throw new Error(payload.error?.message || "Invalid Solana mint RPC data");
+  }
+
+  const result = new Map();
+  payload.result.value.forEach((account, index) => {
+    if (!account || ![TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID].includes(account.owner)) {
+      return;
+    }
+    const parsed = account.data?.parsed;
+    const info = parsed?.info;
+    if (parsed?.type !== "mint" || !info ||
+        !Object.prototype.hasOwnProperty.call(info, "mintAuthority") ||
+        !Object.prototype.hasOwnProperty.call(info, "freezeAuthority")) {
+      return;
+    }
+    result.set(addresses[index], {
+      securityChecked: true,
+      mintAuthorityEnabled: info.mintAuthority !== null,
+      freezeAuthorityEnabled: info.freezeAuthority !== null,
+      securitySource: "Solana RPC",
+      // Extension-specific Token-2022 restrictions are NOT covered by this check.
+      tokenProgram: account.owner === TOKEN_2022_PROGRAM_ID ? "token-2022" : "spl-token"
+    });
+  });
+  return result;
+}
+
 const TABLE = "pfx_radar_tokens";
 
 export default async function handler(req, res) {
@@ -287,14 +347,20 @@ export default async function handler(req, res) {
     const rows = await response.json();
     if (!Array.isArray(rows)) throw new Error("Invalid Supabase response");
 
-    const [identityResult, marketResult] = await Promise.allSettled([
+    const [identityResult, marketResult, chainResult] = await Promise.allSettled([
       enrichOnRead(rows, url, key),
-      enrichMarketRows(rows, url, key)
+      enrichMarketRows(rows, url, key),
+      fetchOnchainAuthorities(rows)
     ]);
+    if (chainResult.status === "rejected") {
+      console.warn("PFX Radar onchain checks:", chainResult.reason?.message);
+    }
+    const onchainChecks = chainResult.status === "fulfilled" ? chainResult.value : new Map();
     const liveMarkets = marketResult.status === "fulfilled" ? marketResult.value : new Map();
 
     const tokens = rows.map((row) => ({
       ...(liveMarkets.get(row.mint) || {}),
+      ...(onchainChecks.get(row.mint) || {}),
       mint: row.mint,
       name: tokenText(row.name) || "Token inconnu",
       symbol: tokenText(row.symbol) || "N/D",

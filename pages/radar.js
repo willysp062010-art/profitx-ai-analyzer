@@ -133,6 +133,11 @@ function normalizeToken(token, index) {
     securityScore:
       num(token?.securityScore) ??
       num(token?.security_score),
+    securityChecked: token?.securityChecked === true,
+    mintAuthorityEnabled: token?.mintAuthorityEnabled === true ? true :
+      token?.mintAuthorityEnabled === false ? false : null,
+    freezeAuthorityEnabled: token?.freezeAuthorityEnabled === true ? true :
+      token?.freezeAuthorityEnabled === false ? false : null,
     utilityScore:
       num(token?.utilityScore) ??
       num(token?.utility_score),
@@ -160,6 +165,20 @@ function normalizeToken(token, index) {
  * Missing liquidity is not zero liquidity and does not prove a scam.
  */
 function riskWarningFor(token) {
+  if (token.securityChecked && token.freezeAuthorityEnabled === true) {
+    return {
+      level: "critical",
+      title: "⚠ ALERTE MAJEURE — GEL DES TOKENS POSSIBLE",
+      detail: "Une autorité de gel est active sur ce mint Solana. Des comptes de tokens peuvent être gelés. Ne pas investir sans vérification approfondie."
+    };
+  }
+  if (token.securityChecked && token.mintAuthorityEnabled === true) {
+    return {
+      level: "critical",
+      title: "⚠ ALERTE — CRÉATION DE TOKENS POSSIBLE",
+      detail: "Une autorité d'émission est toujours active. L'offre peut potentiellement augmenter. Vérifiez les risques de dilution avant tout achat."
+    };
+  }
   const liquidity = num(token.liquidity);
   const security = num(token.securityScore);
   if (liquidity !== null && liquidity < 1000) {
@@ -752,6 +771,21 @@ export default function Radar() {
                       </strong>
                     </div>
                   </div>
+
+                  {source === "live" && (
+                    <div className="onchainLine">
+                      <strong>VÉRIFICATIONS ON-CHAIN</strong>
+                      {token.securityChecked ? (
+                        <span>
+                          Émission : {token.mintAuthorityEnabled ? "AUTORISÉE ⚠" : "DÉSACTIVÉE"}
+                          {" • "}
+                          Gel : {token.freezeAuthorityEnabled ? "POSSIBLE ⚠" : "NON AUTORISÉ"}
+                        </span>
+                      ) : (
+                        <span>Non vérifiées — vérification Solana RPC indisponible</span>
+                      )}
+                    </div>
+                  )}
 
                   {source === "live" && (
                     <div className="analysisLine">
@@ -1392,6 +1426,24 @@ export default function Radar() {
         .metric span,
         .marketLine span,
         .tokenStatus span,
+        .onchainLine {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          margin-top: 12px;
+          padding: 12px;
+          border: 1px solid #263d33;
+          border-radius: 9px;
+          background: rgba(9, 22, 15, .65);
+          color: #a5b7ac;
+          font-size: 11px;
+          line-height: 1.5;
+        }
+        .onchainLine strong {
+          color: #d0eadb;
+          font-size: 10px;
+          letter-spacing: .6px;
+        }
         .analysisLine span {
           display: block;
           margin-bottom: 9px;

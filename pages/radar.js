@@ -139,6 +139,8 @@ function normalizeToken(token, index) {
     freezeAuthorityEnabled: token?.freezeAuthorityEnabled === true ? true :
       token?.freezeAuthorityEnabled === false ? false : null,
     tokenProgram: token?.tokenProgram || null,
+    tokenExtensions: Array.isArray(token?.tokenExtensions)
+      ? token.tokenExtensions.filter((item) => typeof item === "string") : null,
     utilityScore:
       num(token?.utilityScore) ??
       num(token?.utility_score),
@@ -166,6 +168,30 @@ function normalizeToken(token, index) {
  * Missing liquidity is not zero liquidity and does not prove a scam.
  */
 function riskWarningFor(token) {
+  const extensions = (token.tokenExtensions || []).map((name) =>
+    name.replace(/[^a-z]/gi, "").toLowerCase()
+  );
+  if (extensions.includes("nontransferable")) {
+    return {
+      level: "critical",
+      title: "⚠ TRANSFERTS IMPOSSIBLES — TOKEN NON TRANSFÉRABLE",
+      detail: "Le mint porte l’extension NonTransferable : les transferts classiques sont interdits. Vérifiez la possibilité de revente avant tout achat."
+    };
+  }
+  if (extensions.includes("permanentdelegate")) {
+    return {
+      level: "critical",
+      title: "⚠ ALERTE MAJEURE — DÉLÉGUÉ PERMANENT",
+      detail: "Le mint porte l’extension PermanentDelegate. Une autorité peut effectuer des transferts ou brûler des tokens sans accord du détenteur."
+    };
+  }
+  if (extensions.includes("transferhook") || extensions.includes("pausable")) {
+    return {
+      level: "critical",
+      title: "⚠ CONTRÔLE DES TRANSFERTS DÉTECTÉ",
+      detail: "Une extension TransferHook ou Pausable est présente. Des restrictions de transfert peuvent s’appliquer : vérifiez le programme avant tout achat."
+    };
+  }
   if (token.securityChecked && token.freezeAuthorityEnabled === true) {
     return {
       level: "critical",
@@ -786,7 +812,7 @@ export default function Radar() {
                         <span>Non vérifiées — vérification Solana RPC indisponible</span>
                       )}
                       {token.tokenProgram === "token-2022" && (
-                        <span>Token-2022 : extensions et restrictions de transfert supplémentaires non auditées.</span>
+                        <span>Token-2022 : {token.tokenExtensions?.length ? `extensions déclarées : ${token.tokenExtensions.join(", ")}. ` : ""}Extensions et restrictions supplémentaires non auditées.</span>
                       )}
                     </div>
                   )}

@@ -280,7 +280,12 @@ async function fetchOnchainAuthorities(rows) {
         !Object.prototype.hasOwnProperty.call(info, "freezeAuthority")) {
       return;
     }
+    const extensions = Array.isArray(info.extensions)
+      ? info.extensions.map((item) => item?.extension || item?.type)
+          .filter((name) => typeof name === "string").slice(0, 20)
+      : null;
     result.set(addresses[index], {
+      tokenExtensions: extensions,
       securityChecked: true,
       mintAuthorityEnabled: info.mintAuthority !== null,
       freezeAuthorityEnabled: info.freezeAuthority !== null,

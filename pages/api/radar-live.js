@@ -286,6 +286,7 @@ async function fetchOnchainAuthorities(rows) {
       : null;
     result.set(addresses[index], {
       tokenExtensions: extensions,
+      mintSupplyRaw: typeof info.supply === "string" ? info.supply : null,
       securityChecked: true,
       mintAuthorityEnabled: info.mintAuthority !== null,
       freezeAuthorityEnabled: info.freezeAuthority !== null,
@@ -294,6 +295,55 @@ async function fetchOnchainAuthorities(rows) {
       tokenProgram: account.owner === TOKEN_2022_PROGRAM_ID ? "token-2022" : "spl-token"
     });
   });
+  return result;
+}
+
+
+async function fetchConcentration(rows, checks) {
+  const key = process.env.HELIUS_API_KEY;
+  if (!key) return new Map();
+  const selected = rows.filter((row) => {
+    const supply = checks.get(row.mint)?.mintSupplyRaw;
+    return typeof supply === "string" && /^[0-9]+$/.test(supply) && BigInt(supply) > 0n;
+  }).slice(0, 8);
+
+  const responses = await Promise.allSettled(selected.map(async (row) => {
+    const response = await fetch("https://mainnet.helius-rpc.com/?api-key=" + encodeURIComponent(key), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: "pfx-largest-accounts",
+        method: "getTokenLargestAccounts",
+        params: [row.mint, { commitment: "confirmed" }]
+      }),
+      signal: AbortSignal.timeout(5500)
+    });
+    if (!response.ok) throw new Error("Largest accounts HTTP " + response.status);
+    const payload = await response.json();
+    if (payload.error || !Array.isArray(payload.result?.value)) {
+      throw new Error(payload.error?.message || "Invalid largest accounts response");
+    }
+    const amountTexts = payload.result.value.slice(0, 10).map((account) => account?.amount);
+    if (!amountTexts.length || amountTexts.some((value) => typeof value !== "string" || !/^[0-9]+$/.test(value))) {
+      throw new Error("Invalid account amounts");
+    }
+    const amounts = amountTexts.map((value) => BigInt(value));
+    const supply = BigInt(checks.get(row.mint).mintSupplyRaw);
+    const percentage = (amount) => Math.min(100, Number(amount * 10000n / supply) / 100);
+    return {
+      mint: row.mint,
+      concentrationChecked: true,
+      top1AccountPercent: percentage(amounts[0]),
+      top10AccountsPercent: percentage(amounts.reduce((sum, value) => sum + value, 0n)),
+      largestAccountsObserved: amounts.length,
+      concentrationSource: "Solana getTokenLargestAccounts"
+    };
+  }));
+  const result = new Map();
+  for (const item of responses) {
+    if (item.status === "fulfilled") result.set(item.value.mint, item.value);
+  }
   return result;
 }
 
@@ -363,9 +413,12 @@ export default async function handler(req, res) {
     const onchainChecks = chainResult.status === "fulfilled" ? chainResult.value : new Map();
     const liveMarkets = marketResult.status === "fulfilled" ? marketResult.value : new Map();
 
+    const concentrations = await fetchConcentration(rows, onchainChecks);
+
     const tokens = rows.map((row) => ({
       ...(liveMarkets.get(row.mint) || {}),
       ...(onchainChecks.get(row.mint) || {}),
+      ...(concentrations.get(row.mint) || {}),
       mint: row.mint,
       name: tokenText(row.name) || "Token inconnu",
       symbol: tokenText(row.symbol) || "N/D",

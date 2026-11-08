@@ -138,6 +138,9 @@ function normalizeToken(token, index) {
       token?.mintAuthorityEnabled === false ? false : null,
     freezeAuthorityEnabled: token?.freezeAuthorityEnabled === true ? true :
       token?.freezeAuthorityEnabled === false ? false : null,
+    concentrationChecked: token?.concentrationChecked === true,
+    top1AccountPercent: num(token?.top1AccountPercent),
+    top10AccountsPercent: num(token?.top10AccountsPercent),
     tokenProgram: token?.tokenProgram || null,
     tokenExtensions: Array.isArray(token?.tokenExtensions)
       ? token.tokenExtensions.filter((item) => typeof item === "string") : null,
@@ -168,6 +171,24 @@ function normalizeToken(token, index) {
  * Missing liquidity is not zero liquidity and does not prove a scam.
  */
 function riskWarningFor(token) {
+  // These are TOKEN ACCOUNT balances, not separate owners.
+  // Bonding curves and liquidity pools may dominate concentration.
+  if (token.concentrationChecked && token.top1AccountPercent >= 80) {
+    return {
+      level: "critical",
+      title: "⚠ CONCENTRATION TRÈS ÉLEVÉE — COMPTE PRINCIPAL",
+      detail: "Le plus gros compte token contient " + token.top1AccountPercent.toFixed(1) +
+        " % de l'offre. Ce compte peut être un pool ou un compte technique : vérifiez son propriétaire avant tout achat."
+    };
+  }
+  if (token.concentrationChecked && token.top10AccountsPercent >= 95) {
+    return {
+      level: "critical",
+      title: "⚠ CONCENTRATION TRÈS ÉLEVÉE — 10 COMPTES",
+      detail: "Les 10 plus gros comptes concentrent " + token.top10AccountsPercent.toFixed(1) +
+        " % de l'offre. Cette observation ne suffit pas à prouver une fraude."
+    };
+  }
   const extensions = (token.tokenExtensions || []).map((name) =>
     name.replace(/[^a-z]/gi, "").toLowerCase()
   );
@@ -810,6 +831,13 @@ export default function Radar() {
                         </span>
                       ) : (
                         <span>Non vérifiées — vérification Solana RPC indisponible</span>
+                      )}
+                      {token.concentrationChecked && (
+                        <span>
+                          Plus gros compte : {token.top1AccountPercent.toFixed(1)} %
+                          {" • "}10 plus gros comptes : {token.top10AccountsPercent.toFixed(1)} %
+                          {" (comptes tokens, propriétaires non identifiés)"}
+                        </span>
                       )}
                       {token.tokenProgram === "token-2022" && (
                         <span>Token-2022 : {token.tokenExtensions?.length ? `extensions déclarées : ${token.tokenExtensions.join(", ")}. ` : ""}Extensions et restrictions supplémentaires non auditées.</span>

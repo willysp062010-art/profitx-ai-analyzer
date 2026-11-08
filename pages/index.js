@@ -421,6 +421,26 @@ const [tokenSearchError, setTokenSearchError] = useState("");
   const [sellQuoteLoading, setSellQuoteLoading] = useState(false);
   const [sellQuoteError, setSellQuoteError] = useState("");
   const [sellQuoteAmount, setSellQuoteAmount] = useState("1");
+  const [eurQuote, setEurQuote] = useState(null);
+  const [eurQuoteLoading, setEurQuoteLoading] = useState(false);
+  const [eurQuoteError, setEurQuoteError] = useState("");
+
+  async function testEurQuote(eur) {
+    if (!data?.mint || eurQuoteLoading) return;
+    setEurQuoteLoading(true);
+    setEurQuote(null);
+    setEurQuoteError("");
+    try {
+      const response = await fetch(`/api/sell-eur?mint=${encodeURIComponent(data.mint)}&eur=${eur}`);
+      const result = await response.json();
+      if (!response.ok || result?.ok !== true) throw new Error(result?.error || "Service indisponible.");
+      setEurQuote(result);
+    } catch (err) {
+      setEurQuoteError(err?.message || "Estimation indisponible.");
+    } finally {
+      setEurQuoteLoading(false);
+    }
+  }
 
   function tokenAmountToRaw(value, decimals) {
     if (!Number.isInteger(decimals) || decimals < 0 || decimals > 18) {
@@ -531,6 +551,8 @@ async function searchToken(query) {
     setData(null);
     setSellQuote(null);
     setSellQuoteError("");
+    setEurQuote(null);
+    setEurQuoteError("");
 
     try {
       const response =
@@ -1598,6 +1620,28 @@ async function searchToken(query) {
               Conversion automatique en unités minimales. Aucun portefeuille ni aucune transaction ne sont utilisés.
             </p>
             {sellQuoteError && <p role="alert">{sellQuoteError}</p>}
+            <div style={{ marginTop: "18px" }}>
+              <strong>Simulation indicative par montant en euros</strong>
+              <p style={{ opacity: 0.8 }}>Montant de référence : estimation des tokens achetables, puis cotation de leur revente. Ce n'est pas une garantie de récupérer ce montant.</p>
+              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                {[10, 100, 1000].map((eur) => (
+                  <button key={eur} type="button" disabled={eurQuoteLoading} onClick={() => testEurQuote(eur)}>
+                    {eurQuoteLoading ? "Calcul..." : `Simuler ${eur.toLocaleString("fr-FR")} €`}
+                  </button>
+                ))}
+              </div>
+              {eurQuoteError && <p role="alert">{eurQuoteError}</p>}
+              {eurQuote && (
+                <div className="observed" aria-live="polite" style={{ marginTop: "12px" }}>
+                  <div><span>Résultat</span><strong>{eurQuote.status === "ROUTE_QUOTED" ? "Deux routes cotées" : "Cotation indisponible"}</strong></div>
+                  {eurQuote.indicativeSaleEur != null && <div><span>Revente indicative</span><strong>{new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 4 }).format(eurQuote.indicativeSaleEur)}</strong></div>}
+                  {eurQuote.indicativeDifferenceEur != null && <div><span>Écart indicatif achat/revente</span><strong>{new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 4 }).format(eurQuote.indicativeDifferenceEur)}</strong></div>}
+                  {eurQuote.priceImpactPct != null && <div><span>Impact prix estimé</span><strong>{Number(eurQuote.priceImpactPct).toLocaleString("fr-FR", { maximumFractionDigits: 4 })}%</strong></div>}
+                  {eurQuote.reason && <div><span>Motif</span><strong>{eurQuote.reason}</strong></div>}
+                  <p style={{ opacity: 0.8 }}>Taux EUR/USD de référence {eurQuote.fxDate || "non daté"}. USDC ≠ USD garanti. Frais réseau, slippage maximal et exécution non vérifiés. Aucune transaction envoyée.</p>
+                </div>
+              )}
+            </div>
             {sellQuote && (
               <div className="observed" aria-live="polite">
                 <div><span>Résultat Jupiter</span><strong>{sellQuote.status === "ROUTE_QUOTED" ? "Route cotée (indicative)" : "Cotation indisponible"}</strong></div>

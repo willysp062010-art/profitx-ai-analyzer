@@ -171,24 +171,6 @@ function normalizeToken(token, index) {
  * Missing liquidity is not zero liquidity and does not prove a scam.
  */
 function riskWarningFor(token) {
-  // These are TOKEN ACCOUNT balances, not separate owners.
-  // Bonding curves and liquidity pools may dominate concentration.
-  if (token.concentrationChecked && token.top1AccountPercent >= 80) {
-    return {
-      level: "critical",
-      title: "⚠ CONCENTRATION TRÈS ÉLEVÉE — COMPTE PRINCIPAL",
-      detail: "Le plus gros compte token contient " + token.top1AccountPercent.toFixed(1) +
-        " % de l'offre. Ce compte peut être un pool ou un compte technique : vérifiez son propriétaire avant tout achat."
-    };
-  }
-  if (token.concentrationChecked && token.top10AccountsPercent >= 95) {
-    return {
-      level: "critical",
-      title: "⚠ CONCENTRATION TRÈS ÉLEVÉE — 10 COMPTES",
-      detail: "Les 10 plus gros comptes concentrent " + token.top10AccountsPercent.toFixed(1) +
-        " % de l'offre. Cette observation ne suffit pas à prouver une fraude."
-    };
-  }
   const extensions = (token.tokenExtensions || []).map((name) =>
     name.replace(/[^a-z]/gi, "").toLowerCase()
   );
@@ -225,6 +207,24 @@ function riskWarningFor(token) {
       level: "critical",
       title: "⚠ ALERTE — CRÉATION DE TOKENS POSSIBLE",
       detail: "Une autorité d'émission est toujours active. L'offre peut potentiellement augmenter. Vérifiez les risques de dilution avant tout achat."
+    };
+  }
+  // These are TOKEN ACCOUNT balances, not separate owners.
+  // Bonding curves and liquidity pools may dominate concentration.
+  if (token.concentrationChecked && token.top1AccountPercent >= 80) {
+    return {
+      level: "unknown",
+      title: "⚠ CONCENTRATION À VÉRIFIER — COMPTE PRINCIPAL",
+      detail: "Le plus gros compte token contient " + token.top1AccountPercent.toFixed(1) +
+        " % de l'offre. Ce compte peut être un pool ou un compte technique : vérifiez son propriétaire avant tout achat."
+    };
+  }
+  if (token.concentrationChecked && token.top10AccountsPercent >= 95) {
+    return {
+      level: "unknown",
+      title: "⚠ CONCENTRATION À VÉRIFIER — 10 COMPTES",
+      detail: "Les 10 plus gros comptes concentrent " + token.top10AccountsPercent.toFixed(1) +
+        " % de l'offre. Cette observation ne suffit pas à prouver une fraude."
     };
   }
   const liquidity = num(token.liquidity);

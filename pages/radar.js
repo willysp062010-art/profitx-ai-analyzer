@@ -148,6 +148,7 @@ function normalizeToken(token, index) {
     largestTokenAccountOwner: token?.largestTokenAccountOwner || null,
     largestTokenAccountFrozen: token?.largestTokenAccountFrozen === true,
     largestAuthorityAccountType: token?.largestAuthorityAccountType || null,
+    largestAuthorityKnownProtocol: token?.largestAuthorityKnownProtocol || null,
     tokenProgram: token?.tokenProgram || null,
     tokenExtensions: Array.isArray(token?.tokenExtensions)
       ? token.tokenExtensions.filter((item) => typeof item === "string") : null,
@@ -846,7 +847,7 @@ export default function Radar() {
                         <span>
                           Plus gros compte : {token.top1AccountPercent.toFixed(1)} %
                           {" • "}10 plus gros comptes : {token.top10AccountsPercent.toFixed(1)} %
-                          {" (comptes tokens, propriétaires non identifiés)"}
+                          {" (comptes tokens, pools et réserves éventuellement inclus)"}
                         </span>
                       )}
                       {token.largestTokenAccountOwner && (
@@ -862,7 +863,7 @@ export default function Radar() {
                             token.largestAuthorityAccountType === "program_owned_account" ? "Compte appartenant a un programme" :
                             token.largestAuthorityAccountType === "executable_program" ? "Programme executable" :
                             "Compte appartenant au programme Systeme"
-                          } (cela n'identifie pas a lui seul un pool ni une personne).
+                          }{token.largestAuthorityKnownProtocol ? " — programme reconnu : " + token.largestAuthorityKnownProtocol : ""} (programme reconnu ne prouve pas que le compte est un pool ni qu'une vente est possible).
                         </span>
                       )}
                       {token.creatorAddress && (

@@ -235,6 +235,13 @@ async function enrichMarketRows(rows, supabaseUrl, supabaseKey) {
 }
 
 
+const RECOGNIZED_PROGRAMS = Object.freeze({
+"6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P":"Pump.fun bonding curve",
+"BQFtMNSBKP3qLsoyocazbKA7fB8313jizRCSs1R6hBma":"Pump.fun Token-2022",
+"pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA":"PumpSwap",
+"CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C":"Raydium CPMM",
+"675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8":"Raydium AMM v4"
+});
 const TOKEN_PROGRAM_ID = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
 const TOKEN_2022_PROGRAM_ID = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
 
@@ -386,15 +393,19 @@ async function fetchConcentration(rows, checks) {
       if (payload.error || !Array.isArray(payload.result?.value) ||
           payload.result.value.length !== owners.length) throw Error("Invalid authority response");
       const types = new Map();
+      const programOwners = new Map();
       owners.forEach((addr, index) => {
         const account = payload.result.value[index];
         if (!account || !validMint(account.owner)) return;
+        programOwners.set(addr, account.owner);
         types.set(addr, account.executable === true ? "executable_program" :
           account.owner === "11111111111111111111111111111111" ?
             "system_owned_account" : "program_owned_account");
       });
       for (const item of result.values()) {
         item.largestAuthorityAccountType = types.get(item.largestTokenAccountOwner) || null;
+        const programId = programOwners.get(item.largestTokenAccountOwner);
+        item.largestAuthorityKnownProtocol = programId && Object.prototype.hasOwnProperty.call(RECOGNIZED_PROGRAMS, programId) ? RECOGNIZED_PROGRAMS[programId] : null;
       }
     } catch (error) { console.warn("PFX authority type:", error.message); }
   }

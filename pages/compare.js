@@ -409,34 +409,47 @@ function buildInsights(a, b) {
   return insights.slice(0, 7);
 }
 function TokenLogo({ mint, token, selected }) {
-  const [fallback, setFallback] = useState(false);
-  const [remoteLogo, setRemoteLogo] = useState("");
+  const [resolvedLogo, setResolvedLogo] = useState("");
+  const [failedImages, setFailedImages] = useState([]);
   const officialPfx = mint === "6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump";
-  const image = officialPfx ? "data:image/jpeg;base64,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" : (token?.imageUri || selected?.imageUri || remoteLogo);
+  const pfxLogo = "data:image/jpeg;base64,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";
+
+  // Reset the logo and failed URLs when a different token is selected.
   useEffect(() => {
-    setFallback(false);
-    setRemoteLogo("");
-    if (!mint || token?.imageUri || selected?.imageUri) return;
-    let active = true;
+    setResolvedLogo("");
+    setFailedImages([]);
+    if (!mint || officialPfx) return;
     const controller = new AbortController();
-    async function loadLogo() {
-      try {
-        const response = await fetch("/api/search-token?q=" + encodeURIComponent(mint), { signal: controller.signal });
-        const data = await response.json();
-        const match = data?.results?.find((item) => item.mint === mint);
-        if (active && match?.imageUri) setRemoteLogo(match.imageUri);
-      } catch {}
-    }
-    loadLogo();
-    return () => { active = false; controller.abort(); };
-  }, [mint, token?.imageUri, selected?.imageUri]);
-  return image && !fallback ? (
-    <img className="tokenImage" src={image} alt={"Logo " + (token?.symbol || selected?.symbol || "token")}
-      onError={() => setFallback(true)} style={{ objectFit: "cover", borderRadius: "50%", width: 56, height: 56, minWidth: 56, flex: "0 0 56px", display: "block" }} />
-  ) : officialPfx ? (
-    <div className="tokenFallback" title="PROFITX PFX — emblème de secours, logo officiel non disponible" style={{ background: "radial-gradient(circle at 30% 25%, #174a33, #040b09 70%)", color: "#37ff8d", border: "2px solid #27ed7d", fontWeight: 900, letterSpacing: "-1px", fontSize: 19 }}>PFX</div>
+    fetch("/api/token-logo?mint=" + encodeURIComponent(mint), { signal: controller.signal })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => {
+        if (!controller.signal.aborted && data?.mint === mint && data?.imageUri) {
+          setResolvedLogo(data.imageUri);
+        }
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [mint, officialPfx]);
+
+  const candidates = officialPfx ? [pfxLogo] : [
+    resolvedLogo,
+    selected?.imageUri,
+    token?.imageUri
+  ].filter((value, index, all) => typeof value === "string" && value.length > 0 && all.indexOf(value) === index);
+  const image = candidates.find((candidate) => !failedImages.includes(candidate));
+  const symbol = (token?.symbol || selected?.symbol || "?").slice(0, 3).toUpperCase();
+
+  return image ? (
+    <img key={mint + image} className="tokenImage" src={image}
+      alt={"Logo " + (token?.symbol || selected?.symbol || "token")}
+      onError={() => setFailedImages((previous) => previous.includes(image) ? previous : [...previous, image])}
+      style={{ objectFit: "cover", borderRadius: "50%", width: 56, height: 56, minWidth: 56, flex: "0 0 56px", display: "block" }}
+    />
   ) : (
-    <div className="tokenFallback">{(token?.symbol || selected?.symbol || "?").slice(0, 2).toUpperCase()}</div>
+    <div className="tokenFallback" title="Logo non disponible auprès des sources de métadonnées"
+      style={{ display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14, color: "#37ff8d" }}>
+      {symbol}
+    </div>
   );
 }
 

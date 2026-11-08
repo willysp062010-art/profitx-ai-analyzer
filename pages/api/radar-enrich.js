@@ -2,8 +2,9 @@
 import crypto from "node:crypto";
 
 const TABLE = "pfx_radar_tokens";
-const BATCH_SIZE = 15;
-const CANDIDATE_LIMIT = 200;
+const BATCH_SIZE = 40;
+const CANDIDATE_LIMIT = 150;
+const UPDATE_CONCURRENCY = 8;
 const RETRY_DELAY_MS = 10 * 60 * 1000;
 const MAX_ATTEMPTS = 8;
 const TIMEOUT_MS = 8000;
@@ -59,15 +60,37 @@ async function supabaseRequest(url, key, path, options = {}) {
   return body ? JSON.parse(body) : null;
 }
 
-async function getPendingTokens(url, key) {
-  const params = new URLSearchParams({
-    select: "id,mint,metadata,name,symbol,analysis_status,detected_at",
-    chain_id: "eq.solana",
-    analysis_status: "in.(pending,metadata_missing)",
-    order: "detected_at.desc",
-    limit: String(CANDIDATE_LIMIT)
-  });
-  return supabaseRequest(url, key, `${TABLE}?${params}`);
+async function getPendingTokens(url, key, now) {
+  async function getCandidates(status, direction, limit) {
+    const params = new URLSearchParams({
+      select: "id,mint,metadata,name,symbol,analysis_status,detected_at",
+      chain_id: "eq.solana",
+      analysis_status: "eq." + status,
+      order: "detected_at." + direction + ",id." + direction,
+      limit: String(limit)
+    });
+    return supabaseRequest(url, key, TABLE + "?" + params);
+  }
+  const [oldest, newest, retries] = await Promise.all([
+    getCandidates("pending", "asc", CANDIDATE_LIMIT),
+    getCandidates("pending", "desc", CANDIDATE_LIMIT),
+    getCandidates("metadata_missing", "asc", 50)
+  ]);
+  const selected = new Map();
+  function pick(items, max) {
+    let count = 0;
+    for (const token of items || []) {
+      if (count >= max) break;
+      if (selected.has(token.id) || !eligibleForEnrichment(token, now)) continue;
+      selected.set(token.id, token);
+      count++;
+    }
+  }
+  pick(oldest, 18);
+  pick(newest, 18);
+  pick(retries, 4);
+  if (selected.size < BATCH_SIZE) pick([...(oldest || []), ...(newest || []), ...(retries || [])], BATCH_SIZE - selected.size);
+  return [...selected.values()];
 }
 
 function eligibleForEnrichment(token, now) {
@@ -197,15 +220,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    const pending = await getPendingTokens(
-      supabaseUrl,
-      supabaseKey
-    );
-
     const now = Date.now();
-    const tokens = (pending || [])
-      .filter((token) => eligibleForEnrichment(token, now))
-      .slice(0, BATCH_SIZE);
+    const tokens = await getPendingTokens(supabaseUrl, supabaseKey, now);
 
     if (!tokens.length) {
       return res.status(200).json({
@@ -230,40 +246,38 @@ export default async function handler(req, res) {
 
     let enriched = 0;
     let missing = 0;
-
-    for (const token of tokens) {
-      const asset = byMint.get(token.mint);
-      const identity = extractIdentity(asset);
-
-      const existingMetadata = token.metadata &&
-        typeof token.metadata === "object" && !Array.isArray(token.metadata)
-          ? token.metadata : {};
-      const metadata = {
-        ...existingMetadata,
-        enrichment_source: "helius_das",
-        enrichment_checked_at: new Date().toISOString(),
-        enrichment_attempts: (Number(existingMetadata.enrichment_attempts) || 0) + 1
-      };
-
-      const name = identity?.name ||
-        (token.name !== "Token inconnu" ? token.name : null) || null;
-      const symbol = identity?.symbol ||
-        (token.symbol !== "N/D" ? token.symbol : null) || null;
-      const complete = Boolean(name && symbol);
-      const patch = {
-        analysis_status: complete ? "enriched" : "metadata_missing",
-        metadata: {
-          ...metadata,
-          enrichment_result: complete ? "success" : "metadata_missing",
-          ...(complete ? { enriched_at: new Date().toISOString() } : {})
-        }
-      };
-      if (name) patch.name = name;
-      if (symbol) patch.symbol = symbol;
-      await updateToken(supabaseUrl, supabaseKey, token.id, patch);
-
-      if (complete) enriched++;
-      else missing++;
+    for (let i = 0; i < tokens.length; i += UPDATE_CONCURRENCY) {
+      const chunk = tokens.slice(i, i + UPDATE_CONCURRENCY);
+      const outcomes = await Promise.all(chunk.map(async token => {
+        const asset = byMint.get(token.mint);
+        const identity = extractIdentity(asset);
+        const existingMetadata = token.metadata &&
+          typeof token.metadata === "object" && !Array.isArray(token.metadata)
+            ? token.metadata : {};
+        const metadata = {
+          ...existingMetadata,
+          enrichment_source: "helius_das",
+          enrichment_checked_at: new Date().toISOString(),
+          enrichment_attempts: (Number(existingMetadata.enrichment_attempts) || 0) + 1
+        };
+        const name = identity?.name || (token.name !== "Token inconnu" ? token.name : null) || null;
+        const symbol = identity?.symbol || (token.symbol !== "N/D" ? token.symbol : null) || null;
+        const complete = Boolean(name && symbol);
+        const patch = {
+          analysis_status: complete ? "enriched" : "metadata_missing",
+          metadata: {
+            ...metadata,
+            enrichment_result: complete ? "success" : "metadata_missing",
+            ...(complete ? {enriched_at: new Date().toISOString()} : {})
+          }
+        };
+        if (name) patch.name = name;
+        if (symbol) patch.symbol = symbol;
+        await updateToken(supabaseUrl, supabaseKey, token.id, patch);
+        return complete;
+      }));
+      enriched += outcomes.filter(Boolean).length;
+      missing += outcomes.filter(value => !value).length;
     }
 
     return res.status(200).json({

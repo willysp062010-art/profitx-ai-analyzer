@@ -408,6 +408,35 @@ function buildInsights(a, b) {
 
   return insights.slice(0, 7);
 }
+function TokenLogo({ mint, token, selected }) {
+  const [fallback, setFallback] = useState(false);
+  const [remoteLogo, setRemoteLogo] = useState("");
+  const image = token?.imageUri || selected?.imageUri || remoteLogo;
+  useEffect(() => {
+    setFallback(false);
+    setRemoteLogo("");
+    if (!mint || token?.imageUri || selected?.imageUri) return;
+    let active = true;
+    const controller = new AbortController();
+    async function loadLogo() {
+      try {
+        const response = await fetch("/api/search-token?q=" + encodeURIComponent(mint), { signal: controller.signal });
+        const data = await response.json();
+        const match = data?.results?.find((item) => item.mint === mint);
+        if (active && match?.imageUri) setRemoteLogo(match.imageUri);
+      } catch {}
+    }
+    loadLogo();
+    return () => { active = false; controller.abort(); };
+  }, [mint, token?.imageUri, selected?.imageUri]);
+  return image && !fallback ? (
+    <img className="tokenImage" src={image} alt={"Logo " + (token?.symbol || selected?.symbol || "token")}
+      onError={() => setFallback(true)} style={{ objectFit: "contain" }} />
+  ) : (
+    <div className="tokenFallback">{(token?.symbol || selected?.symbol || "?").slice(0, 2).toUpperCase()}</div>
+  );
+}
+
 function TokenPicker({ id, label, value, onChange, selected, onSelect, disabled }) {
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -445,8 +474,9 @@ function TokenPicker({ id, label, value, onChange, selected, onSelect, disabled 
 
   return (
     <div className="inputBlock" style={{ position: "relative", minWidth: 0 }}>
-      <label htmlFor={id}>{label}</label>
+      <label htmlFor={id} style={{ display: "block", marginBottom: 8, color: "#2bfa88", fontSize: 12, fontWeight: 800 }}>{label}</label>
       <input
+        style={{ width: "100%", minWidth: 0, boxSizing: "border-box", display: "block", background: "#07120d", border: "1px solid #23e780", borderRadius: 10, padding: "16px", color: "#fff", fontSize: 16 }}
         id={id}
         value={value}
         disabled={disabled}
@@ -758,23 +788,7 @@ export default function ComparePage() {
                     </div>
 
                     <div className="identity">
-                      {tokenA.imageUri ? (
-                        <img
-                          className="tokenImage"
-                          src={tokenA.imageUri}
-                          alt={
-                            tokenA.name ||
-                            tokenA.symbol ||
-                            "Token A"
-                          }
-                        />
-                      ) : (
-                        <div className="tokenFallback">
-                          {(tokenA.symbol || "?")
-                            .slice(0, 2)
-                            .toUpperCase()}
-                        </div>
-                      )}
+                      <TokenLogo mint={resultA?.mint} token={tokenA} selected={selectedA} />
 
                       <div className="identityText">
                         <div className="tokenName">
@@ -818,23 +832,7 @@ export default function ComparePage() {
                     </div>
 
                     <div className="identity">
-                      {tokenB.imageUri ? (
-                        <img
-                          className="tokenImage"
-                          src={tokenB.imageUri}
-                          alt={
-                            tokenB.name ||
-                            tokenB.symbol ||
-                            "Token B"
-                          }
-                        />
-                      ) : (
-                        <div className="tokenFallback">
-                          {(tokenB.symbol || "?")
-                            .slice(0, 2)
-                            .toUpperCase()}
-                        </div>
-                      )}
+                      <TokenLogo mint={resultB?.mint} token={tokenB} selected={selectedB} />
 
                       <div className="identityText">
                         <div className="tokenName">

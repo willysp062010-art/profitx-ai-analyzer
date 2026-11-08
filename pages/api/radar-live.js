@@ -373,6 +373,29 @@ async function fetchConcentration(rows, checks) {
   return result;
 }
 
+async function fetchCreatorHistory(rows, url, key) {
+  const creators = [...new Set(rows.map(row => row.creator_address).filter(validMint))].slice(0,8);
+  const checks = await Promise.allSettled(creators.map(async address => {
+    const params = new URLSearchParams({
+      select:"id", creator_address:"eq." + address, chain_id:"eq.solana", limit:"1"
+    });
+    const response = await fetch(url + "/rest/v1/pfx_radar_tokens?" + params, {
+      method:"HEAD",
+      headers:{apikey:key, Authorization:"Bearer " + key, Prefer:"count=exact"},
+      signal:AbortSignal.timeout(5000)
+    });
+    if (!response.ok) throw Error("Creator history HTTP " + response.status);
+    const count = Number((response.headers.get("content-range") || "").split("/")[1]);
+    if (!Number.isSafeInteger(count) || count < 0) throw Error("Missing count");
+    return {address,count};
+  }));
+  const result = new Map();
+  for (const item of checks) {
+    if (item.status === "fulfilled") result.set(item.value.address,item.value.count);
+  }
+  return result;
+}
+
 const TABLE = "pfx_radar_tokens";
 
 export default async function handler(req, res) {
@@ -439,13 +462,19 @@ export default async function handler(req, res) {
     const onchainChecks = chainResult.status === "fulfilled" ? chainResult.value : new Map();
     const liveMarkets = marketResult.status === "fulfilled" ? marketResult.value : new Map();
 
-    const concentrations = await fetchConcentration(rows, onchainChecks);
+    const [concentrationResult, creatorsResult] = await Promise.allSettled([
+      fetchConcentration(rows, onchainChecks),
+      fetchCreatorHistory(rows, url, key)
+    ]);
+    const concentrations = concentrationResult.status === "fulfilled" ? concentrationResult.value : new Map();
+    const creatorCounts = creatorsResult.status === "fulfilled" ? creatorsResult.value : new Map();
 
     const tokens = rows.map((row) => ({
       ...(liveMarkets.get(row.mint) || {}),
       ...(onchainChecks.get(row.mint) || {}),
       ...(concentrations.get(row.mint) || {}),
       creatorAddress: validMint(row.creator_address) ? row.creator_address : null,
+      creatorSeenTokenCount: creatorCounts.get(row.creator_address) ?? null,
       mint: row.mint,
       name: tokenText(row.name) || "Token inconnu",
       symbol: tokenText(row.symbol) || "N/D",

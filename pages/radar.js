@@ -141,6 +141,11 @@ function normalizeToken(token, index) {
     concentrationChecked: token?.concentrationChecked === true,
     top1AccountPercent: num(token?.top1AccountPercent),
     top10AccountsPercent: num(token?.top10AccountsPercent),
+    creatorAddress: token?.creatorAddress || null,
+    creatorSeenTokenCount: num(token?.creatorSeenTokenCount),
+    largestTokenAccountAddress: token?.largestTokenAccountAddress || null,
+    largestTokenAccountOwner: token?.largestTokenAccountOwner || null,
+    largestTokenAccountFrozen: token?.largestTokenAccountFrozen === true,
     tokenProgram: token?.tokenProgram || null,
     tokenExtensions: Array.isArray(token?.tokenExtensions)
       ? token.tokenExtensions.filter((item) => typeof item === "string") : null,
@@ -839,6 +844,32 @@ export default function Radar() {
                           {" (comptes tokens, propriétaires non identifiés)"}
                         </span>
                       )}
+                      {token.largestTokenAccountOwner && (
+                        <span>
+                          Autorité du plus gros compte : {shortMint(token.largestTokenAccountOwner)}
+                          {" (adresse on-chain ; pool ou personne non déterminé)"}
+                          {token.largestTokenAccountFrozen ? " • COMPTE GELÉ ⚠" : ""}
+                        </span>
+                      )}
+                      {token.creatorAddress && (
+                        <span>
+                          Payeur du lancement : {shortMint(token.creatorAddress)}
+                          {token.creatorSeenTokenCount !== null
+                            ? " • " + token.creatorSeenTokenCount + " token(s) observé(s) avec cette adresse dans PFX"
+                            : " • historique non disponible"}
+                          {" (le payeur ne prouve pas l'identité du créateur)"}
+                        </span>
+                      )}
+                      <span>
+                        Revente : {token.tokenExtensions?.some((item) =>
+                          ["nontransferable","transferhook","pausable"].includes(
+                            item.replace(/[^a-z]/gi,"").toLowerCase()
+                          )
+                        ) ? "RESTRICTIONS POSSIBLES ⚠" :
+                          token.liquidity !== null && token.liquidity > 0
+                            ? "Marché observé, vente NON TESTÉE"
+                            : "NON VÉRIFIÉE"}
+                      </span>
                       {token.tokenProgram === "token-2022" && (
                         <span>Token-2022 : {token.tokenExtensions?.length ? `extensions déclarées : ${token.tokenExtensions.join(", ")}. ` : ""}Extensions et restrictions supplémentaires non auditées.</span>
                       )}

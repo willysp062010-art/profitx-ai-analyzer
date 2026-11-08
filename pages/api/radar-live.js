@@ -23,7 +23,7 @@ async function enrichOnRead(rows, supabaseUrl, supabaseKey) {
   if (!heliusKey) return;
 
   const now = Date.now();
-  const candidates = rows.filter((row) => {
+  function eligible(row) {
     if (!validMint(row.mint) ||
         !["pending", "metadata_missing"].includes(row.analysis_status)) {
       return false;
@@ -35,7 +35,52 @@ async function enrichOnRead(rows, supabaseUrl, supabaseKey) {
     return attempts < 8 && (
       !Number.isFinite(checked) || now - checked >= LIVE_RETRY_MS
     );
-  }).slice(0, LIVE_ENRICH_LIMIT);
+  }
+
+  // Keep the same Helius budget (15 assets) but give the historical
+  // backlog a fair share on every 5-minute scheduled read.
+  let historical = [];
+  try {
+    const params = new URLSearchParams({
+      select: "id,mint,name,symbol,metadata,analysis_status",
+      chain_id: "eq.solana",
+      analysis_status: "eq.pending",
+      order: "detected_at.asc,id.asc",
+      limit: "60"
+    });
+    const response = await fetch(
+      supabaseUrl + "/rest/v1/pfx_radar_tokens?" + params,
+      {
+        headers: {
+          apikey: supabaseKey,
+          Authorization: "Bearer " + supabaseKey,
+          Accept: "application/json"
+        },
+        signal: AbortSignal.timeout(5000)
+      }
+    );
+    if (!response.ok) throw new Error("Historical candidate lookup HTTP " + response.status);
+    const data = await response.json();
+    if (Array.isArray(data)) historical = data;
+  } catch (error) {
+    console.warn("PFX historical enrichment query:", error.message);
+  }
+
+  const selected = new Map();
+  function addEligible(items, maxToAdd) {
+    let added = 0;
+    for (const row of items) {
+      if (added >= maxToAdd || selected.size >= LIVE_ENRICH_LIMIT) break;
+      if (!eligible(row) || selected.has(row.mint)) continue;
+      selected.set(row.mint, row);
+      added++;
+    }
+  }
+  addEligible(rows, 7);
+  addEligible(historical, 8);
+  addEligible(rows, LIVE_ENRICH_LIMIT);
+  addEligible(historical, LIVE_ENRICH_LIMIT);
+  const candidates = [...selected.values()];
   if (!candidates.length) return;
 
   let assets;

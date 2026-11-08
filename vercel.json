@@ -1,0 +1,9 @@
+
+{
+  "crons": [
+    {
+      "path": "/api/radar-enrich",
+      "schedule": "0 3 * * *"
+    }
+  ]
+}

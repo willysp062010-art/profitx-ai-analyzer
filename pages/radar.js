@@ -155,6 +155,37 @@ function normalizeToken(token, index) {
   };
 }
 
+/**
+ * Warning based only on observed metrics, never on inferred fraud.
+ * Missing liquidity is not zero liquidity and does not prove a scam.
+ */
+function riskWarningFor(token) {
+  const liquidity = num(token.liquidity);
+  const security = num(token.securityScore);
+  if (liquidity !== null && liquidity < 1000) {
+    return {
+      level: "critical",
+      title: "⚠ RISQUE ÉLEVÉ — LIQUIDITÉ TRÈS FAIBLE",
+      detail: "Moins de 1 000 $ de liquidité observée. Revendre peut être difficile ou entraîner une perte importante. Évitez tout achat sans analyse approfondie."
+    };
+  }
+  if (security !== null && security < 30) {
+    return {
+      level: "critical",
+      title: "⚠ ALERTE — SCORE DE SÉCURITÉ FAIBLE",
+      detail: "Un score de sécurité inférieur à 30/100 nécessite une vérification indépendante avant toute décision."
+    };
+  }
+  if (liquidity === null) {
+    return {
+      level: "unknown",
+      title: "⚠ PRUDENCE — LIQUIDITÉ NON VÉRIFIÉE",
+      detail: "Aucune liquidité réelle confirmée pour ce token. Ne pas investir avant d'avoir vérifié les possibilités de revente, le contrat et la liquidité."
+    };
+  }
+  return null;
+}
+
 function scoreColor(value) {
   const n = num(value);
   if (n === null) return "neutral";
@@ -526,6 +557,16 @@ export default function Radar() {
             </span>
           </section>
 
+          <section className="riskGlobalBanner" role="note">
+            <strong>⚠ ALERTE PROFITX — NE CONFONDEZ PAS DÉTECTION ET FIABILITÉ</strong>
+            <p>
+              Un token nouvellement détecté n'est pas audité. Un avertissement orange
+              signifie que des données essentielles manquent ; un avertissement rouge
+              repose sur un signal défavorable observé. Aucun de ces signaux ne prouve
+              à lui seul une arnaque. Vérifiez toujours avant d'investir.
+            </p>
+          </section>
+
           <section className="controls">
             <div className="searchBox">
               <label htmlFor="radar-search">RECHERCHER</label>
@@ -611,6 +652,16 @@ export default function Radar() {
             <section className="tokenGrid">
               {displayedTokens.map((token, index) => (
                 <article className="tokenCard" key={token.id}>
+                  {riskWarningFor(token) && (
+                    <div
+                      className={`riskWarning ${riskWarningFor(token).level}`}
+                      role="note"
+                      aria-label="Avertissement sur le risque du token"
+                    >
+                      <strong>{riskWarningFor(token).title}</strong>
+                      <p>{riskWarningFor(token).detail}</p>
+                    </div>
+                  )}
                   <div className="cardTop">
                     <div className="rank">#{index + 1}</div>
 
@@ -1180,6 +1231,51 @@ export default function Radar() {
             rgba(6,10,8,.98)
           );
           transition: transform .2s ease, border-color .2s ease;
+        }
+        .riskGlobalBanner {
+          margin: 20px 0;
+          padding: 18px 22px;
+          border: 2px solid #e4a84b;
+          border-radius: 12px;
+          background: linear-gradient(100deg, rgba(137,78,0,.25), rgba(75,36,0,.12));
+          color: #ffdfa0;
+        }
+        .riskGlobalBanner strong {
+          display: block;
+          font-size: 13px;
+          letter-spacing: .5px;
+        }
+        .riskGlobalBanner p {
+          font-size: 12px;
+          margin: 8px 0 0;
+          line-height: 1.6;
+        }
+        .riskWarning {
+          border: 2px solid #f0b74a;
+          border-radius: 12px;
+          padding: 15px 16px;
+          margin-bottom: 17px;
+          color: #ffe1a4;
+          background: rgba(138, 82, 0, .22);
+          box-shadow: inset 0 0 18px rgba(240, 183, 74, .06);
+        }
+        .riskWarning.critical {
+          border-color: #ff5868;
+          color: #ffe2e5;
+          background: rgba(154, 22, 45, .26);
+          box-shadow: inset 0 0 24px rgba(255, 88, 104, .08);
+        }
+        .riskWarning strong {
+          display: block;
+          font-size: 13px;
+          font-weight: 950;
+          letter-spacing: .6px;
+          line-height: 1.4;
+        }
+        .riskWarning p {
+          margin: 8px 0 0;
+          font-size: 12px;
+          line-height: 1.55;
         }
         .tokenCard:hover {
           transform: translateY(-2px);

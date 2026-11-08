@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
 
@@ -408,11 +408,102 @@ function buildInsights(a, b) {
 
   return insights.slice(0, 7);
 }
+function TokenPicker({ id, label, value, onChange, selected, onSelect, disabled }) {
+  const [results, setResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState("");
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const query = value.trim();
+    if (!open || selected || query.length < 2 || isSolanaMint(query)) {
+      setResults([]);
+      setSearching(false);
+      setSearchError("");
+      return;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setSearching(true);
+      setSearchError("");
+      try {
+        const response = await fetch("/api/search-token?q=" + encodeURIComponent(query), { signal: controller.signal });
+        const data = await response.json();
+        if (!response.ok || data?.ok !== true) throw new Error(data?.error || "Recherche indisponible.");
+        setResults(Array.isArray(data.results) ? data.results : []);
+      } catch (error) {
+        if (error.name !== "AbortError") {
+          setResults([]);
+          setSearchError(error.message || "Recherche indisponible.");
+        }
+      } finally {
+        if (!controller.signal.aborted) setSearching(false);
+      }
+    }, 350);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [value, selected, open]);
+
+  return (
+    <div className="inputBlock" style={{ position: "relative", minWidth: 0 }}>
+      <label htmlFor={id}>{label}</label>
+      <input
+        id={id}
+        value={value}
+        disabled={disabled}
+        onChange={(event) => { onChange(event.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        placeholder="Nom, symbole ou adresse mint Solana"
+        autoComplete="off"
+        spellCheck={false}
+        aria-autocomplete="list"
+        aria-expanded={open && !selected && value.trim().length >= 2 && !isSolanaMint(value.trim())}
+      />
+      {selected && (
+        <div style={{ color: "#2bfa88", fontSize: 12, marginTop: 6, overflowWrap: "anywhere" }}>
+          ✓ {selected.name || selected.symbol} ({selected.symbol || "?"}) — {selected.mint}
+          {selected.verificationStatus === "OFFICIAL_PROJECT_MINT" ? " · Mint déclaré officiel PFX (non audité)" : " · Identité non vérifiée"}
+        </div>
+      )}
+      {open && !selected && value.trim().length >= 2 && !isSolanaMint(value.trim()) && (
+        <div role="listbox" style={{ position: "absolute", zIndex: 30, top: "100%", left: 0, right: 0, maxHeight: 300, overflowY: "auto", background: "#08140f", border: "1px solid #20e57b", borderRadius: 10, boxShadow: "0 12px 30px #000c" }}>
+          {searching && <div style={{ padding: 12, color: "#c7d9cf" }}>Recherche de tokens…</div>}
+          {!searching && searchError && <div style={{ padding: 12, color: "#ff9b9b" }}>{searchError}</div>}
+          {!searching && !searchError && results.length === 0 && <div style={{ padding: 12, color: "#c7d9cf" }}>Aucun token trouvé. Vérifiez le symbole.</div>}
+          {!searching && results.map((token) => (
+            <button key={token.mint} type="button" role="option" aria-selected={false}
+              onClick={() => { onSelect(token); setOpen(false); }}
+              style={{ display: "block", width: "100%", padding: "10px 12px", textAlign: "left", background: "transparent", color: "#f5fff9", border: 0, borderBottom: "1px solid #254133", cursor: "pointer", overflowWrap: "anywhere" }}>
+              <strong>{token.name || "Token"} ({token.symbol || "?"})</strong>
+              <span style={{ display: "block", fontSize: 11, opacity: 0.8, marginTop: 3 }}>{token.mint}</span>
+              <span style={{ display: "block", fontSize: 11, color: token.verificationStatus === "OFFICIAL_PROJECT_MINT" ? "#2bfa88" : "#b9c5bf" }}>
+                {token.verificationStatus === "OFFICIAL_PROJECT_MINT" ? "Mint déclaré officiel par PROFITX · non audité" : "Non vérifié"} · {token.dexId || token.source || "Source non précisée"}
+                {typeof token.liquidityUsd === "number" ? " · Liquidité " + formatUsd(token.liquidityUsd) : ""}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function isSolanaMint(value) {
+  if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value)) return false;
+  const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  let number = 0n;
+  for (const char of value) number = number * 58n + BigInt(alphabet.indexOf(char));
+  let bytes = 0;
+  while (number > 0n) { bytes++; number >>= 8n; }
+  return bytes + (value.match(/^1*/)?.[0].length || 0) === 32;
+}
+
 export default function ComparePage() {
   const router = useRouter();
 
   const [mintA, setMintA] = useState("");
   const [mintB, setMintB] = useState("");
+  const [selectedA, setSelectedA] = useState(null);
+  const [selectedB, setSelectedB] = useState(null);
 
   const [resultA, setResultA] = useState(null);
   const [resultB, setResultB] = useState(null);
@@ -450,8 +541,8 @@ export default function ComparePage() {
   async function compareTokens(event) {
     event?.preventDefault();
 
-    const a = mintA.trim();
-    const b = mintB.trim();
+    const a = selectedA?.mint || mintA.trim();
+    const b = selectedB?.mint || mintB.trim();
 
     setError("");
     setResultA(null);
@@ -459,8 +550,13 @@ export default function ComparePage() {
 
     if (!a || !b) {
       setError(
-        "Renseignez les deux adresses mint à comparer."
+        "Renseignez les deux tokens à comparer."
       );
+      return;
+    }
+
+    if ((!selectedA && !isSolanaMint(a)) || (!selectedB && !isSolanaMint(b))) {
+      setError("Pour une recherche par nom ou symbole, sélectionnez le token dans les suggestions avant de comparer.");
       return;
     }
 
@@ -609,43 +705,13 @@ export default function ComparePage() {
             className="compareForm"
             onSubmit={compareTokens}
           >
-            <div className="inputBlock">
-              <label htmlFor="mintA">
-                TOKEN A
-              </label>
-
-              <input
-                id="mintA"
-                value={mintA}
-                onChange={(e) =>
-                  setMintA(e.target.value)
-                }
-                placeholder="Adresse mint Solana du Token A"
-                autoComplete="off"
-                spellCheck="false"
-              />
-            </div>
-
-            <div className="versus">
-              VS
-            </div>
-
-            <div className="inputBlock">
-              <label htmlFor="mintB">
-                TOKEN B
-              </label>
-
-              <input
-                id="mintB"
-                value={mintB}
-                onChange={(e) =>
-                  setMintB(e.target.value)
-                }
-                placeholder="Adresse mint Solana du Token B"
-                autoComplete="off"
-                spellCheck="false"
-              />
-            </div>
+            <TokenPicker id="mintA" label="TOKEN A" value={mintA} selected={selectedA}
+              disabled={loading} onChange={(value) => { setMintA(value); setSelectedA(null); }}
+              onSelect={(token) => { setMintA(token.symbol || token.name || token.mint); setSelectedA(token); }} />
+            <div className="versus">VS</div>
+            <TokenPicker id="mintB" label="TOKEN B" value={mintB} selected={selectedB}
+              disabled={loading} onChange={(value) => { setMintB(value); setSelectedB(null); }}
+              onSelect={(token) => { setMintB(token.symbol || token.name || token.mint); setSelectedB(token); }} />
 
             <button
               className="compareButton"

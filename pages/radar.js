@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
+import PfxPoolStatus from "../components/PfxPoolStatus";
 
 const REFRESH_INTERVAL = 60000;
 const WATCHLIST_KEY = "profitx-watchlist-v1";
@@ -797,6 +798,7 @@ export default function Radar() {
                 Cette identification du projet n’est pas un audit ni une garantie de sécurité.
                 Les autres tokens appelés PFX peuvent être différents.
               </p>
+              <PfxPoolStatus />
               <button type="button" className="refreshButton"
                 onClick={() => router.push("/?mint=" + encodeURIComponent(OFFICIAL_PFX_MINT))}
               >

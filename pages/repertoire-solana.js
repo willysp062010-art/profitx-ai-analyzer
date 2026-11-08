@@ -1,6 +1,7 @@
 import {useEffect,useState} from "react";
 import Head from "next/head";
 import Link from "next/link";
+import PfxPoolStatus from "../components/PfxPoolStatus";
 
 const money=(value)=>{
   if(value===null||value===undefined||value==="")return "N/D";
@@ -88,6 +89,7 @@ export default function RepertoireSolana(){
         <h2>PROFITX — PFX</h2>
         <p style={{...styles.muted,overflowWrap:"anywhere"}}>{officialMint}</p>
         <p style={styles.muted}>Un seul mint est déclaré par PROFITX AI : vérifiez toujours cette adresse exacte. Cette mention identifie notre projet et ne constitue pas un audit indépendant. Attention aux autres tokens appelés PFX.</p>
+        <PfxPoolStatus />
         <Link href={"/?mint="+officialMint} style={styles.link}>Analyser le mint PFX →</Link>
       </section>}
       {!state.loading&&!state.error&&state.tokens.length===0&&<div style={styles.card}>Aucun autre token trouvé dans notre base actuelle. Cela ne prouve pas son inexistence sur Solana.</div>}

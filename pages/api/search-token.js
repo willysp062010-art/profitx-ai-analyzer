@@ -125,6 +125,7 @@ function addToken(tokens, token) {
     ...token,
     name: official?.name || token.name,
     symbol: official?.symbol || token.symbol,
+    imageUri: token.imageUri || null,
     verified: Boolean(official),
     verificationStatus: official
       ? "OFFICIAL_PROJECT_MINT"
@@ -144,8 +145,11 @@ function addToken(tokens, token) {
   if (newLiquidity > oldLiquidity) {
     tokens.set(token.mint, {
       ...previous,
-      ...candidate
+      ...candidate,
+      imageUri: candidate.imageUri || previous.imageUri || null
     });
+  } else if (!previous.imageUri && candidate.imageUri) {
+    tokens.set(token.mint, { ...previous, imageUri: candidate.imageUri });
   }
 }
 
@@ -293,6 +297,7 @@ export default async function handler(req, res) {
           dexId: pair?.dexId || null,
           pairAddress: pair?.pairAddress || null,
           url: pair?.url || null,
+          imageUri: typeof pair?.info?.imageUrl === "string" ? pair.info.imageUrl : null,
           source: "dexscreener"
         });
       }
@@ -328,6 +333,7 @@ export default async function handler(req, res) {
         dexId: null,
         pairAddress: null,
         url: null,
+        imageUri: typeof coin?.image_uri === "string" ? coin.image_uri : null,
         source: "pumpfun",
         bondingCurveComplete: coin?.complete === true,
         createdTimestamp: numeric(

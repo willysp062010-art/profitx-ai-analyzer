@@ -147,6 +147,7 @@ function normalizeToken(token, index) {
     largestTokenAccountAddress: token?.largestTokenAccountAddress || null,
     largestTokenAccountOwner: token?.largestTokenAccountOwner || null,
     largestTokenAccountFrozen: token?.largestTokenAccountFrozen === true,
+    largestAuthorityAccountType: token?.largestAuthorityAccountType || null,
     tokenProgram: token?.tokenProgram || null,
     tokenExtensions: Array.isArray(token?.tokenExtensions)
       ? token.tokenExtensions.filter((item) => typeof item === "string") : null,
@@ -177,6 +178,9 @@ function normalizeToken(token, index) {
  * Missing liquidity is not zero liquidity and does not prove a scam.
  */
 function riskWarningFor(token) {
+  if (token.largestTokenAccountFrozen === true) {
+    return { level: "critical", title: "COMPTE PRINCIPAL GELE", detail: "Le compte principal est gele sur Solana. Verification necessaire avant tout achat." };
+  }
   const extensions = (token.tokenExtensions || []).map((name) =>
     name.replace(/[^a-z]/gi, "").toLowerCase()
   );
@@ -215,6 +219,22 @@ function riskWarningFor(token) {
       detail: "Une autorité d'émission est toujours active. L'offre peut potentiellement augmenter. Vérifiez les risques de dilution avant tout achat."
     };
   }
+  const liquidity = num(token.liquidity);
+  const security = num(token.securityScore);
+  if (liquidity !== null && liquidity < 1000) {
+    return {
+      level: "critical",
+      title: "⚠ RISQUE ÉLEVÉ — LIQUIDITÉ TRÈS FAIBLE",
+      detail: "Moins de 1 000 $ de liquidité observée. Revendre peut être difficile ou entraîner une perte importante. Évitez tout achat sans analyse approfondie."
+    };
+  }
+  if (security !== null && security < 30) {
+    return {
+      level: "critical",
+      title: "⚠ ALERTE — SCORE DE SÉCURITÉ FAIBLE",
+      detail: "Un score de sécurité inférieur à 30/100 nécessite une vérification indépendante avant toute décision."
+    };
+  }
   // These are TOKEN ACCOUNT balances, not separate owners.
   // Bonding curves and liquidity pools may dominate concentration.
   if (token.concentrationChecked && token.top1AccountPercent >= 80) {
@@ -231,22 +251,6 @@ function riskWarningFor(token) {
       title: "⚠ CONCENTRATION À VÉRIFIER — 10 COMPTES",
       detail: "Les 10 plus gros comptes concentrent " + token.top10AccountsPercent.toFixed(1) +
         " % de l'offre. Cette observation ne suffit pas à prouver une fraude."
-    };
-  }
-  const liquidity = num(token.liquidity);
-  const security = num(token.securityScore);
-  if (liquidity !== null && liquidity < 1000) {
-    return {
-      level: "critical",
-      title: "⚠ RISQUE ÉLEVÉ — LIQUIDITÉ TRÈS FAIBLE",
-      detail: "Moins de 1 000 $ de liquidité observée. Revendre peut être difficile ou entraîner une perte importante. Évitez tout achat sans analyse approfondie."
-    };
-  }
-  if (security !== null && security < 30) {
-    return {
-      level: "critical",
-      title: "⚠ ALERTE — SCORE DE SÉCURITÉ FAIBLE",
-      detail: "Un score de sécurité inférieur à 30/100 nécessite une vérification indépendante avant toute décision."
     };
   }
   if (liquidity === null) {
@@ -850,6 +854,15 @@ export default function Radar() {
                           Autorité du plus gros compte : {shortMint(token.largestTokenAccountOwner)}
                           {" (adresse on-chain ; pool ou personne non déterminé)"}
                           {token.largestTokenAccountFrozen ? " • COMPTE GELÉ ⚠" : ""}
+                        </span>
+                      )}
+                      {token.largestAuthorityAccountType && (
+                        <span>
+                          Type de l'autorite du compte principal : {
+                            token.largestAuthorityAccountType === "program_owned_account" ? "Compte appartenant a un programme" :
+                            token.largestAuthorityAccountType === "executable_program" ? "Programme executable" :
+                            "Compte appartenant au programme Systeme"
+                          } (cela n'identifie pas a lui seul un pool ni une personne).
                         </span>
                       )}
                       {token.creatorAddress && (

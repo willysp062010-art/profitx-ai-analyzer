@@ -372,6 +372,32 @@ async function fetchConcentration(rows, checks) {
   for (const item of responses) {
     if (item.status === "fulfilled") result.set(item.value.mint, item.value);
   }
+  const owners = [...new Set([...result.values()].map((r) => r.largestTokenAccountOwner).filter(validMint))];
+  if (owners.length) {
+    try {
+      const response = await fetch("https://mainnet.helius-rpc.com/?api-key=" + encodeURIComponent(key), {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: "pfx-authority-type", method: "getMultipleAccounts",
+          params: [owners, { encoding: "base64", commitment: "confirmed" }] }),
+        signal: AbortSignal.timeout(5500)
+      });
+      if (!response.ok) throw Error("Authority lookup HTTP " + response.status);
+      const payload = await response.json();
+      if (payload.error || !Array.isArray(payload.result?.value) ||
+          payload.result.value.length !== owners.length) throw Error("Invalid authority response");
+      const types = new Map();
+      owners.forEach((addr, index) => {
+        const account = payload.result.value[index];
+        if (!account || !validMint(account.owner)) return;
+        types.set(addr, account.executable === true ? "executable_program" :
+          account.owner === "11111111111111111111111111111111" ?
+            "system_owned_account" : "program_owned_account");
+      });
+      for (const item of result.values()) {
+        item.largestAuthorityAccountType = types.get(item.largestTokenAccountOwner) || null;
+      }
+    } catch (error) { console.warn("PFX authority type:", error.message); }
+  }
   return result;
 }
 

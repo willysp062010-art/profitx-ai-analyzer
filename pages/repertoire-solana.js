@@ -51,7 +51,6 @@ export default function RepertoireSolana(){
     return ()=>ctrl.abort();
   },[term]);
   const officialMint="6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump";
-  const showOfficial=term.length>=2&&("profitx".includes(term.toLowerCase())||"pfx".includes(term.toLowerCase())||officialMint===term);
   const styles={
     page:{minHeight:"100vh",background:"#070b0a",color:"#e7f5ed",fontFamily:"Arial, sans-serif",padding:"24px"},
     shell:{maxWidth:1180,margin:"0 auto"},
@@ -84,7 +83,14 @@ export default function RepertoireSolana(){
         </button>
       </div>
       <p style={styles.muted}>{state.loading?"Recherche en cours...":state.error?"Erreur : "+state.error:state.count===null?"Résultats disponibles":state.count.toLocaleString("fr-FR")+" tokens trouvés"} · Page {page}</p>
-      {!state.loading&&!state.error&&state.tokens.length===0&&<div style={styles.card}>Aucun token trouvé dans notre base actuelle. Cela ne prouve pas son inexistence sur Solana.</div>}
+      {<section style={{...styles.card,borderColor:"#42f9a1"}}>
+        <div style={{color:"#42f9a1",fontWeight:800}}>PROFITX AI / ANALYZER — MINT PFX DÉCLARÉ</div>
+        <h2>PROFITX — PFX</h2>
+        <p style={{...styles.muted,overflowWrap:"anywhere"}}>{officialMint}</p>
+        <p style={styles.muted}>Un seul mint est déclaré par PROFITX AI : vérifiez toujours cette adresse exacte. Cette mention identifie notre projet et ne constitue pas un audit indépendant. Attention aux autres tokens appelés PFX.</p>
+        <Link href={"/?mint="+officialMint} style={styles.link}>Analyser le mint PFX →</Link>
+      </section>}
+      {!state.loading&&!state.error&&state.tokens.length===0&&<div style={styles.card}>Aucun autre token trouvé dans notre base actuelle. Cela ne prouve pas son inexistence sur Solana.</div>}
       {state.tokens.map(t=><article key={t.mint} style={styles.card}>
         <div style={{fontSize:12,fontWeight:700,marginBottom:12,color:t.identityStatus==="metadata_present"?"#42f9a1":"#f7d894"}}>
           {t.identityStatus==="metadata_present"?"NOM ET SYMBOLE RENSEIGNÉS · NON AUDITÉ":"IDENTITÉ NON RENSEIGNÉE"}
@@ -108,13 +114,6 @@ export default function RepertoireSolana(){
           <div><span style={styles.muted}>Analyse</span><div>{t.status||"N/D"}</div></div>
         </div>
       </article>)}
-      {showOfficial&&<section style={{...styles.card,borderColor:"#42f9a1"}}>
-        <div style={{color:"#42f9a1",fontWeight:800}}>MINT DÉCLARÉ PAR PROFITX AI — NON AUDITÉ</div>
-        <h2>PROFITX — PFX</h2>
-        <p style={{...styles.muted,overflowWrap:"anywhere"}}>{officialMint}</p>
-        <p style={styles.muted}>Cette adresse est déclarée officiellement par le projet. Elle ne garantit ni la sécurité ni la rentabilité du token. Attention aux homonymes.</p>
-        <Link href={"/?mint="+officialMint} style={styles.link}>Analyser le mint PFX →</Link>
-      </section>}
       {term.length>=2&&<section style={{marginTop:35}}>
         <h2 style={{color:"#42f9a1"}}>Résultats des marchés Solana</h2>
         <p style={styles.muted}>Recherche complémentaire DexScreener / Pump.fun. Résultats distincts de notre base : aucun token tiers n'est audité ou vérifié par PROFITX AI.</p>

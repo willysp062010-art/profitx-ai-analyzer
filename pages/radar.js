@@ -478,12 +478,9 @@ export default function Radar() {
     };
   }, [search]);
 
-  const searchValue = search.trim().toLowerCase();
-  const officialPfxMatch = searchValue.length >= 2 && (
-    searchValue === "pfx" ||
-    searchValue === "profitx" ||
-    OFFICIAL_PFX_MINT.toLowerCase().startsWith(searchValue)
-  );
+  // PFX is the declared project mint: pin it above results at all times,
+  // including before search and when the user enters an unrelated query.
+  const officialPfxMatch = true;
 
   const displayedTokens = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -789,15 +786,16 @@ export default function Radar() {
               color: "#ecfff5"
             }}>
               <div style={{color:"#45ffb6",fontWeight:800,letterSpacing:"0.08em",fontSize:12}}>
-                RÉSULTAT DIRECT — MINT DÉCLARÉ PAR PROFITX AI
+                PROFITX AI / ANALYZER — MINT PFX DÉCLARÉ PAR LE PROJET
               </div>
               <h2 style={{margin:"10px 0",fontSize:26}}>PROFITX (PFX)</h2>
               <p style={{wordBreak:"break-all",fontFamily:"monospace",fontSize:14}}>
                 {OFFICIAL_PFX_MINT}
               </p>
               <p style={{color:"#b4d7c5",fontSize:13,marginTop:8}}>
-                Adresse déclarée par le projet, non auditée.
-                Ce résultat est disponible indépendamment des 100 dernières détections Helius.
+                Un seul mint déclaré par PROFITX AI : vérifiez toujours l’adresse complète.
+                Cette identification du projet n’est pas un audit ni une garantie de sécurité.
+                Les autres tokens appelés PFX peuvent être différents.
               </p>
               <button type="button" className="refreshButton"
                 onClick={() => router.push("/?mint=" + encodeURIComponent(OFFICIAL_PFX_MINT))}
@@ -838,8 +836,8 @@ export default function Radar() {
               <div className="emptyIcon">◎</div>
               <strong>AUCUN TOKEN À AFFICHER</strong>
               <p>
-                Aucun résultat ne correspond actuellement aux
-                critères sélectionnés.
+                Aucun autre token ne correspond actuellement aux
+                critères sélectionnés. Le mint PFX déclaré reste accessible en tête de page.
               </p>
             </section>
           ) : (

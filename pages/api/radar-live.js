@@ -373,7 +373,7 @@ export default async function handler(req, res) {
   try {
     const params = new URLSearchParams({
       select:
-        "id,mint,name,symbol,metadata,source,launch_platform," +
+        "id,mint,name,symbol,metadata,source,launch_platform,creator_address," +
         "detected_at,created_onchain_at," +
         "liquidity_usd,volume_24h_usd,market_cap_usd," +
         "security_score,utility_score," +
@@ -419,6 +419,7 @@ export default async function handler(req, res) {
       ...(liveMarkets.get(row.mint) || {}),
       ...(onchainChecks.get(row.mint) || {}),
       ...(concentrations.get(row.mint) || {}),
+      creatorAddress: validMint(row.creator_address) ? row.creator_address : null,
       mint: row.mint,
       name: tokenText(row.name) || "Token inconnu",
       symbol: tokenText(row.symbol) || "N/D",

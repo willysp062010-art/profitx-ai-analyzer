@@ -86,6 +86,14 @@ export default function RepertoireSolana(){
       <p style={styles.muted}>{state.loading?"Recherche en cours...":state.error?"Erreur : "+state.error:state.count===null?"Résultats disponibles":state.count.toLocaleString("fr-FR")+" tokens trouvés"} · Page {page}</p>
       {!state.loading&&!state.error&&state.tokens.length===0&&<div style={styles.card}>Aucun token trouvé dans notre base actuelle. Cela ne prouve pas son inexistence sur Solana.</div>}
       {state.tokens.map(t=><article key={t.mint} style={styles.card}>
+        <div style={{fontSize:12,fontWeight:700,marginBottom:12,color:t.identityStatus==="metadata_present"?"#42f9a1":"#f7d894"}}>
+          {t.identityStatus==="metadata_present"?"NOM ET SYMBOLE RENSEIGNÉS · NON AUDITÉ":"IDENTITÉ NON RENSEIGNÉE"}
+        </div>
+        {t.mint!==officialMint&&(/^(pfx|profitx)$/i.test(t.symbol||"")||/^profitx(?: ai)?$/i.test(t.name||""))&&
+          <div style={{background:"#332818",border:"1px solid #a67a36",borderRadius:8,padding:10,color:"#f7d894",marginBottom:12}}>
+            ⚠ Homonyme du projet PROFITX : cette adresse est différente du mint PFX déclaré. Sa légitimité et son niveau de risque ne sont pas vérifiés.
+          </div>}
+
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12}}>
           <div><strong style={{fontSize:20}}>{t.name}</strong> <span style={{color:"#42f9a1"}}>{t.symbol!=="N/D"?"$"+t.symbol:""}</span>
             <div style={{...styles.muted,fontSize:12,marginTop:5,overflowWrap:"anywhere"}}>{t.mint}</div></div>
@@ -96,6 +104,7 @@ export default function RepertoireSolana(){
           <div><span style={styles.muted}>Détecté le</span><div>{date(t.detectedAt)}</div></div>
           <div><span style={styles.muted}>Liquidité observée</span><div>{money(t.liquidityUsd)}</div></div>
           <div><span style={styles.muted}>Volume 24 h</span><div>{money(t.volume24hUsd)}</div></div>
+          <div><span style={styles.muted}>Données du marché</span><div>{t.marketDataStatus==="not_available"?"Non disponibles":"Partielles · non garanties"}</div></div>
           <div><span style={styles.muted}>Analyse</span><div>{t.status||"N/D"}</div></div>
         </div>
       </article>)}

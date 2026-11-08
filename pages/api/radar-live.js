@@ -119,6 +119,119 @@ async function enrichOnRead(rows, supabaseUrl, supabaseKey) {
 }
 
 
+
+/**
+ * DexScreener reports real on-DEX pool liquidity and market activity.
+ * Newly created Pump.fun bonding-curve tokens may have no indexed DEX pair;
+ * those values must remain unknown rather than treating virtual liquidity as real.
+ */
+async function fetchMarketPairs(rows) {
+  const addresses = [...new Set(rows.map((row) => row.mint).filter(validMint))];
+  const groups = [];
+  for (let i = 0; i < addresses.length; i += 30) {
+    groups.push(addresses.slice(i, i + 30));
+  }
+  const results = await Promise.allSettled(groups.map(async (group) => {
+    const endpoint = "https://api.dexscreener.com/tokens/v1/solana/" +
+      group.map(encodeURIComponent).join(",");
+    const response = await fetch(endpoint, {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(5500)
+    });
+    if (!response.ok) throw new Error("DexScreener HTTP " + response.status);
+    const pairs = await response.json();
+    if (!Array.isArray(pairs)) throw new Error("Invalid DEX pair response");
+    return pairs;
+  }));
+
+  const byMint = new Map();
+  let successfulRequests = 0;
+  for (const result of results) {
+    if (result.status !== "fulfilled") {
+      console.warn("PFX Radar market lookup:", result.reason?.message);
+      continue;
+    }
+    successfulRequests++;
+    for (const pair of result.value) {
+      if (pair?.chainId !== "solana") continue;
+      const mint = pair?.baseToken?.address;
+      if (!validMint(mint) || !addresses.includes(mint)) continue;
+      const liquidity = finiteNonNegative(pair?.liquidity?.usd);
+      const current = byMint.get(mint);
+      const currentLiquidity = finiteNonNegative(current?.liquidity?.usd);
+      if (!current || (liquidity ?? -1) > (currentLiquidity ?? -1)) {
+        byMint.set(mint, pair);
+      }
+    }
+  }
+  return { byMint, fetched: successfulRequests > 0 };
+}
+
+function finiteNonNegative(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? number : null;
+}
+
+async function enrichMarketRows(rows, supabaseUrl, supabaseKey) {
+  let data;
+  try {
+    data = await fetchMarketPairs(rows);
+  } catch (error) {
+    console.warn("PFX Radar market lookup:", error.message);
+    return new Map();
+  }
+  const market = new Map();
+  const changes = [];
+  for (const row of rows) {
+    const pair = data.byMint.get(row.mint);
+    if (!pair) continue;
+    const liquidityUsd = finiteNonNegative(pair?.liquidity?.usd);
+    const volume24h = finiteNonNegative(pair?.volume?.h24);
+    // Do not present fully diluted valuation as actual market capitalization.
+    const marketCap = finiteNonNegative(pair?.marketCap);
+    const priceUsd = finiteNonNegative(pair?.priceUsd);
+    const values = {
+      liquidityUsd, volume24h, marketCap, priceUsd,
+      dexId: typeof pair.dexId === "string" ? pair.dexId : null,
+      pairAddress: typeof pair.pairAddress === "string" ? pair.pairAddress : null,
+      pairUrl: typeof pair.url === "string" ? pair.url : null,
+      marketDataSource: "DexScreener",
+      realLiquidity: liquidityUsd !== null
+    };
+    market.set(row.mint, values);
+    const update = {};
+    if (liquidityUsd !== null && Number(row.liquidity_usd) !== liquidityUsd) update.liquidity_usd = liquidityUsd;
+    if (volume24h !== null && Number(row.volume_24h_usd) !== volume24h) update.volume_24h_usd = volume24h;
+    if (marketCap !== null && Number(row.market_cap_usd) !== marketCap) update.market_cap_usd = marketCap;
+    if (Object.keys(update).length && row.id !== undefined) changes.push({ id: row.id, update });
+  }
+  // Persist only verifiable values; never overwrite previous values with null.
+  // A bounded write set avoids amplifying bursty Radar traffic.
+  await Promise.allSettled(changes.slice(0, 12).map(async ({ id, update }) => {
+    try {
+      const response = await fetch(
+        supabaseUrl + "/rest/v1/pfx_radar_tokens?id=eq." + encodeURIComponent(id),
+        {
+          method: "PATCH",
+          headers: {
+            apikey: supabaseKey,
+            Authorization: "Bearer " + supabaseKey,
+            "Content-Type": "application/json",
+            Prefer: "return=minimal"
+          },
+          body: JSON.stringify(update),
+          signal: AbortSignal.timeout(5000)
+        }
+      );
+      if (!response.ok) throw new Error("Supabase HTTP " + response.status);
+    } catch (error) {
+      console.warn("PFX Radar market persist:", error.message);
+    }
+  }));
+  return market;
+}
+
 const TABLE = "pfx_radar_tokens";
 
 export default async function handler(req, res) {
@@ -174,18 +287,23 @@ export default async function handler(req, res) {
     const rows = await response.json();
     if (!Array.isArray(rows)) throw new Error("Invalid Supabase response");
 
-    await enrichOnRead(rows, url, key);
+    const [identityResult, marketResult] = await Promise.allSettled([
+      enrichOnRead(rows, url, key),
+      enrichMarketRows(rows, url, key)
+    ]);
+    const liveMarkets = marketResult.status === "fulfilled" ? marketResult.value : new Map();
 
     const tokens = rows.map((row) => ({
+      ...(liveMarkets.get(row.mint) || {}),
       mint: row.mint,
       name: tokenText(row.name) || "Token inconnu",
       symbol: tokenText(row.symbol) || "N/D",
       source: row.launch_platform || row.source,
       detectedAt: row.detected_at,
       createdOnchainAt: row.created_onchain_at,
-      liquidityUsd: row.liquidity_usd,
-      volume24h: row.volume_24h_usd,
-      marketCap: row.market_cap_usd,
+      liquidityUsd: liveMarkets.get(row.mint)?.liquidityUsd ?? row.liquidity_usd,
+      volume24h: liveMarkets.get(row.mint)?.volume24h ?? row.volume_24h_usd,
+      marketCap: liveMarkets.get(row.mint)?.marketCap ?? row.market_cap_usd,
       securityScore: row.security_score,
       utilityScore: row.utility_score,
       speculationRiskScore: row.speculation_risk_score,

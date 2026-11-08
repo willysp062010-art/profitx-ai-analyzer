@@ -478,6 +478,13 @@ export default function Radar() {
     };
   }, [search]);
 
+  const searchValue = search.trim().toLowerCase();
+  const officialPfxMatch = searchValue.length >= 2 && (
+    searchValue === "pfx" ||
+    searchValue === "profitx" ||
+    OFFICIAL_PFX_MINT.toLowerCase().startsWith(searchValue)
+  );
+
   const displayedTokens = useMemo(() => {
     const query = search.trim().toLowerCase();
 
@@ -767,9 +774,38 @@ export default function Radar() {
 
             <div className="resultCounter">
               <span>TOKENS AFFICHÉS</span>
-              <strong>{displayedTokens.length}</strong>
+              <strong>{displayedTokens.filter((token) => !(officialPfxMatch && token.mint === OFFICIAL_PFX_MINT)).length + (officialPfxMatch ? 1 : 0)}</strong>
             </div>
           </section>
+
+          {officialPfxMatch && (
+            <section role="region" aria-label="Résultat officiel PROFITX" style={{
+              border: "2px solid #26e69b",
+              borderRadius: 14,
+              background: "#0b2118",
+              padding: "22px",
+              marginTop: "20px",
+              marginBottom: "20px",
+              color: "#ecfff5"
+            }}>
+              <div style={{color:"#45ffb6",fontWeight:800,letterSpacing:"0.08em",fontSize:12}}>
+                RÉSULTAT DIRECT — MINT DÉCLARÉ PAR PROFITX AI
+              </div>
+              <h2 style={{margin:"10px 0",fontSize:26}}>PROFITX (PFX)</h2>
+              <p style={{wordBreak:"break-all",fontFamily:"monospace",fontSize:14}}>
+                {OFFICIAL_PFX_MINT}
+              </p>
+              <p style={{color:"#b4d7c5",fontSize:13,marginTop:8}}>
+                Adresse déclarée par le projet, non auditée.
+                Ce résultat est disponible indépendamment des 100 dernières détections Helius.
+              </p>
+              <button type="button" className="refreshButton"
+                onClick={() => router.push("/?mint=" + encodeURIComponent(OFFICIAL_PFX_MINT))}
+              >
+                ANALYSER PFX
+              </button>
+            </section>
+          )}
 
           {searchPending && search.trim().length >= 2 && (
             <section className="message" role="status">
@@ -797,7 +833,7 @@ export default function Radar() {
               <strong>INITIALISATION PFX RADAR</strong>
               <span>Récupération des signaux Solana...</span>
             </section>
-          ) : !error && displayedTokens.length === 0 ? (
+          ) : !error && displayedTokens.length === 0 && !officialPfxMatch ? (
             <section className="emptyPanel">
               <div className="emptyIcon">◎</div>
               <strong>AUCUN TOKEN À AFFICHER</strong>
@@ -808,7 +844,7 @@ export default function Radar() {
             </section>
           ) : (
             <section className="tokenGrid">
-              {displayedTokens.map((token, index) => (
+              {displayedTokens.filter((token) => !(officialPfxMatch && token.mint === OFFICIAL_PFX_MINT)).map((token, index) => (
                 <article className="tokenCard" key={token.id}>
                   {token.officialPfx && (
                     <div role="note" style={{

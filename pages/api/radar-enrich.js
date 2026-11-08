@@ -45,7 +45,6 @@ async function supabaseRequest(url, key, path, options = {}) {
 
   if (!response.ok) {
     const detail = await response.text();
-
     throw new Error(
       `Supabase HTTP ${response.status}: ${detail.slice(0, 200)}`
     );
@@ -111,9 +110,7 @@ async function getHeliusAssets(mints, apiKey) {
 }
 
 function extractIdentity(asset) {
-  if (!asset || typeof asset !== "object") {
-    return null;
-  }
+  if (!asset || typeof asset !== "object") return null;
 
   const name = cleanText(asset.content?.metadata?.name);
   const symbol = cleanText(asset.content?.metadata?.symbol, 40);
@@ -140,9 +137,9 @@ async function updateToken(url, key, id, data) {
 
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
-  res.setHeader("Allow", "POST");
+  res.setHeader("Allow", "GET, POST");
 
-  if (req.method !== "POST") {
+  if (req.method !== "GET" && req.method !== "POST") {
     return res.status(405).json({
       error: "Method not allowed"
     });
@@ -153,20 +150,28 @@ export default async function handler(req, res) {
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
     process.env.SUPABASE_SECRET_KEY;
   const heliusKey = process.env.HELIUS_API_KEY;
-  const expectedSecret = process.env.RADAR_ENRICH_SECRET;
+  const manualSecret = process.env.RADAR_ENRICH_SECRET;
+  const cronSecret = process.env.CRON_SECRET;
 
-  if (!supabaseUrl || !supabaseKey || !heliusKey || !expectedSecret) {
+  if (!supabaseUrl || !supabaseKey || !heliusKey) {
     return res.status(503).json({
       error: "Radar enrichment configuration incomplete"
     });
   }
 
-  if (
-    !secureEqual(
-      req.headers.authorization,
-      `Bearer ${expectedSecret}`
-    )
-  ) {
+  const authorization = req.headers.authorization;
+
+  const authorizedManual =
+    req.method === "POST" &&
+    Boolean(manualSecret) &&
+    secureEqual(authorization, `Bearer ${manualSecret}`);
+
+  const authorizedCron =
+    req.method === "GET" &&
+    Boolean(cronSecret) &&
+    secureEqual(authorization, `Bearer ${cronSecret}`);
+
+  if (!authorizedManual && !authorizedCron) {
     return res.status(401).json({
       error: "Unauthorized"
     });

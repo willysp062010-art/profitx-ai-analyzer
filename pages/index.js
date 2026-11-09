@@ -84,7 +84,7 @@ function statusLabel(status) {
       return "BONDING CURVE";
 
     case "NO_MARKET":
-      return "AUCUN MARCHÉ";
+      return "AUCUN MARCHÉ DÉTECTÉ";
 
     case "MARKET_UNVERIFIED":
       return "MARCHÉ NON VÉRIFIÉ";
@@ -188,7 +188,7 @@ function getMarketState(data, observed) {
   }
 
   if (data?.status === "NO_MARKET") {
-    return "AUCUN MARCHÉ";
+    return "AUCUN MARCHÉ DÉTECTÉ";
   }
 
   return statusLabel(data?.status);

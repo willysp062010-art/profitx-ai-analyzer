@@ -941,6 +941,15 @@ export default function Radar() {
                     ))}
                   </div>
 
+                  {source === "live" && token.liquidityVerification !== "dexscreener_live_pair" && (
+                    <div className="onchainLine">
+                      <span>
+                        Aucune liquidité DEX confirmée pour ce token. S'il est encore sur une bonding curve Pump.fun,
+                        la liquidité virtuelle éventuelle ne représente pas une réserve DEX disponible pour la revente.
+                      </span>
+                    </div>
+                  )}
+
                   {source === "live" && (
                     <div className="onchainLine">
                       <span>

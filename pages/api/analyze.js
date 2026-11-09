@@ -2095,7 +2095,19 @@ export default async function handler(
     solPriceUsd:
       pumpMarketDetected
         ? pump?.solPrice ?? null
-        : null
+        : null,
+
+    // Independent account observations are available even if market data is absent.
+    realSolReservesOnchain:
+      pumpCurveOnchain?.realSolReserves ?? null,
+
+    onchainCurveAccount:
+      pumpCurveOnchain?.address ?? null,
+
+    onchainCurveSlot:
+      pumpCurveOnchain?.slot ?? null,
+
+    onchainCurveStatus
   };
 
   const data = {
@@ -2157,15 +2169,16 @@ export default async function handler(
       observed.realSolReservesReported,
 
     realSolReservesOnchain:
-      pumpCurveOnchain?.realSolReserves ?? null,
+      observed.realSolReservesOnchain,
 
     onchainCurveAccount:
-      pumpCurveOnchain?.address ?? null,
+      observed.onchainCurveAccount,
 
     onchainCurveSlot:
-      pumpCurveOnchain?.slot ?? null,
+      observed.onchainCurveSlot,
 
-    onchainCurveStatus,
+    onchainCurveStatus:
+      observed.onchainCurveStatus,
 
     reserveVerification:
       observed.realSolReservesReported !== null

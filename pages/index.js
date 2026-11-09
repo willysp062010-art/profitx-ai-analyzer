@@ -2021,6 +2021,16 @@ async function searchToken(query) {
               </div>
 
               <div>
+                <span>Valeur indicative SOL virtuels</span>
+
+                <strong>
+                  {fmtUsd(
+                    observed.virtualSolValueUsd
+                  )}
+                </strong>
+              </div>
+
+              <div>
                 <span>Prix SOL</span>
 
                 <strong>
@@ -2031,6 +2041,13 @@ async function searchToken(query) {
               </div>
 
             </div>
+
+            <p style={{ marginTop: 12, fontSize: 13, opacity: 0.8 }}>
+              Les réserves SOL virtuelles et leur valorisation indicative
+              ne sont pas de la liquidité DEX disponible. Les réserves
+              réelles de la courbe de bonding ne sont pas encore vérifiées
+              directement sur Solana. N/D signifie donnée indisponible.
+            </p>
 
           </div>
 

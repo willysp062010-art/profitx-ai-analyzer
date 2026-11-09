@@ -2013,6 +2013,16 @@ async function searchToken(query) {
               </div>
 
               <div>
+                <span>Réserves SOL réelles déclarées par Pump.fun</span>
+
+                <strong>
+                  {observed.realSolReservesReported == null
+                    ? "N/D"
+                    : `${fmtDecimal(observed.realSolReservesReported, 4)} SOL`}
+                </strong>
+              </div>
+
+              <div>
                 <span>
                   Réserves tokens virtuelles
                 </span>
@@ -2052,8 +2062,10 @@ async function searchToken(query) {
             <p style={{ marginTop: 12, fontSize: 13, opacity: 0.8 }}>
               Les réserves SOL virtuelles et leur valorisation indicative
               ne sont pas de la liquidité DEX disponible. Les réserves
-              réelles de la courbe de bonding ne sont pas encore vérifiées
-              directement sur Solana. N/D signifie donnée indisponible.
+              réelles déclarées par Pump.fun proviennent de son API et
+              ne sont pas encore vérifiées indépendamment sur Solana.
+              Elles ne garantissent ni la liquidité DEX ni la revente.
+              N/D signifie donnée indisponible.
             </p>
 
           </div>

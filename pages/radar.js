@@ -93,10 +93,10 @@ function normalizeToken(token, index) {
     token?.created_onchain_at ||
     null;
 
+  // Detection time is not proof of token creation time.
   const createdTime =
     timestamp(token?.createdOnchainAt) ??
     timestamp(token?.created_onchain_at) ??
-    timestamp(detectedAt) ??
     timestamp(token?.pairCreatedAt);
 
   const liquidityObject =
@@ -943,7 +943,7 @@ export default function Radar() {
                         "TRANSACTIONS 24 H",
                         integer(token.transactions24h),
                       ],
-                      ["ÂGE", age(token.ageMs)],
+                      [source === "live" ? "ÂGE ONCHAIN" : "ÂGE", age(token.ageMs)],
                     ].map(([label, value]) => (
                       <div className="metric" key={label}>
                         <span>{label}</span>

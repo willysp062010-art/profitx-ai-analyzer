@@ -176,8 +176,14 @@ function chooseBestPair(
     return null;
   }
 
+  // Prefer a market where the monitored token is the base token:
+  // DexScreener priceUsd and 24h price change describe the base token.
+  // A deeper quote-side pool must not hide usable token price data.
   return [...matchingPairs].sort(
     (a, b) => {
+      const aIsBase = a?.baseToken?.address === tokenAddress;
+      const bIsBase = b?.baseToken?.address === tokenAddress;
+      if (aIsBase !== bIsBase) return aIsBase ? -1 : 1;
       const liquidityA =
         toNumber(a?.liquidity?.usd) || 0;
 

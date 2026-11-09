@@ -149,6 +149,17 @@ function getActivityState(observed, activity) {
     };
   }
 
+  if (
+    observed?.volume24hUsd == null ||
+    observed?.transactions24h == null
+  ) {
+    return {
+      label: "ACTIVITÉ PARTIELLEMENT MESURÉE",
+      description: "Des mouvements sont observés, mais le volume ou le nombre de transactions manque : intensité non vérifiable.",
+      className: "unknown"
+    };
+  }
+
   if (transactions <= 5 || volume < 100) {
     return {
       label: "FAIBLE ACTIVITÉ",
@@ -422,6 +433,11 @@ function buildProfitxDiagnostic({
   ) {
     marketMessage =
       "Aucun mouvement économique n'est détecté sur les dernières 24 heures. Les zéros de volume et de transactions sont traités comme de vrais zéros, pas comme des données manquantes.";
+  } else if (
+    activityState?.label === "ACTIVITÉ PARTIELLEMENT MESURÉE"
+  ) {
+    marketMessage =
+      "Des mouvements récents sont détectés, mais le volume ou les transactions sur 24 heures manquent : impossible de qualifier l'intensité.";
   } else if (
     activityState?.label === "FAIBLE ACTIVITÉ"
   ) {

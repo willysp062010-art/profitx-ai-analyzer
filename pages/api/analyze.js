@@ -2335,7 +2335,7 @@ export default async function handler(
 
       isToken2022:
         token2022?.isToken2022 ??
-        false,
+        null,
 
       extensionCount:
         token2022

@@ -42,7 +42,7 @@ async function enrichOnRead(rows, supabaseUrl, supabaseKey) {
   let historical = [];
   try {
     const pageRaw = typeof req.query.page === "string" ? req.query.page : "0";
-    if (!/^(0|[1-9]\\d{0,3})$/.test(pageRaw)) {
+    if (!/^(0|[1-9]\d{0,3})$/.test(pageRaw)) {
       return res.status(400).json({ error: "Page invalide" });
     }
     const page = Number(pageRaw);

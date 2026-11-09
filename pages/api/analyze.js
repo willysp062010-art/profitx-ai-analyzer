@@ -525,6 +525,16 @@ function pumpMetrics(
       solPrice;
   }
 
+  const realSolRaw =
+    num(
+      coin?.real_sol_reserves
+    );
+
+  const realSolReported =
+    realSolRaw !== null
+      ? realSolRaw / 1e9
+      : null;
+
   const virtualSolRaw =
     num(
       coin?.virtual_sol_reserves
@@ -611,6 +621,7 @@ function pumpMetrics(
       null,
 
     virtualSol,
+    realSolReported,
 
     virtualToken,
 
@@ -1994,6 +2005,12 @@ export default async function handler(
         ? pMetrics?.virtualSol ?? null
         : null,
 
+    // Pump.fun API-reported value, not an independent on-chain verification.
+    realSolReservesReported:
+      pumpMarketDetected
+        ? pMetrics?.realSolReported ?? null
+        : null,
+
     // Indicative USD valuation of virtual SOL, never actual DEX liquidity.
     virtualSolValueUsd:
       pumpMarketDetected
@@ -2065,6 +2082,9 @@ export default async function handler(
 
     virtualSolReserves:
       observed.virtualSolReserves,
+
+    realSolReservesReported:
+      observed.realSolReservesReported,
 
     virtualSolValueUsd:
       observed.virtualSolValueUsd,
@@ -2369,6 +2389,10 @@ export default async function handler(
 
             virtualSolReserves:
               pMetrics?.virtualSol ??
+              null,
+
+            realSolReservesReported:
+              pMetrics?.realSolReported ??
               null,
 
             virtualSolValueUsd:

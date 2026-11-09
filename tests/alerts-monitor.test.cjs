@@ -5,7 +5,7 @@ const vm = require("node:vm");
 const path = require("node:path");
 const source = fs.readFileSync(path.join(__dirname, "../pages/api/alerts-monitor.js"),"utf8")
   .replace("export default async function handler(", "async function handler(")
-  + "\nmodule.exports={handler};";
+  + "\nmodule.exports={handler,chooseBestPair,extractMarketData};";
 function load(env={},fetchImpl=async()=>{throw Error("Unexpected external request")}) {
   const ctx={module:{exports:{}},process:{env},fetch:fetchImpl,AbortController,
     setTimeout,clearTimeout,Date,console,encodeURIComponent};
@@ -32,4 +32,30 @@ test("monitor rejects missing private Supabase key",async()=>{
 test("monitor rejects unauthorized requests before accessing alerts",async()=>{
  const res=await invoke(load({SUPABASE_URL:"https://example.com",SUPABASE_SERVICE_ROLE_KEY:"private",PFX_ALERTS_MONITOR_SECRET:"test"}),"POST");
  assert.equal(res.statusCode,401);
+});
+
+test("base-token market wins over deeper quote-token market for price alerts",()=>{
+ const ctx={module:{exports:{}},process:{env:{}},fetch:async()=>{},AbortController,
+  setTimeout,clearTimeout,Date,console,encodeURIComponent};
+ vm.runInNewContext(source,ctx,{filename:"alerts-monitor.js"});
+ const mint="6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump";
+ const pairs=[
+  {chainId:"solana",baseToken:{address:"other"},quoteToken:{address:mint},
+   liquidity:{usd:900000},priceUsd:"999"},
+  {chainId:"solana",baseToken:{address:mint},quoteToken:{address:"other"},
+   liquidity:{usd:10000},priceUsd:"0.5"}
+ ];
+ const best=ctx.module.exports.chooseBestPair(pairs,mint);
+ const data=ctx.module.exports.extractMarketData(best,mint);
+ assert.equal(data.priceUsd,0.5);
+});
+test("quote-only market does not invent a price for monitored token",()=>{
+ const ctx={module:{exports:{}},process:{env:{}},fetch:async()=>{},AbortController,
+  setTimeout,clearTimeout,Date,console,encodeURIComponent};
+ vm.runInNewContext(source,ctx,{filename:"alerts-monitor.js"});
+ const mint="6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump";
+ const pair={chainId:"solana",baseToken:{address:"other"},quoteToken:{address:mint},
+  liquidity:{usd:10000},priceUsd:"999"};
+ const data=ctx.module.exports.extractMarketData(ctx.module.exports.chooseBestPair([pair],mint),mint);
+ assert.equal(data.priceUsd,null);
 });

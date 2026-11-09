@@ -607,6 +607,9 @@ export default async function handler(req, res) {
       // Keep the market price tied to the same verified pair as liquidity.
       priceUsd: liveMarkets.get(row.mint)?.priceUsd ?? null,
       marketDataSource: liveMarkets.has(row.mint) ? "DexScreener" : "not_available",
+      // Retrieval timestamp is only available for a successfully matched live pair.
+      // Do not substitute the database detection time for market freshness.
+      marketFetchedAt: liveMarkets.get(row.mint)?.marketFetchedAt ?? null,
       buys24h: liveMarkets.get(row.mint)?.buys24h ?? null,
       sells24h: liveMarkets.get(row.mint)?.sells24h ?? null,
       // Restriction evidence takes precedence over historical market sales.

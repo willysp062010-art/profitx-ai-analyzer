@@ -308,6 +308,7 @@ export default function Radar() {
   const [searchError, setSearchError] = useState("");
   const [sortBy, setSortBy] = useState("recent");
   const [minimumLiquidity, setMinimumLiquidity] = useState(0);
+  const [evidenceFilter, setEvidenceFilter] = useState("all");
 
   const [watchlist, setWatchlist] = useState([]);
   const [copiedMint, setCopiedMint] = useState("");
@@ -543,7 +544,11 @@ export default function Radar() {
         (token.liquidity !== null &&
           token.liquidity >= minimumLiquidity);
 
-      return matchesSearch && matchesLiquidity;
+      const matchesEvidence = source !== "live" || evidenceFilter === "all" ||
+        (evidenceFilter === "market" && token.liquidityVerification === "dexscreener_live_pair") ||
+        (evidenceFilter === "concentration" && token.concentrationChecked === true) ||
+        (evidenceFilter === "security" && token.securityChecked === true);
+      return matchesSearch && matchesLiquidity && matchesEvidence;
     });
 
     const getSortValue = (token) => {
@@ -577,7 +582,7 @@ export default function Radar() {
       if (bv === null) return -1;
       return bv - av;
     });
-  }, [tokens, searchCandidates, search, sortBy, minimumLiquidity]);
+  }, [tokens, searchCandidates, search, sortBy, minimumLiquidity, evidenceFilter, source]);
 
   async function copyMint(mint) {
     if (!mint) return;
@@ -602,6 +607,7 @@ export default function Radar() {
     setSource(nextSource);
     setSortBy(nextSource === "live" ? "recent" : "score");
     setMinimumLiquidity(0);
+    setEvidenceFilter("all");
     setSearch("");
   }
 
@@ -802,6 +808,22 @@ export default function Radar() {
                 <option value="change">Variation 24 h</option>
               </select>
             </div>
+
+            {source === "live" && (
+              <div className="controlBox">
+                <label htmlFor="radar-evidence">DONNÉES VÉRIFIÉES (PAGE ACTUELLE)</label>
+                <select
+                  id="radar-evidence"
+                  value={evidenceFilter}
+                  onChange={(event) => setEvidenceFilter(event.target.value)}
+                >
+                  <option value="all">Tous les tokens</option>
+                  <option value="market">Liquidité DEX observée</option>
+                  <option value="security">Contrôle technique effectué</option>
+                  <option value="concentration">Concentration contrôlée</option>
+                </select>
+              </div>
+            )}
 
             <div className="controlBox">
               <label htmlFor="radar-liquidity">

@@ -721,7 +721,11 @@ async function searchToken(query) {
     modules?.token2022 || {};
 
   const metadata =
-    modules?.metadata || {};
+    modules?.metadata?.available
+      ? modules.metadata
+      : token2022?.metadata?.decoded === true
+        ? { ...token2022.metadata, available: true }
+        : {};
 
 
   const activityState =

@@ -358,10 +358,19 @@ async function fetchOnchainAuthorities(rows) {
 async function fetchConcentration(rows, checks) {
   const key = process.env.HELIUS_API_KEY;
   if (!key) return new Map();
-  const selected = rows.filter((row) => {
+  const eligible = rows.filter((row) => {
     const supply = checks.get(row.mint)?.mintSupplyRaw;
     return typeof supply === "string" && /^[0-9]+$/.test(supply) && BigInt(supply) > 0n;
-  }).slice(0, 8);
+  });
+  // Rotate the eight RPC concentration checks every five minutes instead
+  // of repeatedly examining only the first eight tokens on each page.
+  // The response still marks all other tokens as not checked.
+  const rotation = Math.floor(Date.now() / (5 * 60 * 1000));
+  const start = eligible.length ? (rotation * 8) % eligible.length : 0;
+  const selected = Array.from(
+    { length: Math.min(8, eligible.length) },
+    (_, index) => eligible[(start + index) % eligible.length]
+  );
 
   const responses = await Promise.allSettled(selected.map(async (row) => {
     const response = await fetch("https://mainnet.helius-rpc.com/?api-key=" + encodeURIComponent(key), {

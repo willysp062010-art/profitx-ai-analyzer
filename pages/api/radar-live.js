@@ -244,6 +244,8 @@ async function enrichMarketRows(rows, supabaseUrl, supabaseKey) {
       pairAddress: typeof pair.pairAddress === "string" ? pair.pairAddress : null,
       pairUrl: typeof pair.url === "string" ? pair.url : null,
       marketDataSource: "DexScreener",
+      // Time of successful retrieval, not the exchange's last trade timestamp.
+      marketFetchedAt: new Date().toISOString(),
       realLiquidity: liquidityUsd !== null
     };
     market.set(row.mint, values);

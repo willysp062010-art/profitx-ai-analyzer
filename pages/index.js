@@ -2173,10 +2173,11 @@ async function searchToken(query) {
                 </span>
 
                 <strong>
-                  {security?.mintAuthority ==
-                  null
+                  {security?.mintAuthorityRevoked === true
                     ? "RÉVOQUÉE"
-                    : "ACTIVE"}
+                    : security?.mintAuthorityRevoked === false
+                      ? "ACTIVE"
+                      : "N/D — NON VÉRIFIÉE"}
                 </strong>
               </div>
 
@@ -2186,10 +2187,11 @@ async function searchToken(query) {
                 </span>
 
                 <strong>
-                  {security?.freezeAuthority ==
-                  null
+                  {security?.freezeAuthorityRevoked === true
                     ? "RÉVOQUÉE"
-                    : "ACTIVE"}
+                    : security?.freezeAuthorityRevoked === false
+                      ? "ACTIVE"
+                      : "N/D — NON VÉRIFIÉE"}
                 </strong>
               </div>
 

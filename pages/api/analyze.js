@@ -195,6 +195,9 @@ async function fetchJson(url, options = {}) {
       try {
         data = JSON.parse(text);
       } catch {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
         throw new Error(
           `Réponse JSON invalide (${response.status}).`
         );

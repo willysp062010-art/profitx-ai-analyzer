@@ -517,6 +517,8 @@ export default function Radar() {
   const pageCoverage = useMemo(() => ({
     total: tokens.length,
     marketObserved: tokens.filter((token) => token.liquidityVerification === "dexscreener_live_pair").length,
+    pairsFound: tokens.filter((token) => token.marketFetchedAt !== null).length,
+    historicalSales: tokens.filter((token) => token.sellabilityEvidence === "historical_sales_observed").length,
     securityChecked: tokens.filter((token) => token.securityChecked === true).length,
     concentrationChecked: tokens.filter((token) => token.concentrationChecked === true).length
   }), [tokens]);
@@ -749,7 +751,9 @@ export default function Radar() {
                 {totalIndexed !== null ? " " + totalIndexed.toLocaleString("fr-FR") + " indexés dans PFX" : " un total indexé non disponible"}.
                 Le flux présente au maximum 100 enregistrements récents par requête, avant filtres.
                 Les filtres s'appliquent uniquement aux tokens chargés sur cette page ; le projet officiel PFX reste affiché séparément.
-                Sur cette page : {pageCoverage.marketObserved}/{pageCoverage.total} paires DEX avec liquidité observée,
+                Sur cette page : {pageCoverage.pairsFound}/{pageCoverage.total} paires DEX retrouvées,
+                {pageCoverage.marketObserved}/{pageCoverage.total} avec liquidité chiffrée,
+                {pageCoverage.historicalSales}/{pageCoverage.total} avec ventes historiques observées (hors cas signalés comme restrictions ou gel),
                 {pageCoverage.securityChecked}/{pageCoverage.total} contrôles techniques Solana,
                 {pageCoverage.concentrationChecked}/{pageCoverage.total} contrôles de concentration.
                 Une absence de données n'est pas une preuve d'absence de marché ou de risque.

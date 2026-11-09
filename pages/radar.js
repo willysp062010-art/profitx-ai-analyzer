@@ -997,9 +997,9 @@ export default function Radar() {
                           ? token.onchainCreationTime > Date.now()
                             ? "DATE DE CRÉATION FUTURE — À VÉRIFIER"
                             : Date.now() - token.onchainCreationTime <= 24 * 60 * 60 * 1000
-                              ? "CRÉATION ONCHAIN DATÉE DE MOINS DE 24 H"
-                              : "CRÉATION ONCHAIN DATÉE DE PLUS DE 24 H"
-                          : "DATE DE CRÉATION ONCHAIN INCONNUE — TOKEN SIMPLEMENT INDEXÉ"}
+                              ? "ÉVÉNEMENT DE CRÉATION HELIUS DATÉ DE MOINS DE 24 H — NON AUDITÉ"
+                              : "ÉVÉNEMENT DE CRÉATION HELIUS DATÉ DE PLUS DE 24 H — NON AUDITÉ"
+                          : "DATE DE CRÉATION NON CONFIRMÉE — TOKEN SIMPLEMENT INDEXÉ"}
                       </span>
                     </div>
                   )}

@@ -2032,8 +2032,8 @@ async function searchToken(query) {
                 </strong>
                 <small style={{ display: "block", marginTop: 5, opacity: 0.8 }}>
                   Compte appartenant au programme Pump.fun, adresse
-                  dérivée du mint par PDA et données lues via Solana RPC.
-                  Réserves du compte, sans garantie de revente.
+                  fournie par son API et données lues via Solana RPC.
+                  Association au mint non vérifiée par PDA ; aucune garantie de revente.
                   {observed.onchainCurveSlot != null
                     ? ` Slot ${observed.onchainCurveSlot}.`
                     : ""}
@@ -2081,9 +2081,9 @@ async function searchToken(query) {
               Les réserves SOL virtuelles et leur valorisation indicative
               ne sont pas de la liquidité DEX disponible. Les réserves
               réelles déclarées par Pump.fun proviennent de son API.
-              Une lecture indépendante du compte Solana peut apparaître
-              séparément lorsqu'elle réussit : son adresse est dérivée
-              du mint et son propriétaire vérifié sur Solana. Ces montants ne garantissent ni
+              Une lecture du compte Solana peut apparaître séparément
+              si Pump.fun fournit son adresse : son propriétaire est
+              vérifié, mais le PDA n'est pas dérivé indépendamment. Ces montants ne garantissent ni
               la liquidité DEX ni la revente.
               N/D signifie donnée indisponible.
             </p>

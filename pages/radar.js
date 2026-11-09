@@ -455,14 +455,16 @@ export default function Radar() {
   }, [loadRadar]);
 
   useEffect(() => {
-    if (!autoRefresh) return;
+    // Historical pages are anchored to a snapshot. Refreshing them
+    // automatically wastes RPC calls and can change enrichment mid-review.
+    if (!autoRefresh || (source === "live" && radarPage > 0)) return;
 
     const interval = setInterval(() => {
       loadRadar(true);
     }, REFRESH_INTERVAL);
 
     return () => clearInterval(interval);
-  }, [autoRefresh, loadRadar]);
+  }, [autoRefresh, loadRadar, source, radarPage]);
 
   // Search beyond the 100 latest detections; the official PFX mint is
   // also pinned locally so the result is immediate and never depends on

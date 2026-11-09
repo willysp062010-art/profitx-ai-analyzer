@@ -562,11 +562,16 @@ export default function Alerts() {
       return;
     }
 
-    const numericTarget = Number(
-      String(targetValue)
-        .replace(",", ".")
-        .trim()
-    );
+    const cleanTarget = String(targetValue ?? "")
+      .replace(",", ".")
+      .trim();
+
+    if (!cleanTarget) {
+      setError("Indiquez une valeur cible valide.");
+      return;
+    }
+
+    const numericTarget = Number(cleanTarget);
 
     if (!Number.isFinite(numericTarget)) {
       setError(
@@ -587,6 +592,16 @@ export default function Alerts() {
 
     const chainId =
       selectedToken.chainId || "solana";
+
+    if (chainId !== "solana") {
+      setError("Les alertes sur les autres réseaux seront disponibles avec PROFITX Multi-Chain.");
+      return;
+    }
+
+    if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(cleanAddress)) {
+      setError("Adresse Mint Solana invalide dans la Watchlist.");
+      return;
+    }
 
     const duplicate = alerts.some(
       (alert) =>

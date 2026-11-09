@@ -43,3 +43,21 @@ test("scheduler forwards only verified requests to protected monitor",async()=>{
  assert.equal(forwarded.headers.authorization,"Bearer monitor");
  assert.equal(forwarded.headers["x-pfx-monitor-secret"],undefined);
 });
+
+test("Vercel schedules both radar indexing and private alert monitoring daily",()=>{
+ const config=JSON.parse(fs.readFileSync(path.join(__dirname,"../vercel.json"),"utf8"));
+ const crons=config.crons||[];
+ assert.equal(crons.filter(c=>c.path==="/api/radar-enrich").length,1);
+ assert.equal(crons.filter(c=>c.path==="/api/alerts-scheduled").length,1);
+ assert.match(crons.find(c=>c.path==="/api/alerts-scheduled").schedule,/^\\d{1,2} \\d{1,2} \\* \\* \\*$/);
+});
+test("scheduler never forwards invalid credentials",async()=>{
+ let called=0;
+ const handler=load({CRON_SECRET:"cron",PFX_ALERTS_MONITOR_SECRET:"monitor"},()=>{called++});
+ for(const auth of [undefined,"Bearer","Bearer monitor","Bearer cron "]) {
+  const r=res();
+  await handler({method:"GET",headers:{authorization:auth}},r);
+  assert.equal(r.code,401);
+ }
+ assert.equal(called,0);
+});

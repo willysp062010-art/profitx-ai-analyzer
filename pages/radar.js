@@ -1071,6 +1071,17 @@ export default function Radar() {
                     </div>
                   )}
 
+                  {source === "live" && token.marketDexId?.toLowerCase() === "pumpfun" && (
+                    <div className="onchainLine">
+                      <span>
+                        Marché Pump.fun détecté via DexScreener : les transactions observées
+                        ne prouvent ni une migration vers Raydium ni la présence d'une
+                        liquidité DEX librement retirable. Les réserves réelles et virtuelles
+                        de la courbe de bonding ne sont pas vérifiées par ce contrôle.
+                      </span>
+                    </div>
+                  )}
+
                   {source === "live" && (
                     <div className="onchainLine">
                       <span>

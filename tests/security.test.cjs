@@ -15,12 +15,12 @@ function mintBytes() {
   b[45] = 1;
   return b;
 }
-function load(fetchImpl) {
+function load(fetchImpl, env = {}) {
   const context = {
     module: { exports: {} },
     Buffer, Uint8Array, BigInt, AbortController, setTimeout, clearTimeout,
     fetch: fetchImpl,
-    process: { env: {} }
+    process: { env }
   };
   vm.runInNewContext(source, context, { filename: "security.js" });
   return context.module.exports;
@@ -106,4 +106,30 @@ test("supply RPC outage preserves verified mint data", async () => {
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.security.mintAuthorityRevoked, true);
   assert.ok(res.body.security.warnings.includes("TOKEN_SUPPLY_RPC_UNAVAILABLE"));
+});
+
+test("Helius RPC is selected when configured", async () => {
+  let usedUrl = "";
+  const mock = rpc(account(), supply);
+  const { handler } = load(async (url, options) => {
+    usedUrl = url;
+    return mock(url, options);
+  }, { HELIUS_API_KEY: "test-key" });
+  const res = response();
+  await handler({ method: "GET", query: { mint: MINT } }, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(usedUrl, "https://mainnet.helius-rpc.com/?api-key=test-key");
+});
+
+test("explicit SOLANA_RPC_URL takes precedence over Helius", async () => {
+  let usedUrl = "";
+  const mock = rpc(account(), supply);
+  const { handler } = load(async (url, options) => {
+    usedUrl = url;
+    return mock(url, options);
+  }, { SOLANA_RPC_URL: "https://rpc.example.test", HELIUS_API_KEY: "test-key" });
+  const res = response();
+  await handler({ method: "GET", query: { mint: MINT } }, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(usedUrl, "https://rpc.example.test");
 });

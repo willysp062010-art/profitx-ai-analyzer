@@ -2287,9 +2287,11 @@ async function searchToken(query) {
                   </span>
 
                   <strong>
-                    {token2022.analysisComplete
+                    {token2022.analysisComplete === true
                       ? "OUI"
-                      : "NON"}
+                      : token2022.analysisComplete === false
+                        ? "NON"
+                        : "N/D — NON ÉVALUÉE"}
                   </strong>
                 </div>
 
@@ -2346,10 +2348,11 @@ async function searchToken(query) {
                   </span>
 
                   <strong>
-                    {metadata.updateAuthority ==
-                    null
-                      ? "RÉVOQUÉE"
-                      : "ACTIVE"}
+                    {metadata.decoded === true
+                      ? metadata.updateAuthority == null
+                        ? "RÉVOQUÉE"
+                        : "ACTIVE"
+                      : "N/D — NON VÉRIFIÉE"}
                   </strong>
                 </div>
 

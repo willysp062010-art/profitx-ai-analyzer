@@ -103,3 +103,24 @@ test("GET exposes only public alert fields, not internal client or database iden
  assert.equal(Object.hasOwn(result.body.alerts[0],"id"),false);
  assert.equal(Object.hasOwn(result.body.alerts[0],"last_condition_met"),false);
 });
+
+test("GET alert listing requests only the browser-safe columns", async () => {
+ const calls=[];
+ const handler=load(mockFetch(calls));
+ const result=await invoke(handler,"GET",null,{clientId:"browser-id"});
+ assert.equal(result.statusCode,200);
+ assert.equal(calls.length,1);
+ assert.match(calls[0].url,/select=alert_id,chain_id,token_address,metric,condition,target_value,enabled,status,created_at/);
+ assert.doesNotMatch(calls[0].url,/select=\\*/);
+});
+test("POST response excludes database and client ownership identifiers",async()=>{
+ const handler=load(async()=>({ok:true,status:200,text:async()=>JSON.stringify([
+  {alert_id:"test-alert",client_id:"private-client",id:"internal-id",last_condition_met:true}
+ ])}));
+ const result=await invoke(handler,"POST",{clientId:"browser-id",alert});
+ assert.equal(result.statusCode,200);
+ assert.equal(result.body.alert.alert_id,"test-alert");
+ assert.equal(Object.hasOwn(result.body.alert,"client_id"),false);
+ assert.equal(Object.hasOwn(result.body.alert,"id"),false);
+ assert.equal(Object.hasOwn(result.body.alert,"last_condition_met"),false);
+});

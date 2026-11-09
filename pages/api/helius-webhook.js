@@ -192,35 +192,44 @@ export default async function handler(req, res) {
     }
   }
 
+  // Bounded concurrency prevents a full 100-event batch from exceeding
+  // the serverless execution window while avoiding a Supabase request burst.
+  const queue = [...tokens.values()];
+  const concurrency = Math.min(8, queue.length);
+  let cursor = 0;
   let processed = 0;
+  let failed = 0;
 
-  try {
-    for (const token of tokens.values()) {
-      await saveToken(
-        token,
-        supabaseUrl.replace(/\/$/, ""),
-        supabaseKey
-      );
-
-      processed++;
+  await Promise.all(Array.from({ length: concurrency }, async () => {
+    while (cursor < queue.length) {
+      const token = queue[cursor++];
+      try {
+        await saveToken(token, supabaseUrl.replace(/\/$/, ""), supabaseKey);
+        processed++;
+      } catch (error) {
+        failed++;
+        console.error("PFX Radar webhook database error:", error.message);
+      }
     }
+  }));
 
-    return res.status(200).json({
-      ok: true,
+  // Non-2xx lets Helius retry the batch; ignore-duplicates makes retries safe.
+  if (failed > 0) {
+    return res.status(500).json({
+      error: "Some database writes failed",
       received: req.body.length,
       accepted: tokens.size,
-      processed
-    });
-  } catch (error) {
-    console.error(
-      "PFX Radar webhook database error:",
-      error.message
-    );
-
-    return res.status(500).json({
-      error: "Database write failed"
+      processed,
+      failed
     });
   }
+
+  return res.status(200).json({
+    ok: true,
+    received: req.body.length,
+    accepted: tokens.size,
+    processed
+  });
 }
 
 export const config = {

@@ -993,6 +993,20 @@ export default function Radar() {
                   {source === "live" && (
                     <div className="onchainLine">
                       <span>
+                        Données de marché : {token.liquidityVerification === "dexscreener_live_pair"
+                          ? "Paire Solana observée via DexScreener ; liquidité indicative, pas une garantie de revente."
+                          : "Aucune paire DEX vérifiée dans cette réponse ; prix, liquidité et volume indisponibles ne signifient pas zéro."}
+                        {" "}
+                        {token.marketFetchedAt && !Number.isNaN(new Date(token.marketFetchedAt).getTime())
+                          ? "Observation : " + new Date(token.marketFetchedAt).toLocaleString("fr-FR") + "."
+                          : "Horodatage de marché non disponible."}
+                      </span>
+                    </div>
+                  )}
+
+                  {source === "live" && (
+                    <div className="onchainLine">
+                      <span>
                         Classification : {token.onchainCreationTime !== null
                           ? token.onchainCreationTime > Date.now()
                             ? "DATE DE CRÉATION FUTURE — À VÉRIFIER"

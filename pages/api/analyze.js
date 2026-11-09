@@ -530,8 +530,9 @@ function pumpMetrics(
       coin?.real_sol_reserves
     );
 
+  // Reserve balances cannot be negative. Reject malformed API values.
   const realSolReported =
-    realSolRaw !== null
+    realSolRaw !== null && realSolRaw >= 0
       ? realSolRaw / 1e9
       : null;
 
@@ -546,12 +547,12 @@ function pumpMetrics(
     );
 
   const virtualSol =
-    virtualSolRaw !== null
+    virtualSolRaw !== null && virtualSolRaw >= 0
       ? virtualSolRaw / 1e9
       : null;
 
   const virtualToken =
-    virtualTokenRaw !== null
+    virtualTokenRaw !== null && virtualTokenRaw >= 0
       ? virtualTokenRaw / 1e6
       : null;
 
@@ -2086,6 +2087,11 @@ export default async function handler(
     realSolReservesReported:
       observed.realSolReservesReported,
 
+    reserveVerification:
+      observed.realSolReservesReported !== null
+        ? "pumpfun_api_reported_not_onchain_verified"
+        : "not_available",
+
     virtualSolValueUsd:
       observed.virtualSolValueUsd,
 
@@ -2394,6 +2400,11 @@ export default async function handler(
             realSolReservesReported:
               pMetrics?.realSolReported ??
               null,
+
+            reserveVerification:
+              pMetrics?.realSolReported != null
+                ? "pumpfun_api_reported_not_onchain_verified"
+                : "not_available",
 
             virtualSolValueUsd:
               pMetrics?.virtualSolValueUsd ??

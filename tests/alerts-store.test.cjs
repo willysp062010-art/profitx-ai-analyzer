@@ -111,7 +111,7 @@ test("GET alert listing requests only the browser-safe columns", async () => {
  assert.equal(result.statusCode,200);
  assert.equal(calls.length,1);
  assert.match(calls[0].url,/select=alert_id,chain_id,token_address,metric,condition,target_value,enabled,status,created_at/);
- assert.doesNotMatch(calls[0].url,/select=\\*/);
+ assert.doesNotMatch(calls[0].url,/select=\*/);
 });
 test("POST response excludes database and client ownership identifiers",async()=>{
  const handler=load(async()=>({ok:true,status:200,text:async()=>JSON.stringify([

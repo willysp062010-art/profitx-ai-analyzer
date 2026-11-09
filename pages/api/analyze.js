@@ -1,3 +1,5 @@
+import { PublicKey } from "@solana/web3.js";
+
 const DEXSCREENER_URL =
   "https://api.dexscreener.com/latest/dex/tokens";
 
@@ -494,14 +496,25 @@ async function dexData(mint) {
 }
 
 /* =========================================================
-   PUMP.FUN ON-CHAIN ACCOUNT READ (address supplied by Pump.fun)
+   PUMP.FUN ON-CHAIN ACCOUNT READ (PDA derived from mint)
 ========================================================= */
 
 const PUMP_PROGRAM_ID = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
 const PUMP_CURVE_DISCRIMINATOR = "17b7f83760d8ac60";
 
-async function readPumpCurveAccount(address) {
-  if (!validMint(address)) return null;
+async function readPumpCurveAccount(mint) {
+  if (!validMint(mint)) return null;
+
+  let address;
+  try {
+    const [pda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("bonding-curve"), new PublicKey(mint).toBuffer()],
+      new PublicKey(PUMP_PROGRAM_ID)
+    );
+    address = pda.toBase58();
+  } catch {
+    return null;
+  }
 
   try {
     const result = await fetchJson(DEFAULT_RPC, {
@@ -540,7 +553,7 @@ async function readPumpCurveAccount(address) {
       complete: bytes[48] === 1,
       slot: Number.isSafeInteger(result?.result?.context?.slot)
         ? result.result.context.slot : null,
-      verification: "program_owned_curve_account_address_from_pumpfun_api"
+      verification: "program_owned_curve_account_pda_derived_from_mint"
     };
   } catch {
     return null;
@@ -1561,12 +1574,10 @@ export default async function handler(
       "Pump.fun indisponible.";
   }
 
-  // Read the Pump-owned curve account independently over Solana RPC.
-  // Its address is supplied by Pump.fun; mint-to-PDA derivation is not checked.
+  // Derive the canonical Pump.fun bonding-curve PDA from the mint.
+  // Independent of the Pump.fun HTTP API, which can return HTTP 403.
   const pumpCurveOnchain =
-    pump?.identityVerified && validMint(pump?.coin?.bonding_curve)
-      ? await readPumpCurveAccount(pump.coin.bonding_curve)
-      : null;
+    await readPumpCurveAccount(mint);
 
   const supply =
     await tokenSupply(mint);

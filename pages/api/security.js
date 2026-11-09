@@ -925,7 +925,7 @@ export default async function handler(
     );
   } catch (error) {
     const message = error?.message || "Erreur lors de l'analyse on-chain.";
-    const rpcUnavailable = /RPC HTTP (429|5\\d\\d)|RPC unavailable|abort|fetch failed|timeout/i.test(message);
+    const rpcUnavailable = /RPC HTTP (429|5\d\d)|RPC unavailable|abort|fetch failed|timeout/i.test(message);
     if (rpcUnavailable) res.setHeader("Retry-After", "5");
     return json(res, rpcUnavailable ? 503 : 500, {
       ok: false,

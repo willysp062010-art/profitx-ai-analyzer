@@ -396,6 +396,10 @@ function normalizeStoredAlert(row) {
     previousStatus:
       cleanText(row.status, 100) ||
       "pending",
+    lastConditionMet:
+      typeof row.last_condition_met === "boolean"
+        ? row.last_condition_met
+        : null,
     previousTriggerCount:
       Number.isInteger(
         Number(row.trigger_count)
@@ -465,6 +469,7 @@ function buildEvaluation(
       checkedAt,
       newlyTriggered: false,
       triggeredNow: false,
+      conditionObserved: false,
     };
   }
 
@@ -493,24 +498,16 @@ function buildEvaluation(
       alert.targetValue
     );
 
-  /*
-   * Une nouvelle occurrence n'est comptée
-   * que lors du passage :
-   *
-   * watching -> triggered
-   *
-   * Si la condition reste vraie pendant
-   * plusieurs exécutions Cron, trigger_count
-   * n'augmente donc pas toutes les 5 minutes.
-   */
-  // A missing market observation is not proof that a threshold reset.
-  // Keep the previous triggered state through temporary data outages.
+  // Only a confirmed false -> true observation counts as a new crossing.
+  // Missing market data never resets the persisted observation.
+  // For legacy alerts without an observation, preserve the old
+  // watching/pending -> triggered behavior until their first observation.
   const newlyTriggered =
     triggeredNow &&
-    alert.previousStatus !== "triggered" &&
-    alert.previousStatus !== "no_market_data" &&
-    alert.previousStatus !== "metric_unavailable" &&
-    alert.previousStatus !== "error";
+    (alert.lastConditionMet === false ||
+      (alert.lastConditionMet === null &&
+        (alert.previousStatus === "watching" ||
+          alert.previousStatus === "pending")));
 
   return {
     status: triggeredNow
@@ -530,6 +527,7 @@ function buildEvaluation(
     newlyTriggered,
 
     triggeredNow,
+    conditionObserved: true,
   };
 }
 
@@ -555,6 +553,10 @@ function buildDatabaseUpdate(
     updated_at:
       evaluation.checkedAt,
   };
+
+  if (evaluation.conditionObserved) {
+    update.last_condition_met = evaluation.triggeredNow;
+  }
 
   if (evaluation.newlyTriggered) {
     update.last_triggered_at =

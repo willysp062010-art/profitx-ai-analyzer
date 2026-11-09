@@ -1884,7 +1884,9 @@ export default async function handler(
         ? "BONDING_CURVE"
         : hasDexMarket
           ? "VALID"
-          : "NO_MARKET";
+          : pumpError || dex?.error
+            ? "MARKET_UNVERIFIED"
+            : "NO_MARKET";
 
   const confidence =
     confidenceScore({

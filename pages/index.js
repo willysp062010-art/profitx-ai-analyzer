@@ -115,6 +115,26 @@ function getActivityState(observed, activity) {
   const buys = Number(observed?.buys24h ?? 0);
   const sells = Number(observed?.sells24h ?? 0);
 
+  const allActivityMetricsAvailable =
+    observed?.volume24hUsd != null &&
+    observed?.transactions24h != null &&
+    observed?.buys24h != null &&
+    observed?.sells24h != null;
+
+  if (
+    volume === 0 &&
+    transactions === 0 &&
+    buys === 0 &&
+    sells === 0 &&
+    !allActivityMetricsAvailable
+  ) {
+    return {
+      label: "DONNÉES INCOMPLÈTES",
+      description: "Aucune activité positive observée, mais des indicateurs manquent : impossible de confirmer une inactivité totale.",
+      className: "unknown"
+    };
+  }
+
   if (
     volume === 0 &&
     transactions === 0 &&
@@ -388,6 +408,11 @@ function buildProfitxDiagnostic({
     "L'état récent du marché n'est pas disponible.";
 
   if (
+    activityState?.label === "DONNÉES INCOMPLÈTES"
+  ) {
+    marketMessage =
+      "Activité non confirmée : certains indicateurs des dernières 24 heures manquent. Aucun zéro manquant n'est interprété comme une preuve d'inactivité.";
+  } else if (
     activityState?.label === "DONNÉES INDISPONIBLES"
   ) {
     marketMessage =

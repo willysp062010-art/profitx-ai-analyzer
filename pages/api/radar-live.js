@@ -512,6 +512,12 @@ export default async function handler(req, res) {
     }
     const page = Number(pageRaw);
     const pageLimit = 100;
+    const snapshotRaw = typeof req.query.snapshot === "string" ? req.query.snapshot : "";
+    const snapshotDate = snapshotRaw ? new Date(snapshotRaw) : null;
+    if (snapshotRaw && (!snapshotDate || !Number.isFinite(snapshotDate.getTime()) ||
+        snapshotDate.getTime() > Date.now() + 60000)) {
+      return res.status(400).json({ error: "Date de référence invalide" });
+    }
     const params = new URLSearchParams({
       select:
         "id,mint,name,symbol,metadata,source,launch_platform,creator_address," +
@@ -520,6 +526,7 @@ export default async function handler(req, res) {
         "security_score,utility_score," +
         "speculation_risk_score,analysis_status",
       chain_id: "eq.solana",
+      ...(snapshotDate ? { detected_at: "lte." + snapshotDate.toISOString() } : {}),
       order: "detected_at.desc,id.desc",
       offset: String(page * pageLimit),
       limit: String(pageLimit)
@@ -621,6 +628,7 @@ export default async function handler(req, res) {
       source: "helius_supabase",
       count: tokens.length,
       totalIndexed,
+      snapshot: snapshotDate ? snapshotDate.toISOString() : (rows[0]?.detected_at || null),
       pageLimit,
       page,
       hasMore: totalIndexed !== null

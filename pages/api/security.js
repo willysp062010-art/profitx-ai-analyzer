@@ -830,11 +830,19 @@ export default async function handler(
       );
     }
 
-    const supply =
-      await getTokenSupply(
+    // Supply is supplementary: an RPC failure must not discard
+    // successfully decoded mint authority and freeze authority data.
+    let supply = null;
+    let supplyError = null;
+
+    try {
+      supply = await getTokenSupply(
         rpcUrl,
         mint
       );
+    } catch (error) {
+      supplyError = error?.message || "RPC supply unavailable";
+    }
 
     const owner =
       account.owner;
@@ -877,6 +885,11 @@ export default async function handler(
         decodedMint,
         supply
       );
+
+    if (supplyError) {
+      security.warnings.push("TOKEN_SUPPLY_RPC_UNAVAILABLE");
+      security.dataQuality.supplyError = supplyError;
+    }
 
     return json(
       res,

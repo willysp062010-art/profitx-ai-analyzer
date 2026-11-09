@@ -1438,13 +1438,20 @@ async function searchToken(query) {
             <div className="observed">
 
               <div>
-                <span>Liquidité</span>
+                <span>Liquidité DEX indicative</span>
 
                 <strong>
                   {fmtUsd(
                     observed.liquidityUsd
                   )}
                 </strong>
+                <small style={{ display: "block", marginTop: 5, opacity: 0.8 }}>
+                  {observed.liquidityUsd == null
+                    ? "Non chiffrée par DexScreener : aucune liquidité réelle confirmée."
+                    : market?.dexId?.toLowerCase() === "pumpfun"
+                      ? "Paire Pump.fun : valeur de marché indicative, pas une preuve de liquidité DEX retirable."
+                      : "Valeur déclarée par DexScreener ; réserves et possibilité de revente non auditées."}
+                </small>
               </div>
 
               <div>

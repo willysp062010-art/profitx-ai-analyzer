@@ -109,6 +109,11 @@ export default function Watchlist() {
       return;
     }
 
+    if (chainId === "solana" && !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(cleanAddress)) {
+      setError("Adresse Mint Solana invalide : entrez une adresse Base58 de 32 à 44 caractères.");
+      return;
+    }
+
     const alreadyExists = items.some(
       (item) =>
         item.chainId === chainId &&

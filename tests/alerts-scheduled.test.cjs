@@ -49,7 +49,7 @@ test("Vercel schedules both radar indexing and private alert monitoring daily",(
  const crons=config.crons||[];
  assert.equal(crons.filter(c=>c.path==="/api/radar-enrich").length,1);
  assert.equal(crons.filter(c=>c.path==="/api/alerts-scheduled").length,1);
- assert.match(crons.find(c=>c.path==="/api/alerts-scheduled").schedule,/^\\d{1,2} \\d{1,2} \\* \\* \\*$/);
+ assert.match(crons.find(c=>c.path==="/api/alerts-scheduled").schedule,/^\d{1,2} \d{1,2} \* \* \*$/);
 });
 test("scheduler never forwards invalid credentials",async()=>{
  let called=0;

@@ -573,6 +573,9 @@ export default async function handler(req, res) {
       historicalLiquidityUsd: row.liquidity_usd ?? null,
       volume24h: liveMarkets.get(row.mint)?.volume24h ?? null,
       marketCap: liveMarkets.get(row.mint)?.marketCap ?? null,
+      // Keep the market price tied to the same verified pair as liquidity.
+      priceUsd: liveMarkets.get(row.mint)?.priceUsd ?? null,
+      marketDataSource: liveMarkets.has(row.mint) ? "DexScreener" : "not_available",
       buys24h: liveMarkets.get(row.mint)?.buys24h ?? null,
       sells24h: liveMarkets.get(row.mint)?.sells24h ?? null,
       // Restriction evidence takes precedence over historical market sales.

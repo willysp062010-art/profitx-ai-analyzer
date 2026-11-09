@@ -144,6 +144,7 @@ function normalizeToken(token, index) {
       num(token?.securityScore) ??
       num(token?.security_score),
     securityScoreSource: token?.securityScoreSource || "unspecified",
+    liquidityVerification: token?.liquidityVerification || "not_verified",
     securityChecked: token?.securityChecked === true,
     mintAuthorityEnabled: token?.mintAuthorityEnabled === true ? true :
       token?.mintAuthorityEnabled === false ? false : null,
@@ -917,7 +918,14 @@ export default function Radar() {
                     {[
                       ["PRIX", price(token.priceUsd)],
                       ["MARKET CAP", money(token.marketCap)],
-                      ["LIQUIDITÉ", money(token.liquidity)],
+                      [
+                        source === "live"
+                          ? token.liquidityVerification === "dexscreener_live_pair"
+                            ? "LIQUIDITÉ DEX OBSERVÉE"
+                            : "LIQUIDITÉ NON VÉRIFIÉE"
+                          : "LIQUIDITÉ",
+                        money(token.liquidity),
+                      ],
                       ["VOLUME 24 H", money(token.volume24h)],
                       [
                         "TRANSACTIONS 24 H",

@@ -145,6 +145,7 @@ function normalizeToken(token, index) {
       num(token?.security_score),
     securityScoreSource: token?.securityScoreSource || "unspecified",
     liquidityVerification: token?.liquidityVerification || "not_verified",
+    marketFetchedAt: token?.marketFetchedAt || null,
     securityChecked: token?.securityChecked === true,
     mintAuthorityEnabled: token?.mintAuthorityEnabled === true ? true :
       token?.mintAuthorityEnabled === false ? false : null,
@@ -939,6 +940,16 @@ export default function Radar() {
                       </div>
                     ))}
                   </div>
+
+                  {source === "live" && (
+                    <div className="onchainLine">
+                      <span>
+                        Données DEX : {token.marketFetchedAt
+                          ? "récupérées le " + new Date(token.marketFetchedAt).toLocaleString("fr-FR") + " (heure de consultation, pas celle du dernier échange)"
+                          : "actualisation non confirmée"}
+                      </span>
+                    </div>
+                  )}
 
                   <div className="marketLine">
                     <div>

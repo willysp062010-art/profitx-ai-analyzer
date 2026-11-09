@@ -2023,6 +2023,24 @@ async function searchToken(query) {
               </div>
 
               <div>
+                <span>Réserves SOL lues sur le compte Solana</span>
+
+                <strong>
+                  {observed.realSolReservesOnchain == null
+                    ? "N/D"
+                    : `${fmtDecimal(observed.realSolReservesOnchain, 4)} SOL`}
+                </strong>
+                <small style={{ display: "block", marginTop: 5, opacity: 0.8 }}>
+                  Compte appartenant au programme Pump.fun, adresse
+                  fournie par son API ; association au mint non
+                  encore vérifiée par dérivation indépendante.
+                  {observed.onchainCurveSlot != null
+                    ? ` Slot ${observed.onchainCurveSlot}.`
+                    : ""}
+                </small>
+              </div>
+
+              <div>
                 <span>
                   Réserves tokens virtuelles
                 </span>
@@ -2062,9 +2080,12 @@ async function searchToken(query) {
             <p style={{ marginTop: 12, fontSize: 13, opacity: 0.8 }}>
               Les réserves SOL virtuelles et leur valorisation indicative
               ne sont pas de la liquidité DEX disponible. Les réserves
-              réelles déclarées par Pump.fun proviennent de son API et
-              ne sont pas encore vérifiées indépendamment sur Solana.
-              Elles ne garantissent ni la liquidité DEX ni la revente.
+              réelles déclarées par Pump.fun proviennent de son API.
+              Une lecture indépendante du compte Solana peut apparaître
+              séparément lorsqu'elle réussit ; l'association entre
+              ce compte et le mint n'est pas encore confirmée par
+              dérivation de PDA. Ces montants ne garantissent ni
+              la liquidité DEX ni la revente.
               N/D signifie donnée indisponible.
             </p>
 

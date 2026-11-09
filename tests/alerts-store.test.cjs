@@ -124,3 +124,11 @@ test("POST response excludes database and client ownership identifiers",async()=
  assert.equal(Object.hasOwn(result.body.alert,"id"),false);
  assert.equal(Object.hasOwn(result.body.alert,"last_condition_met"),false);
 });
+
+test("database errors do not expose internal Supabase details to the browser",async()=>{
+ const handler=load(async()=>({ok:false,status:403,text:async()=>JSON.stringify({message:"private database schema and secret details"})}));
+ const result=await invoke(handler,"GET",null,{clientId:"test"});
+ assert.equal(result.statusCode,500);
+ assert.equal(result.body.error,"PERSISTENCE_ERROR");
+ assert.doesNotMatch(JSON.stringify(result.body),/private database schema and secret details/);
+});

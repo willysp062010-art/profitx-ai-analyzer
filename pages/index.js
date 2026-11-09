@@ -86,6 +86,9 @@ function statusLabel(status) {
     case "NO_MARKET":
       return "AUCUN MARCHÉ";
 
+    case "MARKET_UNVERIFIED":
+      return "MARCHÉ NON VÉRIFIÉ";
+
     default:
       return status || "N/D";
   }

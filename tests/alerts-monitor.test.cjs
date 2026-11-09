@@ -71,3 +71,22 @@ test("unavailable market state does not count as a new threshold crossing",()=>{
   assert.equal(result.newlyTriggered,false);
  }
 });
+
+test("persisted threshold state survives unavailable market data and rearms only after confirmed reset",()=>{
+ const ctx={module:{exports:{}},process:{env:{}},fetch:async()=>{},AbortController,
+  setTimeout,clearTimeout,Date,console,encodeURIComponent};
+ vm.runInNewContext(source.replace("module.exports={handler,chooseBestPair,extractMarketData};","module.exports={handler,chooseBestPair,extractMarketData,buildEvaluation,buildDatabaseUpdate};"),ctx);
+ const {buildEvaluation,buildDatabaseUpdate}=ctx.module.exports;
+ const alert={metric:"priceUsd",condition:"above",targetValue:1,previousStatus:"no_market_data",lastConditionMet:true,previousTriggerCount:1};
+ const unavailable=buildEvaluation(alert,null,"2026-11-09T01:00:00Z");
+ assert.equal(unavailable.conditionObserved,false);
+ assert.equal(Object.hasOwn(buildDatabaseUpdate(alert,unavailable),"last_condition_met"),false);
+ const recovered=buildEvaluation(alert,{priceUsd:2},"2026-11-09T02:00:00Z");
+ assert.equal(recovered.newlyTriggered,false);
+ assert.equal(buildDatabaseUpdate(alert,recovered).last_condition_met,true);
+ const reset=buildEvaluation(alert,{priceUsd:0.5},"2026-11-09T03:00:00Z");
+ assert.equal(buildDatabaseUpdate(alert,reset).last_condition_met,false);
+ const rearmed=buildEvaluation({...alert,lastConditionMet:false},{priceUsd:2},"2026-11-09T04:00:00Z");
+ assert.equal(rearmed.newlyTriggered,true);
+ assert.equal(buildDatabaseUpdate(alert,rearmed).trigger_count,2);
+});

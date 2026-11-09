@@ -27,7 +27,7 @@ function mockFetch(calls) {
   return async (url, opts) => {
     calls.push({ url, method: opts.method, body: opts.body && JSON.parse(opts.body) });
     return { ok: true, status: 200, text: async () => JSON.stringify(
-      opts.method === "DELETE" ? null : [{ alert_id: "test-alert" }]) };
+      [{ alert_id: "test-alert" }]) };
   };
 }
 async function invoke(handler, method, body, query) {

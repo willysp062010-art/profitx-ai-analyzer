@@ -1131,7 +1131,9 @@ async function searchToken(query) {
           {token.mint}
         </div>
         <div style={{ fontSize: "11px", color: "#ffcb66" }}>
-          {token.verificationStatus || "UNVERIFIED"}
+          {token.verificationStatus === "OFFICIAL_PROJECT_MINT"
+            ? "MINT DÉCLARÉ PAR PROFITX — NON AUDITÉ"
+            : "MINT NON VÉRIFIÉ"}
         </div>
       </button>
     ))}

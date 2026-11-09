@@ -503,10 +503,14 @@ function buildEvaluation(
    * plusieurs exécutions Cron, trigger_count
    * n'augmente donc pas toutes les 5 minutes.
    */
+  // A missing market observation is not proof that a threshold reset.
+  // Keep the previous triggered state through temporary data outages.
   const newlyTriggered =
     triggeredNow &&
-    alert.previousStatus !==
-      "triggered";
+    alert.previousStatus !== "triggered" &&
+    alert.previousStatus !== "no_market_data" &&
+    alert.previousStatus !== "metric_unavailable" &&
+    alert.previousStatus !== "error";
 
   return {
     status: triggeredNow

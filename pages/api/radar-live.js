@@ -565,9 +565,14 @@ export default async function handler(req, res) {
       source: row.launch_platform || row.source,
       detectedAt: row.detected_at,
       createdOnchainAt: row.created_onchain_at,
-      liquidityUsd: liveMarkets.get(row.mint)?.liquidityUsd ?? row.liquidity_usd,
-      volume24h: liveMarkets.get(row.mint)?.volume24h ?? row.volume_24h_usd,
-      marketCap: liveMarkets.get(row.mint)?.marketCap ?? row.market_cap_usd,
+      // Historical database values are NOT proof of current DEX liquidity.
+      // Only expose live liquidity when a current Solana pair was returned.
+      liquidityUsd: liveMarkets.get(row.mint)?.liquidityUsd ?? null,
+      liquidityVerification: liveMarkets.get(row.mint)?.liquidityUsd != null
+        ? "dexscreener_live_pair" : "not_verified",
+      historicalLiquidityUsd: row.liquidity_usd ?? null,
+      volume24h: liveMarkets.get(row.mint)?.volume24h ?? null,
+      marketCap: liveMarkets.get(row.mint)?.marketCap ?? null,
       buys24h: liveMarkets.get(row.mint)?.buys24h ?? null,
       sells24h: liveMarkets.get(row.mint)?.sells24h ?? null,
       // Observed sales are historical market activity, NOT a personal sellability test.

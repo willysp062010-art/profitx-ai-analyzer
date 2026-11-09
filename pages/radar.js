@@ -508,6 +508,13 @@ export default function Radar() {
   // including before search and when the user enters an unrelated query.
   const officialPfxMatch = true;
 
+  const pageCoverage = useMemo(() => ({
+    total: tokens.length,
+    marketObserved: tokens.filter((token) => token.liquidityVerification === "dexscreener_live_pair").length,
+    securityChecked: tokens.filter((token) => token.securityChecked === true).length,
+    concentrationChecked: tokens.filter((token) => token.concentrationChecked === true).length
+  }), [tokens]);
+
   const displayedTokens = useMemo(() => {
     const query = search.trim().toLowerCase();
 
@@ -725,6 +732,10 @@ export default function Radar() {
                 Couverture Radar : {tokens.length} token(s) affichables sur
                 {totalIndexed !== null ? " " + totalIndexed.toLocaleString("fr-FR") + " indexés dans PFX" : " un total indexé non disponible"}.
                 Le flux présente au maximum 100 enregistrements récents par requête, avant filtres.
+                Sur cette page : {pageCoverage.marketObserved}/{pageCoverage.total} paires DEX avec liquidité observée,
+                {pageCoverage.securityChecked}/{pageCoverage.total} contrôles techniques Solana,
+                {pageCoverage.concentrationChecked}/{pageCoverage.total} contrôles de concentration.
+                Une absence de données n'est pas une preuve d'absence de marché ou de risque.
                 Cette sélection n'est pas un recensement exhaustif des créations Solana
                 ou Pump.fun ; un token absent n'est pas nécessairement sûr ni inexistant.
               </span>

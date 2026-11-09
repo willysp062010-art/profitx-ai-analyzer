@@ -2223,6 +2223,15 @@ async function searchToken(query) {
             </div>
 
 
+            {security?.tokenProgram === "TOKEN_2022" && (
+              <p className="intro" style={{ marginTop: "12px", fontSize: 13 }}>
+                Token-2022 : le score de sécurité affiché évalue les contrôles
+                disponibles, mais ne constitue pas un audit complet des extensions.
+                Des mécanismes additionnels peuvent modifier les transferts ou
+                les restrictions du token. Vérifiez les extensions avant toute décision.
+              </p>
+            )}
+
             {Array.isArray(
               security?.warnings
             ) &&

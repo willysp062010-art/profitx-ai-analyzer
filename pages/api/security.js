@@ -809,7 +809,9 @@ export default async function handler(
 
   const rpcUrl =
     process.env.SOLANA_RPC_URL ||
-    DEFAULT_RPC;
+    (process.env.HELIUS_API_KEY
+      ? `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`
+      : DEFAULT_RPC);
 
   try {
     const account =

@@ -878,6 +878,19 @@ export default async function handler(
         );
     }
 
+    if (!decodedMint) {
+      return json(
+        res,
+        422,
+        {
+          ok: false,
+          module: "PROFITX_SECURITY",
+          mint,
+          error: "Mint non décodable ou programme de token non pris en charge : autorités non vérifiables."
+        }
+      );
+    }
+
     const security =
       analyseSecurity(
         mint,

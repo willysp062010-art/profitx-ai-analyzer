@@ -2270,9 +2270,11 @@ async function searchToken(query) {
                   </span>
 
                   <strong>
-                    {token2022.isToken2022
+                    {token2022.isToken2022 === true
                       ? "OUI"
-                      : "NON"}
+                      : token2022.isToken2022 === false
+                        ? "NON"
+                        : "N/D — NON VÉRIFIÉ"}
                   </strong>
                 </div>
 
@@ -2341,9 +2343,11 @@ async function searchToken(query) {
                   </span>
 
                   <strong>
-                    {metadata.decoded
+                    {metadata.decoded === true
                       ? "OUI"
-                      : "NON"}
+                      : metadata.decoded === false
+                        ? "NON"
+                        : "N/D — NON VÉRIFIÉ"}
                   </strong>
                 </div>
 

@@ -545,16 +545,12 @@ function pumpMetrics(
       ? virtualTokenRaw / 1e6
       : null;
 
-  let liquidityUsd = null;
-
-  if (
-    virtualSol !== null &&
-    solPrice !== null
-  ) {
-    liquidityUsd =
-      virtualSol *
-      solPrice;
-  }
+  // Virtual SOL reserves are not withdrawable DEX liquidity.
+  // Keep them separate from observed pool liquidity.
+  const virtualSolValueUsd =
+    virtualSol !== null && solPrice !== null
+      ? virtualSol * solPrice
+      : null;
 
   let priceUsd =
     firstNumber(
@@ -583,7 +579,8 @@ function pumpMetrics(
     );
 
   return {
-    liquidityUsd,
+    liquidityUsd: null,
+    virtualSolValueUsd,
 
     marketCapUsd,
 
@@ -1586,9 +1583,9 @@ export default async function handler(
       ? {
           ...dMetrics,
 
+          // Never fill missing DEX liquidity with virtual bonding-curve reserves.
           liquidityUsd:
-            dMetrics.liquidityUsd ??
-            pMetrics?.liquidityUsd,
+            dMetrics.liquidityUsd ?? null,
 
           maturity:
             pMetrics?.maturity ??
@@ -1599,9 +1596,8 @@ export default async function handler(
             dexAgeHours
         }
       : {
-          liquidityUsd:
-            pMetrics?.liquidityUsd ??
-            null,
+          // No verified DEX pool: liquidity remains unknown.
+          liquidityUsd: null,
 
           volume24hUsd:
             null,

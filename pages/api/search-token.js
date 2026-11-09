@@ -6,7 +6,7 @@ const PUMP_URL = "https://frontend-api-v3.pump.fun/coins";
 const TIMEOUT_MS = 8000;
 const MAX_RESULTS = 20;
 const MAX_QUERY_LENGTH = 80;
-const DIAGNOSTIC_VERSION = "PFX-SEARCH-20261016-V2";
+const DIAGNOSTIC_VERSION = "PFX-SEARCH-20261109-V3";
 
 const OFFICIAL_TOKENS = [
   {
@@ -340,6 +340,37 @@ export default async function handler(req, res) {
           coin?.created_timestamp
         )
       });
+    }
+  }
+
+  // Mint exact : interroger directement Pump.fun. La liste des 200
+  // créations récentes n'est pas un index historique et peut manquer
+  // un token créé quelques minutes plus tôt.
+  if (mintQuery) {
+    try {
+      const response = await fetchJSON(
+        "https://frontend-api-v3.pump.fun/coins-v2/" + encodeURIComponent(query)
+      );
+      const coin = response?.data || response;
+      const returnedMint = coin?.mint || coin?.token_mint || coin?.tokenMint || coin?.address;
+      if (returnedMint === query && coin?.is_banned !== true && coin?.nsfw !== true) {
+        addToken(tokens, {
+          mint: query,
+          name: String(coin?.name || ""),
+          symbol: String(coin?.symbol || ""),
+          imageUri: typeof coin?.image_uri === "string" ? coin.image_uri : null,
+          liquidityUsd: null,
+          volume24hUsd: null,
+          dexId: null,
+          pairAddress: null,
+          url: null,
+          source: "pumpfun-direct",
+          bondingCurveComplete: coin?.complete === true,
+          createdTimestamp: numeric(coin?.created_timestamp)
+        });
+      }
+    } catch (error) {
+      console.warn("[PROFITX] Pump.fun direct mint lookup:", error?.message);
     }
   }
 

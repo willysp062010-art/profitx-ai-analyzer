@@ -551,6 +551,7 @@ export default function Radar() {
 
       const matchesEvidence = source !== "live" || evidenceFilter === "all" ||
         (evidenceFilter === "market" && token.liquidityVerification === "dexscreener_live_pair") ||
+        (evidenceFilter === "sales" && token.sellabilityEvidence === "historical_sales_observed") ||
         (evidenceFilter === "concentration" && token.concentrationChecked === true) ||
         (evidenceFilter === "security" && token.securityChecked === true);
       return matchesSearch && matchesLiquidity && matchesEvidence;
@@ -751,6 +752,7 @@ export default function Radar() {
                 {pageCoverage.securityChecked}/{pageCoverage.total} contrôles techniques Solana,
                 {pageCoverage.concentrationChecked}/{pageCoverage.total} contrôles de concentration.
                 Une absence de données n'est pas une preuve d'absence de marché ou de risque.
+                Les ventes historiques ne garantissent jamais la possibilité de revendre ses propres tokens.
                 Cette sélection n'est pas un recensement exhaustif des créations Solana
                 ou Pump.fun ; un token absent n'est pas nécessairement sûr ni inexistant.
               </span>
@@ -828,6 +830,7 @@ export default function Radar() {
                 >
                   <option value="all">Tous les tokens</option>
                   <option value="market">Liquidité DEX observée</option>
+                  <option value="sales">Ventes historiques observées (24 h)</option>
                   <option value="security">Contrôle technique effectué</option>
                   <option value="concentration">Concentration contrôlée</option>
                 </select>

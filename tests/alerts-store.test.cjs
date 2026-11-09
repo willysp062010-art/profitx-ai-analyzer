@@ -77,3 +77,16 @@ test("DELETE removes a stored alert", async () => {
   const res = await invoke(handler, "DELETE", { clientId: "test", alertId: "test-alert" });
   assert.equal(res.statusCode, 200); assert.equal(calls[0].method, "DELETE");
 });
+
+test("PATCH returns 404 when alert does not exist", async () => {
+  const handler = load(async () => ({ ok: true, text: async () => "[]" }));
+  const res = await invoke(handler, "PATCH", { clientId: "test", alertId: "missing", enabled: true });
+  assert.equal(res.statusCode, 404);
+  assert.equal(res.body.error, "ALERT_NOT_FOUND");
+});
+test("DELETE returns 404 when alert does not exist", async () => {
+  const handler = load(async () => ({ ok: true, text: async () => "[]" }));
+  const res = await invoke(handler, "DELETE", { clientId: "test", alertId: "missing" });
+  assert.equal(res.statusCode, 404);
+  assert.equal(res.body.error, "ALERT_NOT_FOUND");
+});

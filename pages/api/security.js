@@ -248,6 +248,12 @@ function decodeClassicMint(
     (bytes[2] << 16) |
     (bytes[3] << 24);
 
+  // SPL COption must be 0 (none) or 1 (some).
+  // Invalid layouts must not produce authoritative security conclusions.
+  if (mintAuthorityOption !== 0 && mintAuthorityOption !== 1) {
+    return null;
+  }
+
   const mintAuthority =
     mintAuthorityOption !== 0
       ? bytesToBase58(
@@ -275,6 +281,14 @@ function decodeClassicMint(
     (bytes[47] << 8) |
     (bytes[48] << 16) |
     (bytes[49] << 24);
+
+  if (freezeAuthorityOption !== 0 && freezeAuthorityOption !== 1) {
+    return null;
+  }
+
+  if (bytes[45] !== 0 && bytes[45] !== 1) {
+    return null;
+  }
 
   const freezeAuthority =
     freezeAuthorityOption !== 0

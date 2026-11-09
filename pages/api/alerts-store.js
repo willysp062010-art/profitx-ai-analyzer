@@ -4,6 +4,11 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const TABLE_NAME = "pfx_alerts";
+const PUBLIC_ALERT_COLUMNS = "alert_id,chain_id,token_address,metric,condition,target_value,enabled,status,created_at";
+function publicAlert(row) {
+  if (!row || typeof row !== "object") return null;
+  return Object.fromEntries(PUBLIC_ALERT_COLUMNS.split(",").map((key) => [key, row[key] ?? null]));
+}
 
 function send(res, status, data) {
   return res.status(status).json(data);
@@ -107,6 +112,7 @@ async function supabaseRequest(path, options = {}) {
 }
 
 export default async function handler(req, res) {
+  res.setHeader("Cache-Control", "private, no-store, max-age=0");
   try {
     if (!SUPABASE_URL || !SUPABASE_KEY) {
       return send(res, 500, {
@@ -138,7 +144,7 @@ export default async function handler(req, res) {
       const rows = await supabaseRequest(
         `?client_id=eq.${encodeURIComponent(
           clientId
-        )}&select=*&order=created_at.desc`,
+        )}&select=${PUBLIC_ALERT_COLUMNS}&order=created_at.desc`,
         {
           method: "GET",
         }
@@ -148,7 +154,7 @@ export default async function handler(req, res) {
         ok: true,
         persistence: true,
         count: Array.isArray(rows) ? rows.length : 0,
-        alerts: Array.isArray(rows) ? rows : [],
+        alerts: Array.isArray(rows) ? rows.map(publicAlert) : [],
       });
     }
 
@@ -210,7 +216,7 @@ export default async function handler(req, res) {
       return send(res, 200, {
         ok: true,
         persistence: true,
-        alert: Array.isArray(rows) ? rows[0] || null : rows,
+        alert: publicAlert(Array.isArray(rows) ? rows[0] || null : rows),
       });
     }
 
@@ -272,7 +278,7 @@ export default async function handler(req, res) {
       return send(res, 200, {
         ok: true,
         persistence: true,
-        alert: rows[0],
+        alert: publicAlert(rows[0]),
       });
     }
 

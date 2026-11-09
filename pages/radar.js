@@ -748,6 +748,7 @@ export default function Radar() {
                 Couverture Radar : {tokens.length} token(s) affichables sur
                 {totalIndexed !== null ? " " + totalIndexed.toLocaleString("fr-FR") + " indexés dans PFX" : " un total indexé non disponible"}.
                 Le flux présente au maximum 100 enregistrements récents par requête, avant filtres.
+                Les filtres s'appliquent uniquement aux tokens chargés sur cette page ; le projet officiel PFX reste affiché séparément.
                 Sur cette page : {pageCoverage.marketObserved}/{pageCoverage.total} paires DEX avec liquidité observée,
                 {pageCoverage.securityChecked}/{pageCoverage.total} contrôles techniques Solana,
                 {pageCoverage.concentrationChecked}/{pageCoverage.total} contrôles de concentration.
@@ -858,8 +859,8 @@ export default function Radar() {
             </div>
 
             <div className="resultCounter">
-              <span>TOKENS AFFICHÉS</span>
-              <strong>{displayedTokens.filter((token) => !(officialPfxMatch && token.mint === OFFICIAL_PFX_MINT)).length + (officialPfxMatch ? 1 : 0)}</strong>
+              <span>RÉSULTATS FILTRÉS (PAGE ACTUELLE)</span>
+              <strong>{displayedTokens.filter((token) => !(officialPfxMatch && token.mint === OFFICIAL_PFX_MINT)).length}</strong>
             </div>
           </section>
 

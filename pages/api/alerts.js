@@ -22,7 +22,8 @@ function toNumber(value) {
   if (
     value === null ||
     value === undefined ||
-    value === ""
+    value === "" ||
+    typeof value === "boolean"
   ) {
     return null;
   }
@@ -69,11 +70,12 @@ function normalizeAlert(alert, index) {
   );
 
   if (
-    !tokenAddress ||
+    !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(tokenAddress) ||
     chainId !== "solana" ||
     !SUPPORTED_METRICS.has(metric) ||
     !SUPPORTED_CONDITIONS.has(condition) ||
-    targetValue === null
+    targetValue === null ||
+    (metric !== "change24h" && targetValue < 0)
   ) {
     return null;
   }

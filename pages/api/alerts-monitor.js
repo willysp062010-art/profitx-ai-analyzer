@@ -2,10 +2,11 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const ALERT_EMAIL_TO = process.env.PFX_ALERTS_EMAIL_TO;
 const ALERT_EMAIL_FROM = "PFX Alerts <onboarding@resend.dev>";
-const SUPABASE_KEY =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// A shared destination is not an authenticated per-user notification channel.
+// Keep emails disabled until per-user opt-in and verified ownership exist.
+const EMAIL_NOTIFICATIONS_ENABLED = false;
+// Private alert records must only be accessed with a server-only key.
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const MONITOR_SECRET = process.env.PFX_ALERTS_MONITOR_SECRET;
 
@@ -770,7 +771,9 @@ export default async function handler(
         "PFX Alerts Automatic Monitor",
       version: VERSION,
       status: "online",
-      automaticMonitoring: true,
+      automaticMonitoring: false,
+      scheduled: false,
+      emailNotifications: EMAIL_NOTIFICATIONS_ENABLED,
       configured: Boolean(
         SUPABASE_URL &&
           SUPABASE_KEY &&
@@ -898,7 +901,7 @@ export default async function handler(
 let notificationSent = false;
 let notificationError = null;
 
-if (evaluation.newlyTriggered) {
+if (evaluation.newlyTriggered && EMAIL_NOTIFICATIONS_ENABLED) {
   try {
     await sendAlertEmail(
       alert,

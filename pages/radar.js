@@ -291,6 +291,7 @@ export default function Radar() {
 
   const [source, setSource] = useState("live");
   const [tokens, setTokens] = useState([]);
+  const [totalIndexed, setTotalIndexed] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -405,6 +406,8 @@ export default function Radar() {
         );
 
         setTokens(unique);
+        setTotalIndexed(source === "live" && Number.isSafeInteger(result?.totalIndexed)
+          ? result.totalIndexed : null);
 
         const updated =
           timestamp(result?.updatedAt) ??
@@ -565,6 +568,7 @@ export default function Radar() {
   function changeSource(nextSource) {
     if (nextSource === source) return;
     setTokens([]);
+    setTotalIndexed(null);
     setSource(nextSource);
     setSortBy(nextSource === "live" ? "recent" : "score");
     setMinimumLiquidity(0);
@@ -695,8 +699,9 @@ export default function Radar() {
           {source === "live" && (
             <div className="onchainLine">
               <span>
-                Couverture Radar : {tokens.length} token(s) chargés depuis la base PFX
-                (100 enregistrements récents au maximum par requête, avant filtres).
+                Couverture Radar : {tokens.length} token(s) affichables sur
+                {totalIndexed !== null ? " " + totalIndexed.toLocaleString("fr-FR") + " indexés dans PFX" : " un total indexé non disponible"}.
+                Le flux présente au maximum 100 enregistrements récents par requête, avant filtres.
                 Cette sélection n'est pas un recensement exhaustif des créations Solana
                 ou Pump.fun ; un token absent n'est pas nécessairement sûr ni inexistant.
               </span>

@@ -96,6 +96,20 @@ function statusLabel(status) {
 
 
 function getActivityState(observed, activity) {
+  const hasMarketActivityData =
+    observed?.volume24hUsd != null ||
+    observed?.transactions24h != null ||
+    observed?.buys24h != null ||
+    observed?.sells24h != null;
+
+  if (!hasMarketActivityData) {
+    return {
+      label: "DONNÉES INDISPONIBLES",
+      description: "Impossible de confirmer l'activité du marché sur les dernières 24 heures.",
+      className: "unknown"
+    };
+  }
+
   const volume = Number(observed?.volume24hUsd ?? 0);
   const transactions = Number(observed?.transactions24h ?? 0);
   const buys = Number(observed?.buys24h ?? 0);
@@ -374,6 +388,11 @@ function buildProfitxDiagnostic({
     "L'état récent du marché n'est pas disponible.";
 
   if (
+    activityState?.label === "DONNÉES INDISPONIBLES"
+  ) {
+    marketMessage =
+      "Activité du marché non vérifiée : les données des dernières 24 heures sont indisponibles, et non égales à zéro.";
+  } else if (
     activityState?.label === "INACTIF"
   ) {
     marketMessage =

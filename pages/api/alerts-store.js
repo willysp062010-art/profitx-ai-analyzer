@@ -345,7 +345,7 @@ export default async function handler(req, res) {
     return send(res, 500, {
       ok: false,
       error: "PERSISTENCE_ERROR",
-      message: error?.message || "Erreur inconnue du stockage PFX.",
+      message: "Le stockage des alertes est momentanément indisponible.",
     });
   }
 }

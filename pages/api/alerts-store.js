@@ -16,7 +16,11 @@ function cleanText(value, maxLength = 500) {
 }
 
 function normalizeAlert(alert = {}) {
-  const targetValue = Number(alert.targetValue);
+  const rawTarget = alert.targetValue;
+  const targetValue = rawTarget === null || rawTarget === undefined ||
+    typeof rawTarget === "boolean" || String(rawTarget).trim() === ""
+    ? NaN
+    : Number(rawTarget);
 
   return {
     alert_id: cleanText(alert.id || alert.alertId, 300),
@@ -34,19 +38,20 @@ function validateAlert(alert) {
     return "alert_id manquant.";
   }
 
-  if (!alert.token_address) {
-    return "token_address manquant.";
+  if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(alert.token_address)) {
+    return "token_address Solana invalide.";
   }
 
-  if (!alert.metric) {
-    return "metric manquante.";
+  if (!["priceUsd", "change24h", "liquidityUsd", "volume24hUsd"].includes(alert.metric)) {
+    return "metric non prise en charge.";
   }
 
   if (!["above", "below"].includes(alert.condition)) {
     return "condition invalide.";
   }
 
-  if (!Number.isFinite(alert.target_value)) {
+  if (!Number.isFinite(alert.target_value) ||
+      (alert.metric !== "change24h" && alert.target_value < 0)) {
     return "target_value invalide.";
   }
 

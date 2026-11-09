@@ -1006,6 +1006,8 @@ export default function Radar() {
                       <span>
                         Revente : {token.sellabilityEvidence === "transfer_restriction_observed"
                           ? "RESTRICTIONS DE TRANSFERT ⚠ — VENTE NON TESTÉE"
+                          : token.sellabilityEvidence === "freeze_risk_observed"
+                            ? "RISQUE DE GEL OBSERVÉ ⚠ — VENTE NON TESTÉE"
                           : token.sellabilityEvidence === "historical_sales_observed"
                             ? "VENTES OBSERVÉES SUR UNE PAIRE (24 H) — VOTRE REVENTE NON GARANTIE"
                             : token.liquidity !== null && token.liquidity > 0

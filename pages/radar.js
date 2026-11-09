@@ -143,6 +143,7 @@ function normalizeToken(token, index) {
     securityScore:
       num(token?.securityScore) ??
       num(token?.security_score),
+    securityScoreSource: token?.securityScoreSource || "unspecified",
     securityChecked: token?.securityChecked === true,
     mintAuthorityEnabled: token?.mintAuthorityEnabled === true ? true :
       token?.mintAuthorityEnabled === false ? false : null,
@@ -1025,7 +1026,7 @@ export default function Radar() {
                       <span>ANALYSE DE SÉCURITÉ</span>
                       <strong>
                         {token.securityScore !== null
-                          ? `${Math.round(token.securityScore)}/100`
+                          ? `${Math.round(token.securityScore)}/100 (analyse enregistrée, non audit)`
                           : "EN ATTENTE"}
                       </strong>
                     </div>

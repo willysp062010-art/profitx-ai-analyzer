@@ -90,3 +90,16 @@ test("DELETE returns 404 when alert does not exist", async () => {
   assert.equal(res.statusCode, 404);
   assert.equal(res.body.error, "ALERT_NOT_FOUND");
 });
+
+test("GET exposes only public alert fields, not internal client or database identifiers", async () => {
+ const handler=load(async()=>({ok:true,status:200,text:async()=>JSON.stringify([
+  {alert_id:"a",client_id:"secret-client",id:"database-uuid",token_address:MINT,status:"watching",last_condition_met:true}
+ ])}));
+ const result=await invoke(handler,"GET",null,{clientId:"test"});
+ assert.equal(result.statusCode,200);
+ assert.equal(result.body.alerts[0].alert_id,"a");
+ assert.equal(result.body.alerts[0].token_address,MINT);
+ assert.equal(Object.hasOwn(result.body.alerts[0],"client_id"),false);
+ assert.equal(Object.hasOwn(result.body.alerts[0],"id"),false);
+ assert.equal(Object.hasOwn(result.body.alerts[0],"last_condition_met"),false);
+});

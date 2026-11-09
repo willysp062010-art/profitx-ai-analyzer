@@ -2225,7 +2225,11 @@ async function searchToken(query) {
                       ? "MODÉRÉ — PÉRIMÈTRE LIMITÉ"
                       : security?.riskLevel === "HIGH"
                         ? "ÉLEVÉ — PÉRIMÈTRE LIMITÉ"
-                        : security?.riskLevel || "N/D"}
+                        : security?.riskLevel === "VERY_HIGH"
+                          ? "TRÈS ÉLEVÉ — PÉRIMÈTRE LIMITÉ"
+                          : security?.riskLevel
+                            ? "N/D — NIVEAU NON RECONNU"
+                            : "N/D"}
                 </strong>
               </div>
 

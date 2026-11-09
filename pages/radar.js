@@ -144,6 +144,10 @@ function normalizeToken(token, index) {
     securityScoreSource: token?.securityScoreSource || "unspecified",
     liquidityVerification: token?.liquidityVerification || "not_verified",
     marketFetchedAt: token?.marketFetchedAt || null,
+    marketDexId: typeof token?.marketDexId === "string" ? token.marketDexId : null,
+    marketPairUrl: typeof token?.marketPairUrl === "string" &&
+      /^https:\/\/dexscreener\.com\/solana\/[a-zA-Z0-9]+(?:[/?#].*)?$/.test(token.marketPairUrl)
+      ? token.marketPairUrl : null,
     securityChecked: token?.securityChecked === true,
     mintAuthorityEnabled: token?.mintAuthorityEnabled === true ? true :
       token?.mintAuthorityEnabled === false ? false : null,
@@ -1052,6 +1056,17 @@ export default function Radar() {
                         {token.marketFetchedAt && !Number.isNaN(new Date(token.marketFetchedAt).getTime())
                           ? "Données consultées le " + new Date(token.marketFetchedAt).toLocaleString("fr-FR") + " (heure de récupération, pas de dernière transaction)."
                           : "Horodatage de consultation du marché indisponible."}
+                      </span>
+                    </div>
+                  )}
+
+                  {source === "live" && token.marketPairUrl && (
+                    <div className="onchainLine">
+                      <span>
+                        Source de marché : {token.marketDexId || "DEX non précisé"} —{" "}
+                        <a href={token.marketPairUrl} target="_blank" rel="noopener noreferrer">
+                          consulter la paire sur DexScreener
+                        </a>.
                       </span>
                     </div>
                   )}

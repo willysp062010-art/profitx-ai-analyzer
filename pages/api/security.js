@@ -82,13 +82,20 @@ async function rpcCall(rpcUrl, method, params) {
 ========================================================= */
 
 function base64ToBytes(base64) {
+  // Buffer silently accepts malformed base64; reject it before decoding.
+  if (
+    typeof base64 !== "string" ||
+    !base64.length ||
+    base64.length % 4 !== 0 ||
+    !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(base64)
+  ) {
+    return null;
+  }
+
   try {
-    return Uint8Array.from(
-      Buffer.from(
-        base64,
-        "base64"
-      )
-    );
+    const bytes = Buffer.from(base64, "base64");
+    if (bytes.toString("base64") !== base64) return null;
+    return Uint8Array.from(bytes);
   } catch {
     return null;
   }

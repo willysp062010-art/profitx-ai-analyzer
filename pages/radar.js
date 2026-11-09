@@ -292,6 +292,8 @@ export default function Radar() {
   const [source, setSource] = useState("live");
   const [tokens, setTokens] = useState([]);
   const [totalIndexed, setTotalIndexed] = useState(null);
+  const [radarPage, setRadarPage] = useState(0);
+  const [hasMorePages, setHasMorePages] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -361,7 +363,7 @@ export default function Radar() {
 
       try {
         const endpoint =
-          source === "live" ? "/api/radar-live" : "/api/radar";
+          source === "live" ? "/api/radar-live?page=" + radarPage : "/api/radar";
 
         const response = await fetch(endpoint, {
           method: "GET",
@@ -406,6 +408,7 @@ export default function Radar() {
         );
 
         setTokens(unique);
+        setHasMorePages(source === "live" && result?.hasMore === true);
         setTotalIndexed(source === "live" && Number.isSafeInteger(result?.totalIndexed)
           ? result.totalIndexed : null);
 
@@ -427,7 +430,7 @@ export default function Radar() {
         setRefreshing(false);
       }
     },
-    [source]
+    [source, radarPage]
   );
 
   useEffect(() => {
@@ -569,6 +572,8 @@ export default function Radar() {
     if (nextSource === source) return;
     setTokens([]);
     setTotalIndexed(null);
+    setHasMorePages(false);
+    setRadarPage(0);
     setSource(nextSource);
     setSortBy(nextSource === "live" ? "recent" : "score");
     setMinimumLiquidity(0);
@@ -794,6 +799,16 @@ export default function Radar() {
               <strong>{displayedTokens.filter((token) => !(officialPfxMatch && token.mint === OFFICIAL_PFX_MINT)).length + (officialPfxMatch ? 1 : 0)}</strong>
             </div>
           </section>
+
+          {source === "live" && (
+            <div className="statusActions" style={{ justifyContent: "center", margin: "16px 0", gap: 12 }}>
+              <button type="button" className="refreshButton" disabled={loading || refreshing || radarPage === 0}
+                onClick={() => setRadarPage((page) => Math.max(0, page - 1))}>PRÉCÉDENT</button>
+              <span>Page {radarPage + 1} · 100 tokens maximum par page</span>
+              <button type="button" className="refreshButton" disabled={loading || refreshing || !hasMorePages}
+                onClick={() => setRadarPage((page) => page + 1)}>SUIVANT</button>
+            </div>
+          )}
 
           {officialPfxMatch && (
             <section role="region" aria-label="Résultat officiel PROFITX" style={{

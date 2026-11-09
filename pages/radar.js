@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import PfxPoolStatus from "../components/PfxPoolStatus";
@@ -294,6 +294,7 @@ export default function Radar() {
   const [totalIndexed, setTotalIndexed] = useState(null);
   const [radarPage, setRadarPage] = useState(0);
   const [hasMorePages, setHasMorePages] = useState(false);
+  const activeRadarRequest = useRef(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -353,6 +354,7 @@ export default function Radar() {
 
   const loadRadar = useCallback(
     async (manual = false) => {
+      const requestId = ++activeRadarRequest.current;
       if (manual) setRefreshing(true);
       else setLoading(true);
 
@@ -407,6 +409,7 @@ export default function Radar() {
           new Map(normalized.map((token) => [token.mint, token])).values()
         );
 
+        if (requestId !== activeRadarRequest.current) return;
         setTokens(unique);
         setHasMorePages(source === "live" && result?.hasMore === true);
         setTotalIndexed(source === "live" && Number.isSafeInteger(result?.totalIndexed)
@@ -419,6 +422,7 @@ export default function Radar() {
 
         setLastUpdated(new Date(updated));
       } catch (err) {
+        if (requestId !== activeRadarRequest.current) return;
         setError(
           err?.name === "AbortError"
             ? "Le Radar met trop de temps à répondre."
@@ -426,8 +430,10 @@ export default function Radar() {
         );
       } finally {
         clearTimeout(timeout);
-        setLoading(false);
-        setRefreshing(false);
+        if (requestId === activeRadarRequest.current) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
     },
     [source, radarPage]
@@ -570,6 +576,7 @@ export default function Radar() {
 
   function changeSource(nextSource) {
     if (nextSource === source) return;
+    activeRadarRequest.current++;
     setTokens([]);
     setTotalIndexed(null);
     setHasMorePages(false);

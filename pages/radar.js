@@ -171,6 +171,8 @@ function normalizeToken(token, index) {
       num(token?.speculation_risk_score),
     detectedAt,
     createdTime,
+    // Only a supplied on-chain creation timestamp qualifies for recent-launch classification.
+    onchainCreationTime: timestamp(token?.createdOnchainAt) ?? timestamp(token?.created_onchain_at),
     ageMs:
       num(token?.ageMs) ??
       (createdTime !== null
@@ -949,6 +951,19 @@ export default function Radar() {
                       </div>
                     ))}
                   </div>
+
+                  {source === "live" && (
+                    <div className="onchainLine">
+                      <span>
+                        Classification : {token.onchainCreationTime !== null
+                          ? Date.now() - token.onchainCreationTime >= 0 &&
+                            Date.now() - token.onchainCreationTime <= 24 * 60 * 60 * 1000
+                            ? "CRÉATION ONCHAIN DATÉE DE MOINS DE 24 H"
+                            : "CRÉATION ONCHAIN DATÉE DE PLUS DE 24 H"
+                          : "DATE DE CRÉATION ONCHAIN INCONNUE — TOKEN SIMPLEMENT INDEXÉ"}
+                      </span>
+                    </div>
+                  )}
 
                   {source === "live" && (
                     <div className="onchainLine">

@@ -2212,11 +2212,16 @@ async function searchToken(query) {
               </div>
 
               <div>
-                <span>Risque</span>
+                <span>Risque (contrôles disponibles)</span>
 
                 <strong>
-                  {security?.riskLevel ||
-                    "N/D"}
+                  {security?.riskLevel === "LOW"
+                    ? "FAIBLE — PÉRIMÈTRE LIMITÉ"
+                    : security?.riskLevel === "MODERATE"
+                      ? "MODÉRÉ — PÉRIMÈTRE LIMITÉ"
+                      : security?.riskLevel === "HIGH"
+                        ? "ÉLEVÉ — PÉRIMÈTRE LIMITÉ"
+                        : security?.riskLevel || "N/D"}
                 </strong>
               </div>
 

@@ -554,7 +554,11 @@ export default function Radar() {
     const getSortValue = (token) => {
       switch (sortBy) {
         case "recent":
-          return token.createdTime;
+          // The live feed is ordered by PFX detection time, not by an
+          // unverified or missing on-chain creation timestamp.
+          return source === "live"
+            ? timestamp(token.detectedAt)
+            : token.createdTime;
         case "score":
           return token.score;
         case "liquidity":

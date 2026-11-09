@@ -2034,6 +2034,13 @@ async function searchToken(query) {
                   Compte appartenant au programme Pump.fun, adresse
                   fournie par son API et données lues via Solana RPC.
                   Association au mint non vérifiée par PDA ; aucune garantie de revente.
+                  {observed.onchainCurveStatus === "PUMPFUN_API_BLOCKED"
+                    ? " Lecture indisponible : Pump.fun bloque actuellement l'accès API (HTTP 403)."
+                    : observed.onchainCurveStatus === "CURVE_ADDRESS_UNAVAILABLE"
+                      ? " Adresse du compte non disponible ou non confirmée."
+                      : observed.onchainCurveStatus === "RPC_ACCOUNT_UNVERIFIED"
+                        ? " Compte non confirmé par la lecture RPC."
+                        : ""}
                   {observed.onchainCurveSlot != null
                     ? ` Slot ${observed.onchainCurveSlot}.`
                     : ""}

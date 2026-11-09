@@ -692,6 +692,17 @@ export default function Radar() {
             </div>
           </section>
 
+          {source === "live" && (
+            <div className="onchainLine">
+              <span>
+                Couverture Radar : {tokens.length} token(s) chargés depuis la base PFX
+                (100 enregistrements récents au maximum par requête, avant filtres).
+                Cette sélection n'est pas un recensement exhaustif des créations Solana
+                ou Pump.fun ; un token absent n'est pas nécessairement sûr ni inexistant.
+              </span>
+            </div>
+          )}
+
           <section className="sourceSelector">
             <button
               type="button"

@@ -994,15 +994,15 @@ export default function Radar() {
                           }{token.largestAuthorityKnownProtocol ? " — programme reconnu : " + token.largestAuthorityKnownProtocol : ""} (programme reconnu ne prouve pas que le compte est un pool ni qu'une vente est possible).
                         </span>
                       )}
-                      {token.creatorAddress && (
-                        <span>
-                          Payeur du lancement : {shortMint(token.creatorAddress)}
-                          {token.creatorSeenTokenCount !== null
-                            ? " • " + token.creatorSeenTokenCount + " token(s) observé(s) avec cette adresse dans PFX"
-                            : " • historique non disponible"}
-                          {" (le payeur ne prouve pas l'identité du créateur)"}
-                        </span>
-                      )}
+                      <span>
+                        Payeur du lancement : {token.creatorAddress
+                          ? shortMint(token.creatorAddress)
+                          : "NON IDENTIFIÉ"}
+                        {token.creatorAddress && token.creatorSeenTokenCount !== null
+                          ? " • " + token.creatorSeenTokenCount + " lancement(s) associés dans la base PFX"
+                          : " • historique non disponible"}
+                        {" — observation limitée aux tokens indexés par PFX ; cette adresse ne prouve pas l'identité du créateur ni l'ensemble de ses lancements."}
+                      </span>
                       <span>
                         Revente : {token.sellabilityEvidence === "transfer_restriction_observed"
                           ? "RESTRICTIONS DE TRANSFERT ⚠ — VENTE NON TESTÉE"

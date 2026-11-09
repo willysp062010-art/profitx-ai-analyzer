@@ -2308,6 +2308,18 @@ export default async function handler(
         security?.freezeAuthority ??
         null,
 
+      mintAuthorityRevoked:
+        security?.mintAuthorityRevoked ??
+        null,
+
+      freezeAuthorityRevoked:
+        security?.freezeAuthorityRevoked ??
+        null,
+
+      tokenProgram:
+        security?.tokenProgram ??
+        null,
+
       warnings:
         security?.warnings ??
         []

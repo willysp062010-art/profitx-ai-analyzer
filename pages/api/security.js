@@ -34,67 +34,47 @@ function json(res, status, body) {
   return res.status(status).json(body);
 }
 
-async function rpcCall(
-  rpcUrl,
-  method,
-  params
-) {
-  const controller =
-    new AbortController();
+async function rpcCall(rpcUrl, method, params) {
+  // One bounded retry for temporary RPC rate limits or service outages.
+  // Never treat an unavailable RPC response as verified token data.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-  const timeout =
-    setTimeout(
-      () => controller.abort(),
-      REQUEST_TIMEOUT_MS
-    );
+    try {
+      const response = await fetch(rpcUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json"
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: "profitx-security",
+          method,
+          params
+        }),
+        signal: controller.signal
+      });
 
-  try {
-    const response =
-      await fetch(
-        rpcUrl,
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-
-            Accept:
-              "application/json"
-          },
-
-          body: JSON.stringify({
-            jsonrpc: "2.0",
-            id: "profitx-security",
-            method,
-            params
-          }),
-
-          signal:
-            controller.signal
+      if (!response.ok) {
+        if ((response.status === 429 || response.status >= 500) && attempt === 0) {
+          await new Promise(resolve => setTimeout(resolve, 350));
+          continue;
         }
-      );
+        throw new Error(`RPC HTTP ${response.status}`);
+      }
 
-    if (!response.ok) {
-      throw new Error(
-        `RPC HTTP ${response.status}`
-      );
+      const data = await response.json();
+      if (data?.error) {
+        throw new Error(data.error.message || "Solana RPC error");
+      }
+      return data?.result ?? null;
+    } finally {
+      clearTimeout(timeout);
     }
-
-    const data =
-      await response.json();
-
-    if (data?.error) {
-      throw new Error(
-        data.error.message ||
-        "Solana RPC error"
-      );
-    }
-
-    return data?.result ?? null;
-  } finally {
-    clearTimeout(timeout);
   }
+  throw new Error("RPC unavailable after retry");
 }
 
 /* =========================================================
@@ -937,19 +917,16 @@ export default async function handler(
       }
     );
   } catch (error) {
-    return json(
-      res,
-      500,
-      {
-        ok: false,
-
-        module:
-          "PROFITX_SECURITY",
-
-        error:
-          error?.message ||
-          "Erreur lors de l'analyse on-chain."
-      }
-    );
+    const message = error?.message || "Erreur lors de l'analyse on-chain.";
+    const rpcUnavailable = /RPC HTTP (429|5\\d\\d)|RPC unavailable|abort|fetch failed|timeout/i.test(message);
+    if (rpcUnavailable) res.setHeader("Retry-After", "5");
+    return json(res, rpcUnavailable ? 503 : 500, {
+      ok: false,
+      module: "PROFITX_SECURITY",
+      error: rpcUnavailable
+        ? "RPC Solana temporairement indisponible : sécurité non vérifiable pour le moment."
+        : message,
+      retryable: rpcUnavailable
+    });
   }
 }

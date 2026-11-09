@@ -89,8 +89,6 @@ function normalizeToken(token, index) {
   const detectedAt =
     token?.detectedAt ||
     token?.detected_at ||
-    token?.createdOnchainAt ||
-    token?.created_onchain_at ||
     null;
 
   // Detection time is not proof of token creation time.
@@ -943,7 +941,7 @@ export default function Radar() {
                         "TRANSACTIONS 24 H",
                         integer(token.transactions24h),
                       ],
-                      [source === "live" ? "ÂGE ONCHAIN" : "ÂGE", age(token.ageMs)],
+                      [source === "live" ? "ÂGE ESTIMÉ" : "ÂGE", age(token.ageMs)],
                     ].map(([label, value]) => (
                       <div className="metric" key={label}>
                         <span>{label}</span>
@@ -951,6 +949,20 @@ export default function Radar() {
                       </div>
                     ))}
                   </div>
+
+                  {source === "live" && (
+                    <div className="onchainLine">
+                      <span>
+                        Première détection PFX : {token.detectedAt && !Number.isNaN(new Date(token.detectedAt).getTime())
+                          ? new Date(token.detectedAt).toLocaleString("fr-FR")
+                          : "non disponible"}
+                        {" — "}
+                        {token.createdTime !== null
+                          ? "Âge estimé à partir de la date de création disponible ; ce n'est pas une preuve d'heure de mint."
+                          : "Date de création non confirmée : ne pas assimiler détection et lancement."}
+                      </span>
+                    </div>
+                  )}
 
                   {source === "live" && token.liquidityVerification !== "dexscreener_live_pair" && (
                     <div className="onchainLine">

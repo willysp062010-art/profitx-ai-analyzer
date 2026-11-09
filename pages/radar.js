@@ -295,6 +295,7 @@ export default function Radar() {
   const [radarPage, setRadarPage] = useState(0);
   const [hasMorePages, setHasMorePages] = useState(false);
   const activeRadarRequest = useRef(0);
+  const radarSnapshot = useRef(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -365,7 +366,12 @@ export default function Radar() {
 
       try {
         const endpoint =
-          source === "live" ? "/api/radar-live?page=" + radarPage : "/api/radar";
+          source === "live"
+            ? "/api/radar-live?page=" + radarPage +
+              (radarPage > 0 && radarSnapshot.current
+                ? "&snapshot=" + encodeURIComponent(radarSnapshot.current)
+                : "")
+            : "/api/radar";
 
         const response = await fetch(endpoint, {
           method: "GET",
@@ -411,6 +417,10 @@ export default function Radar() {
 
         if (requestId !== activeRadarRequest.current) return;
         setTokens(unique);
+        if (source === "live" && radarPage === 0) {
+          radarSnapshot.current = typeof result?.snapshot === "string"
+            ? result.snapshot : null;
+        }
         setHasMorePages(source === "live" && result?.hasMore === true);
         setTotalIndexed(source === "live" && Number.isSafeInteger(result?.totalIndexed)
           ? result.totalIndexed : null);
@@ -577,6 +587,7 @@ export default function Radar() {
   function changeSource(nextSource) {
     if (nextSource === source) return;
     activeRadarRequest.current++;
+    radarSnapshot.current = null;
     setTokens([]);
     setTotalIndexed(null);
     setHasMorePages(false);

@@ -59,3 +59,15 @@ test("quote-only market does not invent a price for monitored token",()=>{
  const data=ctx.module.exports.extractMarketData(ctx.module.exports.chooseBestPair([pair],mint),mint);
  assert.equal(data.priceUsd,null);
 });
+
+test("unavailable market state does not count as a new threshold crossing",()=>{
+ const ctx={module:{exports:{}},process:{env:{}},fetch:async()=>{},AbortController,
+  setTimeout,clearTimeout,Date,console,encodeURIComponent};
+ vm.runInNewContext(source.replace("module.exports={handler,chooseBestPair,extractMarketData};","module.exports={handler,chooseBestPair,extractMarketData,buildEvaluation};"),ctx);
+ for(const previousStatus of ["no_market_data","metric_unavailable","error"]){
+  const alert={metric:"priceUsd",condition:"above",targetValue:1,previousStatus};
+  const result=ctx.module.exports.buildEvaluation(alert,{priceUsd:2,symbol:"TEST"},"2026-11-09T00:00:00Z");
+  assert.equal(result.triggeredNow,true);
+  assert.equal(result.newlyTriggered,false);
+ }
+});

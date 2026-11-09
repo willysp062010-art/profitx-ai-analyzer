@@ -41,12 +41,6 @@ async function enrichOnRead(rows, supabaseUrl, supabaseKey) {
   // backlog a fair share on every 5-minute scheduled read.
   let historical = [];
   try {
-    const pageRaw = typeof req.query.page === "string" ? req.query.page : "0";
-    if (!/^(0|[1-9]\d{0,3})$/.test(pageRaw)) {
-      return res.status(400).json({ error: "Page invalide" });
-    }
-    const page = Number(pageRaw);
-    const pageLimit = 100;
     const params = new URLSearchParams({
       select: "id,mint,name,symbol,metadata,analysis_status",
       chain_id: "eq.solana",
@@ -512,6 +506,12 @@ export default async function handler(req, res) {
   }
 
   try {
+    const pageRaw = typeof req.query.page === "string" ? req.query.page : "0";
+    if (!/^(0|[1-9]\d{0,3})$/.test(pageRaw)) {
+      return res.status(400).json({ error: "Page invalide" });
+    }
+    const page = Number(pageRaw);
+    const pageLimit = 100;
     const params = new URLSearchParams({
       select:
         "id,mint,name,symbol,metadata,source,launch_platform,creator_address," +

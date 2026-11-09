@@ -589,7 +589,9 @@ export default async function handler(req, res) {
             : (liveMarkets.get(row.mint)?.sells24h > 0
               ? "historical_sales_observed"
               : "not_verified"),
+      // Scores stored by earlier processing are not an on-chain audit.
       securityScore: row.security_score,
+      securityScoreSource: row.security_score == null ? "not_available" : "stored_analysis",
       utilityScore: row.utility_score,
       speculationRiskScore: row.speculation_risk_score,
       status: row.analysis_status,

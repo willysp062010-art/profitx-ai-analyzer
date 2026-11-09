@@ -355,8 +355,11 @@ export default function Radar() {
   }
 
   const loadRadar = useCallback(
-    async (manual = false) => {
+    async (manual = false, resetSnapshot = false) => {
       const requestId = ++activeRadarRequest.current;
+      if (source === "live" && radarPage === 0 && resetSnapshot) {
+        radarSnapshot.current = null;
+      }
       if (manual) setRefreshing(true);
       else setLoading(true);
 
@@ -369,7 +372,7 @@ export default function Radar() {
         const endpoint =
           source === "live"
             ? "/api/radar-live?page=" + radarPage +
-              (radarPage > 0 && radarSnapshot.current
+              (radarSnapshot.current
                 ? "&snapshot=" + encodeURIComponent(radarSnapshot.current)
                 : "")
             : "/api/radar";
@@ -418,7 +421,7 @@ export default function Radar() {
 
         if (requestId !== activeRadarRequest.current) return;
         setTokens(unique);
-        if (source === "live" && radarPage === 0) {
+        if (source === "live" && radarPage === 0 && !radarSnapshot.current) {
           radarSnapshot.current = typeof result?.snapshot === "string"
             ? result.snapshot : null;
         }
@@ -460,7 +463,7 @@ export default function Radar() {
     if (!autoRefresh || (source === "live" && radarPage > 0)) return;
 
     const interval = setInterval(() => {
-      loadRadar(true);
+      loadRadar(true, true);
     }, REFRESH_INTERVAL);
 
     return () => clearInterval(interval);
@@ -731,7 +734,7 @@ export default function Radar() {
                 type="button"
                 className="refreshButton"
                 disabled={refreshing || loading}
-                onClick={() => loadRadar(true)}
+                onClick={() => loadRadar(true, radarPage === 0)}
               >
                 {refreshing ? "ACTUALISATION..." : "ACTUALISER"}
               </button>

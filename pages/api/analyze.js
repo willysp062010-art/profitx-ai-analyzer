@@ -1994,6 +1994,12 @@ export default async function handler(
         ? pMetrics?.virtualSol ?? null
         : null,
 
+    // Indicative USD valuation of virtual SOL, never actual DEX liquidity.
+    virtualSolValueUsd:
+      pumpMarketDetected
+        ? pMetrics?.virtualSolValueUsd ?? null
+        : null,
+
     virtualTokenReserves:
       pumpMarketDetected
         ? pMetrics?.virtualToken ?? null
@@ -2059,6 +2065,9 @@ export default async function handler(
 
     virtualSolReserves:
       observed.virtualSolReserves,
+
+    virtualSolValueUsd:
+      observed.virtualSolValueUsd,
 
     virtualTokenReserves:
       observed.virtualTokenReserves,
@@ -2360,6 +2369,10 @@ export default async function handler(
 
             virtualSolReserves:
               pMetrics?.virtualSol ??
+              null,
+
+            virtualSolValueUsd:
+              pMetrics?.virtualSolValueUsd ??
               null,
 
             virtualTokenReserves:

@@ -1040,12 +1040,14 @@ export default function Radar() {
                     <div className="onchainLine">
                       <span>
                         Données de marché : {token.liquidityVerification === "dexscreener_live_pair"
-                          ? "Paire Solana observée via DexScreener ; liquidité indicative, pas une garantie de revente."
-                          : "Aucune paire DEX vérifiée dans cette réponse ; prix, liquidité et volume indisponibles ne signifient pas zéro."}
+                          ? "Paire Solana retrouvée via DexScreener avec liquidité chiffrée indicative ; revente non garantie."
+                          : token.marketFetchedAt
+                            ? "Paire Solana retrouvée via DexScreener, mais liquidité non chiffrée dans cette réponse ; revente non vérifiée."
+                            : "Aucune paire DEX retrouvée dans cette réponse ; absence de données ne signifie pas absence de marché."}
                         {" "}
                         {token.marketFetchedAt && !Number.isNaN(new Date(token.marketFetchedAt).getTime())
-                          ? "Observation : " + new Date(token.marketFetchedAt).toLocaleString("fr-FR") + "."
-                          : "Horodatage de marché non disponible."}
+                          ? "Données consultées le " + new Date(token.marketFetchedAt).toLocaleString("fr-FR") + " (heure de récupération, pas de dernière transaction)."
+                          : "Horodatage de consultation du marché indisponible."}
                       </span>
                     </div>
                   )}

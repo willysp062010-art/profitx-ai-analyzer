@@ -1553,16 +1553,17 @@ export default function Alerts() {
               </span>
 
               <h2>
-                Moteur de vérification connecté
+                Moteur de vérification à la demande
               </h2>
 
               <p>
-               PFX Alerts surveille automatiquement
-vos règles en continu et compare leurs
-valeurs cibles aux données de marché.
-Lorsqu&apos;une condition est déclenchée,
-une notification par e-mail est envoyée
-automatiquement.
+                Vos règles sont sauvegardées sur le serveur.
+                Utilisez le bouton de vérification pour comparer
+                leurs seuils aux données de marché disponibles.
+                La surveillance automatique en continu et les
+                notifications par e-mail ne sont pas encore activées.
+                Une règle enregistrée ne déclenche donc pas
+                de notification sans vérification manuelle.
               </p>
             </div>
           </section>

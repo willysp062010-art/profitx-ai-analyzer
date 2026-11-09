@@ -524,7 +524,8 @@ export default async function handler(req, res) {
         headers: {
           apikey: key,
           Authorization: `Bearer ${key}`,
-          Accept: "application/json"
+          Accept: "application/json",
+          Prefer: "count=exact"
         },
         signal: AbortSignal.timeout(8000)
       }
@@ -534,6 +535,11 @@ export default async function handler(req, res) {
       throw new Error(`Supabase HTTP ${response.status}`);
     }
 
+    const countHeader = response.headers.get("content-range") || "";
+    const totalIndexedValue = Number(countHeader.split("/")[1]);
+    const totalIndexed = countHeader.includes("/") &&
+      Number.isSafeInteger(totalIndexedValue) && totalIndexedValue >= 0
+      ? totalIndexedValue : null;
     const rows = await response.json();
     if (!Array.isArray(rows)) throw new Error("Invalid Supabase response");
 
@@ -607,6 +613,8 @@ export default async function handler(req, res) {
       ok: true,
       source: "helius_supabase",
       count: tokens.length,
+      totalIndexed,
+      pageLimit: 100,
       updatedAt: new Date().toISOString(),
       tokens
     });

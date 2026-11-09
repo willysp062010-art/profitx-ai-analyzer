@@ -575,15 +575,20 @@ export default async function handler(req, res) {
       marketCap: liveMarkets.get(row.mint)?.marketCap ?? null,
       buys24h: liveMarkets.get(row.mint)?.buys24h ?? null,
       sells24h: liveMarkets.get(row.mint)?.sells24h ?? null,
-      // Observed sales are historical market activity, NOT a personal sellability test.
+      // Restriction evidence takes precedence over historical market sales.
+      // A freeze authority or a frozen major account is a warning, but it
+      // does not prove every holder is unable to sell.
       sellabilityEvidence:
         (onchainChecks.get(row.mint)?.tokenExtensions || [])
           .some((name) => ["nontransferable", "transferhook", "pausable"]
             .includes(String(name).replace(/[^a-z]/gi, "").toLowerCase()))
           ? "transfer_restriction_observed"
-          : (liveMarkets.get(row.mint)?.sells24h > 0
-            ? "historical_sales_observed"
-            : "not_verified"),
+          : (onchainChecks.get(row.mint)?.freezeAuthorityEnabled === true ||
+             concentrations.get(row.mint)?.largestTokenAccountFrozen === true)
+            ? "freeze_risk_observed"
+            : (liveMarkets.get(row.mint)?.sells24h > 0
+              ? "historical_sales_observed"
+              : "not_verified"),
       securityScore: row.security_score,
       utilityScore: row.utility_score,
       speculationRiskScore: row.speculation_risk_score,

@@ -1568,6 +1568,14 @@ export default async function handler(
       ? await readPumpCurveAccount(pump.coin.bonding_curve)
       : null;
 
+  const onchainCurveStatus = pumpCurveOnchain
+    ? "ACCOUNT_READ"
+    : pumpError && /403/.test(pumpError)
+      ? "PUMPFUN_API_BLOCKED"
+      : !pump?.identityVerified || !validMint(pump?.coin?.bonding_curve)
+        ? "CURVE_ADDRESS_UNAVAILABLE"
+        : "RPC_ACCOUNT_UNVERIFIED";
+
   const supply =
     await tokenSupply(mint);
 
@@ -2157,6 +2165,8 @@ export default async function handler(
     onchainCurveSlot:
       pumpCurveOnchain?.slot ?? null,
 
+    onchainCurveStatus,
+
     reserveVerification:
       observed.realSolReservesReported !== null
         ? "pumpfun_api_reported_not_onchain_verified"
@@ -2479,6 +2489,8 @@ export default async function handler(
 
             onchainCurveSlot:
               pumpCurveOnchain?.slot ?? null,
+
+            onchainCurveStatus,
 
             onchainCurveVerification:
               pumpCurveOnchain?.verification ?? "not_verified",

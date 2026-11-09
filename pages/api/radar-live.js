@@ -41,6 +41,12 @@ async function enrichOnRead(rows, supabaseUrl, supabaseKey) {
   // backlog a fair share on every 5-minute scheduled read.
   let historical = [];
   try {
+    const pageRaw = typeof req.query.page === "string" ? req.query.page : "0";
+    if (!/^(0|[1-9]\\d{0,3})$/.test(pageRaw)) {
+      return res.status(400).json({ error: "Page invalide" });
+    }
+    const page = Number(pageRaw);
+    const pageLimit = 100;
     const params = new URLSearchParams({
       select: "id,mint,name,symbol,metadata,analysis_status",
       chain_id: "eq.solana",
@@ -514,8 +520,9 @@ export default async function handler(req, res) {
         "security_score,utility_score," +
         "speculation_risk_score,analysis_status",
       chain_id: "eq.solana",
-      order: "detected_at.desc",
-      limit: "100"
+      order: "detected_at.desc,id.desc",
+      offset: String(page * pageLimit),
+      limit: String(pageLimit)
     });
 
     const response = await fetch(
@@ -614,7 +621,11 @@ export default async function handler(req, res) {
       source: "helius_supabase",
       count: tokens.length,
       totalIndexed,
-      pageLimit: 100,
+      pageLimit,
+      page,
+      hasMore: totalIndexed !== null
+        ? (page + 1) * pageLimit < totalIndexed
+        : rows.length === pageLimit,
       updatedAt: new Date().toISOString(),
       tokens
     });

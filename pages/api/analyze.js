@@ -494,6 +494,60 @@ async function dexData(mint) {
 }
 
 /* =========================================================
+   PUMP.FUN ON-CHAIN ACCOUNT READ (address supplied by Pump.fun)
+========================================================= */
+
+const PUMP_PROGRAM_ID = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
+const PUMP_CURVE_DISCRIMINATOR = "17b7f83760d8ac60";
+
+async function readPumpCurveAccount(address) {
+  if (!validMint(address)) return null;
+
+  try {
+    const result = await fetchJson(DEFAULT_RPC, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "getAccountInfo",
+        params: [address, { encoding: "base64", commitment: "confirmed" }]
+      })
+    });
+    const account = result?.result?.value;
+    if (result?.error || account?.owner !== PUMP_PROGRAM_ID ||
+        !Array.isArray(account?.data) || account.data[1] !== "base64") {
+      return null;
+    }
+
+    const bytes = Buffer.from(account.data[0], "base64");
+    if (bytes.length < 49 ||
+        bytes.subarray(0, 8).toString("hex") !== PUMP_CURVE_DISCRIMINATOR ||
+        (bytes[48] !== 0 && bytes[48] !== 1)) return null;
+
+    const toSafeUnits = (offset, divisor) => {
+      const raw = bytes.readBigUInt64LE(offset);
+      const whole = raw / divisor;
+      const fraction = raw % divisor;
+      if (whole > BigInt(Number.MAX_SAFE_INTEGER)) return null;
+      return Number(whole) + Number(fraction) / Number(divisor);
+    };
+
+    return {
+      address,
+      realSolReserves: toSafeUnits(32, 1000000000n),
+      virtualSolReserves: toSafeUnits(16, 1000000000n),
+      complete: bytes[48] === 1,
+      slot: Number.isSafeInteger(result?.result?.context?.slot)
+        ? result.result.context.slot : null,
+      verification: "program_owned_curve_account_address_from_pumpfun_api"
+    };
+  } catch {
+    return null;
+  }
+}
+
+/* =========================================================
    PUMP METRICS
 ========================================================= */
 
@@ -1507,6 +1561,13 @@ export default async function handler(
       "Pump.fun indisponible.";
   }
 
+  // Read the Pump-owned curve account independently over Solana RPC.
+  // Its address is supplied by Pump.fun; mint-to-PDA derivation is not checked.
+  const pumpCurveOnchain =
+    pump?.identityVerified && validMint(pump?.coin?.bonding_curve)
+      ? await readPumpCurveAccount(pump.coin.bonding_curve)
+      : null;
+
   const supply =
     await tokenSupply(mint);
 
@@ -2087,6 +2148,15 @@ export default async function handler(
     realSolReservesReported:
       observed.realSolReservesReported,
 
+    realSolReservesOnchain:
+      pumpCurveOnchain?.realSolReserves ?? null,
+
+    onchainCurveAccount:
+      pumpCurveOnchain?.address ?? null,
+
+    onchainCurveSlot:
+      pumpCurveOnchain?.slot ?? null,
+
     reserveVerification:
       observed.realSolReservesReported !== null
         ? "pumpfun_api_reported_not_onchain_verified"
@@ -2400,6 +2470,18 @@ export default async function handler(
             realSolReservesReported:
               pMetrics?.realSolReported ??
               null,
+
+            realSolReservesOnchain:
+              pumpCurveOnchain?.realSolReserves ?? null,
+
+            onchainCurveAccount:
+              pumpCurveOnchain?.address ?? null,
+
+            onchainCurveSlot:
+              pumpCurveOnchain?.slot ?? null,
+
+            onchainCurveVerification:
+              pumpCurveOnchain?.verification ?? "not_verified",
 
             reserveVerification:
               pMetrics?.realSolReported != null

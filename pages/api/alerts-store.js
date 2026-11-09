@@ -262,10 +262,18 @@ export default async function handler(req, res) {
         }
       );
 
+      if (!Array.isArray(rows) || rows.length === 0) {
+        return send(res, 404, {
+          ok: false,
+          error: "ALERT_NOT_FOUND",
+          message: "Aucune alerte correspondante à modifier.",
+        });
+      }
+
       return send(res, 200, {
         ok: true,
         persistence: true,
-        alert: Array.isArray(rows) ? rows[0] || null : rows,
+        alert: rows[0],
       });
     }
 
@@ -291,17 +299,25 @@ export default async function handler(req, res) {
         });
       }
 
-      await supabaseRequest(
+      const deletedRows = await supabaseRequest(
         `?client_id=eq.${encodeURIComponent(
           clientId
         )}&alert_id=eq.${encodeURIComponent(alertId)}`,
         {
           method: "DELETE",
           headers: {
-            Prefer: "return=minimal",
+            Prefer: "return=representation",
           },
         }
       );
+
+      if (!Array.isArray(deletedRows) || deletedRows.length === 0) {
+        return send(res, 404, {
+          ok: false,
+          error: "ALERT_NOT_FOUND",
+          message: "Aucune alerte correspondante à supprimer.",
+        });
+      }
 
       return send(res, 200, {
         ok: true,

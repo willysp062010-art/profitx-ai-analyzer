@@ -50,10 +50,11 @@ function percent(value) {
   return n === null ? "N/D" : `${n > 0 ? "+" : ""}${n.toFixed(2)} %`;
 }
 
-function age(value) {
-  const n = num(value);
-  if (n === null || n < 0) return "N/D";
-  const minutes = Math.floor(n / 60000);
+function ageSince(time) {
+  if (time === null) return "N/D";
+  const elapsed = Date.now() - time;
+  if (elapsed < 0) return "N/D";
+  const minutes = Math.floor(elapsed / 60000);
   if (minutes < 1) return "< 1 min";
   if (minutes < 60) return `${minutes} min`;
   if (minutes < 1440) return `${Math.floor(minutes / 60)} h`;
@@ -91,11 +92,9 @@ function normalizeToken(token, index) {
     token?.detected_at ||
     null;
 
-  // Detection time is not proof of token creation time.
-  const createdTime =
-    timestamp(token?.createdOnchainAt) ??
-    timestamp(token?.created_onchain_at) ??
-    timestamp(token?.pairCreatedAt);
+  const onchainCreationTime =
+    timestamp(token?.createdOnchainAt) ?? timestamp(token?.created_onchain_at);
+  const pairCreationTime = timestamp(token?.pairCreatedAt);
 
   const liquidityObject =
     token?.liquidity && typeof token.liquidity === "object"
@@ -174,14 +173,8 @@ function normalizeToken(token, index) {
       num(token?.speculationRiskScore) ??
       num(token?.speculation_risk_score),
     detectedAt,
-    createdTime,
-    // Only a supplied on-chain creation timestamp qualifies for recent-launch classification.
-    onchainCreationTime: timestamp(token?.createdOnchainAt) ?? timestamp(token?.created_onchain_at),
-    ageMs:
-      num(token?.ageMs) ??
-      (createdTime !== null
-        ? Math.max(0, Date.now() - createdTime)
-        : null),
+    onchainCreationTime,
+    pairCreationTime,
     status:
       token?.status ||
       token?.analysis_status ||
@@ -613,11 +606,9 @@ export default function Radar() {
     const getSortValue = (token) => {
       switch (sortBy) {
         case "recent":
-          // The live feed is ordered by PFX detection time, not by an
-          // unverified or missing on-chain creation timestamp.
           return source === "live"
             ? timestamp(token.detectedAt)
-            : token.createdTime;
+            : token.pairCreationTime;
         case "score":
           return token.score;
         case "liquidity":
@@ -913,7 +904,9 @@ export default function Radar() {
                 value={sortBy}
                 onChange={(event) => setSortBy(event.target.value)}
               >
-                <option value="recent">Plus récents</option>
+                <option value="recent">
+                  {source === "live" ? "Détections les plus récentes" : "Paires DEX les plus récentes"}
+                </option>
                 <option value="score">Score PFX</option>
                 <option value="liquidity">Liquidité</option>
                 <option value="volume">Volume 24 h</option>
@@ -1128,7 +1121,9 @@ export default function Radar() {
                         "TRANSACTIONS 24 H",
                         integer(token.transactions24h),
                       ],
-                      [source === "live" ? "ÂGE ESTIMÉ" : "ÂGE", age(token.ageMs)],
+                      source === "live"
+                        ? ["ÂGE DU TOKEN SELON HELIUS", ageSince(token.onchainCreationTime)]
+                        : ["ÂGE DE LA PAIRE DEX", ageSince(token.pairCreationTime)],
                     ].map(([label, value]) => (
                       <div className="metric" key={label}>
                         <span>{label}</span>
@@ -1195,10 +1190,6 @@ export default function Radar() {
                         Première détection PFX : {token.detectedAt && !Number.isNaN(new Date(token.detectedAt).getTime())
                           ? new Date(token.detectedAt).toLocaleString("fr-FR")
                           : "non disponible"}
-                        {" — "}
-                        {token.createdTime !== null
-                          ? "Âge estimé à partir de la date de création disponible ; ce n'est pas une preuve d'heure de mint."
-                          : "Date de création non confirmée : ne pas assimiler détection et lancement."}
                       </span>
                     </div>
                   )}

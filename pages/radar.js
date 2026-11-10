@@ -297,15 +297,18 @@ export default function Radar() {
   const [pumpTokens, setPumpTokens] = useState([]);
   const [pumpLoading, setPumpLoading] = useState(false);
   const [pumpError, setPumpError] = useState("");
+  const [pumpAccessRestricted, setPumpAccessRestricted] = useState(false);
   const [pumpLoaded, setPumpLoaded] = useState(false);
   const [pumpUpdatedAt, setPumpUpdatedAt] = useState(null);
   async function loadPumpDiscovery() {
     setPumpLoading(true);
     setPumpError("");
+    setPumpAccessRestricted(false);
     try {
       const response = await fetch("/api/radar-discovery", { cache: "no-store" });
       const data = await response.json();
       if (!response.ok || data?.ok !== true || !Array.isArray(data?.tokens)) {
+        if (data?.status === "SOURCE_ACCESS_RESTRICTED") setPumpAccessRestricted(true);
         throw new Error(data?.error || "Flux Pump.fun indisponible.");
       }
       setPumpTokens(data.tokens);
@@ -806,6 +809,9 @@ export default function Radar() {
               {pumpLoading ? "CHARGEMENT..." : pumpLoaded ? "ACTUALISER PUMP.FUN" : "AFFICHER LES CRÉATIONS PUMP.FUN"}
             </button>
             {pumpError && <p role="alert">{pumpError} Les anciennes données ne sont pas présentées comme actuelles.</p>}
+            {pumpAccessRestricted && (
+              <p>Pour continuer les découvertes Solana, utilisez le flux Helius ci-dessous. Les données de marché DexScreener restent disponibles dans l’onglet Radar marché.</p>
+            )}
             {pumpLoaded && !pumpError && (
               <p>Échantillon reçu : {pumpUpdatedAt && !Number.isNaN(Date.parse(pumpUpdatedAt)) ? new Date(pumpUpdatedAt).toLocaleString("fr-FR") : "date indisponible"}. L’heure de réception ne garantit pas la fraîcheur de chaque token.</p>
             )}

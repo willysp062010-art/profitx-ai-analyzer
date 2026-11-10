@@ -4,7 +4,7 @@ function formatted(value, digits = 2) {
   if (value === null || value === undefined || !Number.isFinite(Number(value))) return "N/D";
   return Number(value).toLocaleString("fr-FR", { maximumFractionDigits: digits });
 }
-export default function PfxPoolStatus() {
+export default function PfxPoolStatus({ analysisContext = false }) {
   const [pool, setPool] = useState(null);
   const [status, setStatus] = useState("loading");
   useEffect(() => {
@@ -27,6 +27,9 @@ export default function PfxPoolStatus() {
     padding: "14px", marginTop: 14, marginBottom: 14
   }}>
     <strong style={{ color: "#55ffba" }}>POOL PFX / WSOL — RAYDIUM</strong>
+    {analysisContext && <p style={text}>
+      Les données de ce pool Raydium sont présentées séparément des chiffres et scores de la paire analysée.
+    </p>}
     {status === "loading" && <p style={text}>Lecture des réserves Raydium...</p>}
     {status === "error" && <p style={text}>Données indisponibles. La pool reste consultable sur Solscan.</p>}
     {status === "ready" && pool && <>

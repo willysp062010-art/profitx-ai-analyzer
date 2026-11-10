@@ -326,6 +326,21 @@ export default function Radar() {
 
   const [tokens, setTokens] = useState([]);
   const [totalIndexed, setTotalIndexed] = useState(null);
+  const [detected72h, setDetected72h] = useState(null);
+  const [detected72hError, setDetected72hError] = useState(false);
+  useEffect(() => {
+    let active = true;
+    fetch("/api/radar-72h", { cache: "no-store" })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok || data?.ok !== true || !Number.isSafeInteger(data.count)) throw new Error("Unavailable");
+        return data.count;
+      })
+      .then((count) => { if (active) setDetected72h(count); })
+      .catch(() => { if (active) setDetected72hError(true); });
+    return () => { active = false; };
+  }, []);
+
   const [radarPage, setRadarPage] = useState(0);
   const [hasMorePages, setHasMorePages] = useState(false);
   const activeRadarRequest = useRef(0);
@@ -832,6 +847,16 @@ export default function Radar() {
                 </div>
               </div>
             )}
+          </section>
+
+          <section className="riskGlobalBanner" aria-label="Détections Solana sur 72 heures">
+            <strong>DÉTECTIONS SOLANA · 72 DERNIÈRES HEURES</strong>
+            <p>
+              {detected72h !== null
+                ? detected72h.toLocaleString("fr-FR") + " tokens détectés et enregistrés dans l’index PROFITX AI."
+                : detected72hError ? "Statistique temporairement indisponible." : "Calcul du nombre de détections..."}
+            </p>
+            <p>Ce chiffre correspond aux dates de détection dans notre index, pas au nombre de créations vérifiées sur la blockchain.</p>
           </section>
 
           <section className="sourceSelector">

@@ -57,3 +57,13 @@ test("Radar discovery tolerates oversized timestamps from external feed", async 
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.tokens[0].createdAt, null);
 });
+
+test("Radar discovery reports upstream access restriction without exposing data", async () => {
+  const handler = load(async () => ({ ok: false, status: 403 }));
+  const res = response();
+  await handler({ method: "GET" }, res);
+  assert.equal(res.statusCode, 503);
+  assert.equal(res.body.status, "SOURCE_ACCESS_RESTRICTED");
+  assert.equal(res.body.source, "pumpfun");
+  assert.equal(res.body.ok, false);
+});

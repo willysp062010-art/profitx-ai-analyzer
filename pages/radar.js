@@ -249,7 +249,7 @@ function riskWarningFor(token) {
   }
   // These are TOKEN ACCOUNT balances, not separate owners.
   // Bonding curves and liquidity pools may dominate concentration.
-  if (token.concentrationChecked && token.top1AccountPercent >= 80) {
+  if (token.concentrationChecked && token.top1AccountPercent !== null && token.top1AccountPercent >= 80) {
     return {
       level: "unknown",
       title: "⚠ CONCENTRATION À VÉRIFIER — COMPTE PRINCIPAL",
@@ -257,7 +257,7 @@ function riskWarningFor(token) {
         " % de l'offre. Ce compte peut être un pool ou un compte technique : vérifiez son propriétaire avant tout achat."
     };
   }
-  if (token.concentrationChecked && token.top10AccountsPercent >= 95) {
+  if (token.concentrationChecked && token.top10AccountsPercent !== null && token.top10AccountsPercent >= 95) {
     return {
       level: "unknown",
       title: "⚠ CONCENTRATION À VÉRIFIER — 10 COMPTES",
@@ -1260,10 +1260,10 @@ export default function Radar() {
                       ) : (
                         <span>Non vérifiées — vérification Solana RPC indisponible</span>
                       )}
-                      {token.concentrationChecked && (
+                      {token.concentrationChecked && (token.top1AccountPercent !== null || token.top10AccountsPercent !== null) && (
                         <span>
-                          Plus gros compte : {token.top1AccountPercent.toFixed(1)} %
-                          {" • "}10 plus gros comptes : {token.top10AccountsPercent.toFixed(1)} %
+                          Plus gros compte : {token.top1AccountPercent !== null ? token.top1AccountPercent.toFixed(1) + " %" : "non disponible"}
+                          {" • "}10 plus gros comptes : {token.top10AccountsPercent !== null ? token.top10AccountsPercent.toFixed(1) + " %" : "non disponible"}
                           {" (comptes tokens, pools et réserves éventuellement inclus)"}
                         </span>
                       )}

@@ -46,3 +46,14 @@ test("Radar discovery hides upstream errors", async () => {
   assert.equal(res.statusCode, 502);
   assert.equal(JSON.stringify(res.body).includes("credential"), false);
 });
+
+test("Radar discovery tolerates oversized timestamps from external feed", async () => {
+  const mint = "So11111111111111111111111111111111111111112";
+  const handler = load(async () => ({ ok: true, json: async () => [
+    { mint, name: "Timestamp test", symbol: "TEST", created_timestamp: 1e100 }
+  ] }));
+  const res = response();
+  await handler({ method: "GET" }, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.tokens[0].createdAt, null);
+});

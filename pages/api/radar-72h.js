@@ -11,10 +11,11 @@ export default async function handler(req, res) {
 
   const now = Date.now();
   const since = new Date(now - 72 * 60 * 60 * 1000).toISOString();
+  const until = new Date(now).toISOString();
   const params = new URLSearchParams({
     select: "id",
     chain_id: "eq.solana",
-    detected_at: "gte." + since,
+    and: `(detected_at.gte.${since},detected_at.lte.${until})`,
     limit: "1"
   });
 
@@ -31,8 +32,8 @@ export default async function handler(req, res) {
     });
     if (!response.ok) throw new Error("Count HTTP " + response.status);
     const range = response.headers.get("content-range") || "";
-    const total = Number(range.split("/")[1]);
-    if (!range.includes("/") || !Number.isSafeInteger(total) || total < 0) {
+    const total = Number(/^(?:\*|\d+-\d+)\/(\d+)$/.exec(range)?.[1]);
+    if (!Number.isSafeInteger(total)) {
       throw new Error("Invalid count");
     }
     return res.status(200).json({
@@ -42,7 +43,7 @@ export default async function handler(req, res) {
       metric: "detected_in_last_72h",
       count: total,
       since,
-      until: new Date(now).toISOString(),
+      until,
       note: "Nombre de tokens détectés et enregistrés dans l'index au cours des dernières 72 heures. Ce n'est pas le nombre prouvé de tokens créés sur Solana."
     });
   } catch (error) {

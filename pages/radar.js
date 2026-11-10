@@ -333,7 +333,9 @@ export default function Radar() {
     fetch("/api/radar-72h", { cache: "no-store" })
       .then(async (response) => {
         const data = await response.json();
-        if (!response.ok || data?.ok !== true || !Number.isSafeInteger(data.count)) throw new Error("Unavailable");
+        if (!response.ok || data?.ok !== true || !Number.isSafeInteger(data.count) || data.count < 0) {
+          throw new Error("Unavailable");
+        }
         return data.count;
       })
       .then((count) => { if (active) setDetected72h(count); })
@@ -851,7 +853,7 @@ export default function Radar() {
 
           <section className="riskGlobalBanner" aria-label="Détections Solana sur 72 heures">
             <strong>DÉTECTIONS SOLANA · 72 DERNIÈRES HEURES</strong>
-            <p>
+            <p role="status">
               {detected72h !== null
                 ? detected72h.toLocaleString("fr-FR") + " tokens détectés et enregistrés dans l’index PROFITX AI."
                 : detected72hError ? "Statistique temporairement indisponible." : "Calcul du nombre de détections..."}

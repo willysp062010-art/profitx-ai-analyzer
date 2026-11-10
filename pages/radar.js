@@ -347,9 +347,9 @@ export default function Radar() {
   const [autoRefresh, setAutoRefresh] = useState(false);
 
   const [search, setSearch] = useState("");
-  const [searchCandidates, setSearchCandidates] = useState([]);
-  const [searchPending, setSearchPending] = useState(false);
-  const [searchError, setSearchError] = useState("");
+  const [searchResult, setSearchResult] = useState(null);
+  const searchQuery = search.trim();
+  const activeSearchResult = searchResult?.query === searchQuery ? searchResult : null;
   const [sortBy, setSortBy] = useState("recent");
   const [minimumLiquidity, setMinimumLiquidity] = useState(0);
   const [evidenceFilter, setEvidenceFilter] = useState("all");
@@ -517,42 +517,39 @@ export default function Radar() {
   // also pinned locally so the result is immediate and never depends on
   // indexing by external market providers.
   useEffect(() => {
-    const query = search.trim();
-    if (query.length < 2) {
-      setSearchCandidates([]);
-      setSearchPending(false);
-      setSearchError("");
-      return;
-    }
+    setSearchResult(null);
+    if (searchQuery.length < 2) return;
+
     const controller = new AbortController();
     const timer = setTimeout(async () => {
-      setSearchPending(true);
-      setSearchError("");
       try {
         const response = await fetch(
-          "/api/search-token?q=" + encodeURIComponent(query),
+          "/api/search-token?q=" + encodeURIComponent(searchQuery),
           { signal: controller.signal, cache: "no-store" }
         );
         const result = await response.json();
+        if (controller.signal.aborted) return;
         if (!response.ok || result?.ok === false) {
-          throw new Error(result?.error || "Recherche Solana indisponible");
+          throw new Error("Recherche Solana indisponible");
         }
         const found = Array.isArray(result?.results) ? result.results : [];
-        setSearchCandidates(found.map(normalizeToken).filter((token) => token.mint));
-      } catch (err) {
-        if (err?.name !== "AbortError") {
-          setSearchCandidates([]);
-          setSearchError("Recherche globale temporairement indisponible ; le Radar reste accessible.");
-        }
-      } finally {
-        if (!controller.signal.aborted) setSearchPending(false);
+        setSearchResult({
+          query: searchQuery,
+          candidates: found.map(normalizeToken).filter((token) => token.mint),
+        });
+      } catch {
+        if (controller.signal.aborted) return;
+        setSearchResult({
+          query: searchQuery,
+          error: "Recherche globale temporairement indisponible ; le Radar reste accessible.",
+        });
       }
     }, 300);
     return () => {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [search]);
+  }, [searchQuery]);
 
   // PFX is the declared project mint: pin it above results at all times,
   // including before search and when the user enters an unrelated query.
@@ -568,20 +565,21 @@ export default function Radar() {
   }), [tokens]);
 
   const displayedTokens = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query = searchQuery.toLowerCase();
 
     const pfxMatches = query.length > 0 && (
       "pfx".includes(query) ||
       "profitx".includes(query) ||
       OFFICIAL_PFX_MINT.toLowerCase() === query
     );
-    const candidates = query.length >= 2
-      ? [...tokens, ...searchCandidates]
-      : tokens;
-    if (pfxMatches) candidates.unshift(normalizeToken(OFFICIAL_PFX_TOKEN, 0));
+    const candidates = [
+      ...(pfxMatches ? [normalizeToken(OFFICIAL_PFX_TOKEN, 0)] : []),
+      ...tokens,
+      ...(activeSearchResult?.candidates ?? []),
+    ];
     // The locally declared mint must take priority over discovered copies.
     const uniqueTokens = Array.from(
-      new Map([...candidates].reverse().map((token) => [token.mint, token])).values()
+      new Map(candidates.reverse().map((token) => [token.mint, token])).values()
     );
     const filtered = uniqueTokens.filter((token) => {
       const matchesSearch =
@@ -636,7 +634,7 @@ export default function Radar() {
       if (bv === null) return -1;
       return bv - av;
     });
-  }, [tokens, searchCandidates, search, sortBy, minimumLiquidity, evidenceFilter, source]);
+  }, [tokens, activeSearchResult, searchQuery, sortBy, minimumLiquidity, evidenceFilter, source]);
 
   async function copyMint(mint) {
     if (!mint) return;
@@ -999,13 +997,13 @@ export default function Radar() {
             </section>
           )}
 
-          {searchPending && search.trim().length >= 2 && (
+          {searchQuery.length >= 2 && !activeSearchResult && (
             <section className="message" role="status">
               Recherche des tokens Solana au-delà des dernières détections...
             </section>
           )}
-          {searchError && search.trim().length >= 2 && (
-            <section className="message" role="status">{searchError}</section>
+          {activeSearchResult?.error && (
+            <section className="message" role="status">{activeSearchResult.error}</section>
           )}
 
           {error && (

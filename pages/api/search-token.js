@@ -6,7 +6,7 @@ const PUMP_URL = "https://frontend-api-v3.pump.fun/coins";
 const TIMEOUT_MS = 8000;
 const MAX_RESULTS = 20;
 const MAX_QUERY_LENGTH = 80;
-const DIAGNOSTIC_VERSION = "PFX-SEARCH-20261110-V4";
+const DIAGNOSTIC_VERSION = "PFX-SEARCH-20261110-V5";
 
 const OFFICIAL_TOKENS = [
   {
@@ -219,10 +219,13 @@ export default async function handler(req, res) {
     `${PUMP_URL}?offset=0&limit=200` +
     "&sort=created_timestamp&order=DESC&includeNsfw=false";
 
-  const [dexResponse, pumpResponse] =
+  const jupiterSearchURL = "https://lite-api.jup.ag/tokens/v2/search?query=" + encodeURIComponent(query);
+
+  const [dexResponse, pumpResponse, jupiterResponse] =
     await Promise.allSettled([
       fetchJSON(dexURL),
-      fetchJSON(pumpURL)
+      fetchJSON(pumpURL),
+      mintQuery ? Promise.resolve(null) : fetchJSON(jupiterSearchURL)
     ]);
 
   const dexAvailable =
@@ -304,7 +307,31 @@ export default async function handler(req, res) {
     }
   }
 
-  // 3. Recherche parmi les tokens récents Pump.fun
+  // 3. Recherche par nom/symbole dans le registre Jupiter, indépendamment
+  // de la fenêtre des 200 créations récentes Pump.fun.
+  if (!mintQuery && jupiterResponse.status === "fulfilled" && Array.isArray(jupiterResponse.value)) {
+    for (const token of jupiterResponse.value.slice(0, 100)) {
+      const mint = token?.id;
+      const candidate = {
+        mint,
+        name: String(token?.name || ""),
+        symbol: String(token?.symbol || "")
+      };
+      if (!isMint(mint) || !matchesQuery(candidate, query, false)) continue;
+      addToken(tokens, {
+        ...candidate,
+        liquidityUsd: null,
+        volume24hUsd: null,
+        dexId: null,
+        pairAddress: null,
+        url: null,
+        imageUri: typeof token?.icon === "string" && token.icon.startsWith("https://") ? token.icon : null,
+        source: "jupiter-search"
+      });
+    }
+  }
+
+  // 4. Recherche parmi les tokens récents Pump.fun
   if (pumpAvailable) {
     for (const coin of pumpResponse.value) {
       if (
@@ -429,6 +456,7 @@ export default async function handler(req, res) {
   if (
     !dexAvailable &&
     !pumpAvailable &&
+    !(jupiterResponse.status === "fulfilled" && Array.isArray(jupiterResponse.value)) &&
     results.length === 0
   ) {
     return res.status(502).json({
@@ -445,10 +473,11 @@ export default async function handler(req, res) {
     diagnosticVersion: DIAGNOSTIC_VERSION,
     chain: "solana",
     query,
-    source: "dexscreener+pumpfun",
+    source: "dexscreener+pumpfun+jupiter",
     sources: {
       dexscreener: dexAvailable,
-      pumpfun: pumpAvailable
+      pumpfun: pumpAvailable,
+      jupiter: jupiterResponse.status === "fulfilled" && Array.isArray(jupiterResponse.value)
     },
     dexError: dexError ? "DexScreener temporairement indisponible." : null,
     pumpError: pumpError ? "Pump.fun temporairement indisponible." : null,

@@ -298,6 +298,7 @@ export default function Radar() {
   const [pumpLoading, setPumpLoading] = useState(false);
   const [pumpError, setPumpError] = useState("");
   const [pumpLoaded, setPumpLoaded] = useState(false);
+  const [pumpUpdatedAt, setPumpUpdatedAt] = useState(null);
   async function loadPumpDiscovery() {
     setPumpLoading(true);
     setPumpError("");
@@ -308,9 +309,13 @@ export default function Radar() {
         throw new Error(data?.error || "Flux Pump.fun indisponible.");
       }
       setPumpTokens(data.tokens);
+      setPumpUpdatedAt(typeof data.updatedAt === "string" ? data.updatedAt : null);
       setPumpLoaded(true);
     } catch (error) {
       setPumpError(error?.message || "Flux Pump.fun indisponible.");
+      setPumpLoaded(false);
+      setPumpTokens([]);
+      setPumpUpdatedAt(null);
     } finally {
       setPumpLoading(false);
     }
@@ -800,7 +805,10 @@ export default function Radar() {
             <button type="button" className="refreshButton" onClick={loadPumpDiscovery} disabled={pumpLoading}>
               {pumpLoading ? "CHARGEMENT..." : pumpLoaded ? "ACTUALISER PUMP.FUN" : "AFFICHER LES CRÉATIONS PUMP.FUN"}
             </button>
-            {pumpError && <p role="alert">{pumpError}</p>}
+            {pumpError && <p role="alert">{pumpError} Les anciennes données ne sont pas présentées comme actuelles.</p>}
+            {pumpLoaded && !pumpError && (
+              <p>Échantillon reçu : {pumpUpdatedAt && !Number.isNaN(Date.parse(pumpUpdatedAt)) ? new Date(pumpUpdatedAt).toLocaleString("fr-FR") : "date indisponible"}. L’heure de réception ne garantit pas la fraîcheur de chaque token.</p>
+            )}
             {pumpLoaded && !pumpError && (
               <div style={{ marginTop: 16 }}>
                 <p>{pumpTokens.length} token(s) retourné(s), non vérifiés. Cliquez sur un mint pour lancer son analyse.</p>

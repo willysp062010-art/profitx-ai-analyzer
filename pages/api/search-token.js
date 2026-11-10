@@ -325,7 +325,7 @@ export default async function handler(req, res) {
         dexId: null,
         pairAddress: null,
         url: null,
-        imageUri: typeof token?.icon === "string" && /^https:\\/\\//i.test(token.icon) ? token.icon : null,
+        imageUri: typeof token?.icon === "string" && token.icon.startsWith("https://") ? token.icon : null,
         source: "jupiter-search"
       });
     }

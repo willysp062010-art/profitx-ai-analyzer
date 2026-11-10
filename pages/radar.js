@@ -401,9 +401,9 @@ export default function Radar() {
   const loadRadar = useCallback(
     async (manual = false, resetSnapshot = false) => {
       const requestId = ++activeRadarRequest.current;
-      if (source === "live" && radarPage === 0 && resetSnapshot) {
-        radarSnapshot.current = null;
-      }
+      const snapshot = source === "live" && radarPage === 0 && resetSnapshot
+        ? null
+        : radarSnapshot.current;
       if (manual) setRefreshing(true);
       else setLoading(true);
 
@@ -416,8 +416,8 @@ export default function Radar() {
         const endpoint =
           source === "live"
             ? "/api/radar-live?page=" + radarPage +
-              (radarSnapshot.current
-                ? "&snapshot=" + encodeURIComponent(radarSnapshot.current)
+              (snapshot
+                ? "&snapshot=" + encodeURIComponent(snapshot)
                 : "")
             : "/api/radar";
 
@@ -465,7 +465,7 @@ export default function Radar() {
 
         if (requestId !== activeRadarRequest.current) return;
         setTokens(unique);
-        if (source === "live" && radarPage === 0 && !radarSnapshot.current) {
+        if (source === "live" && radarPage === 0 && !snapshot) {
           radarSnapshot.current = typeof result?.snapshot === "string"
             ? result.snapshot : null;
         }
@@ -646,6 +646,15 @@ export default function Radar() {
     } catch {
       setCopiedMint("");
     }
+  }
+
+  function changeRadarPage(nextPage) {
+    activeRadarRequest.current++;
+    setLoading(true);
+    setError("");
+    setTokens([]);
+    setHasMorePages(false);
+    setRadarPage(nextPage);
   }
 
   function changeSource(nextSource) {
@@ -959,10 +968,10 @@ export default function Radar() {
           {source === "live" && (
             <div className="statusActions" style={{ justifyContent: "center", margin: "16px 0", gap: 12 }}>
               <button type="button" className="refreshButton" disabled={loading || refreshing || radarPage === 0}
-                onClick={() => setRadarPage((page) => Math.max(0, page - 1))}>PRÉCÉDENT</button>
+                onClick={() => changeRadarPage(radarPage - 1)}>PRÉCÉDENT</button>
               <span>Page {radarPage + 1} · 100 tokens maximum par page</span>
               <button type="button" className="refreshButton" disabled={loading || refreshing || !hasMorePages}
-                onClick={() => setRadarPage((page) => page + 1)}>SUIVANT</button>
+                onClick={() => changeRadarPage(radarPage + 1)}>SUIVANT</button>
             </div>
           )}
 

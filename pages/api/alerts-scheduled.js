@@ -21,7 +21,8 @@ export default async function handler(req, res) {
   }
 
   // No email delivery: the monitor deliberately disables shared-email notifications.
-  return monitorHandler({
+  const startedAt = Date.now();
+  const result = await monitorHandler({
     ...req,
     method: "POST",
     headers: {
@@ -30,4 +31,9 @@ export default async function handler(req, res) {
       "x-pfx-monitor-secret": undefined,
     },
   }, res);
+  console.info("PFX alerts cron completed", {
+    status: res.statusCode,
+    durationMs: Date.now() - startedAt,
+  });
+  return result;
 }

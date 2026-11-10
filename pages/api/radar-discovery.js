@@ -30,7 +30,7 @@ function timestamp(value) {
 }
 
 export default async function handler(req, res) {
-  res.setHeader("Cache-Control", "s-maxage=30, stale-while-revalidate=60");
+  res.setHeader("Cache-Control", "no-store");
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
     return res.status(405).json({ ok: false, error: "Méthode non autorisée." });
@@ -42,7 +42,17 @@ export default async function handler(req, res) {
       headers: { Accept: "application/json" },
       signal: controller.signal
     });
-    if (!response.ok) throw new Error("Pump.fun HTTP " + response.status);
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        return res.status(503).json({
+          ok: false,
+          source: "pumpfun",
+          status: "SOURCE_ACCESS_RESTRICTED",
+          error: "Pump.fun refuse actuellement l’accès au flux de découverte depuis notre serveur. Les autres sources du Radar restent indépendantes."
+        });
+      }
+      throw new Error("Pump.fun HTTP " + response.status);
+    }
     const data = await response.json();
     if (!Array.isArray(data)) throw new Error("Format Pump.fun inattendu");
     const seen = new Set();
@@ -66,6 +76,7 @@ export default async function handler(req, res) {
       });
       if (tokens.length >= MAX_RESULTS) break;
     }
+    res.setHeader("Cache-Control", "s-maxage=30, stale-while-revalidate=60");
     return res.status(200).json({
       ok: true,
       chain: "solana",

@@ -26,7 +26,7 @@ function timestamp(value) {
   const n = Number(value);
   if (!Number.isFinite(n) || n <= 0) return null;
   const ms = n < 1e12 ? n * 1000 : n;
-  return ms <= Date.now() + 60000 ? new Date(ms).toISOString() : null;
+  return ms <= Date.now() + 60000 && ms <= 8.64e15 ? new Date(ms).toISOString() : null;
 }
 
 export default async function handler(req, res) {

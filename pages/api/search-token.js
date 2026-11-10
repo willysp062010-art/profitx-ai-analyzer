@@ -6,7 +6,7 @@ const PUMP_URL = "https://frontend-api-v3.pump.fun/coins";
 const TIMEOUT_MS = 8000;
 const MAX_RESULTS = 20;
 const MAX_QUERY_LENGTH = 80;
-const DIAGNOSTIC_VERSION = "PFX-SEARCH-20261109-V3";
+const DIAGNOSTIC_VERSION = "PFX-SEARCH-20261110-V4";
 
 const OFFICIAL_TOKENS = [
   {
@@ -434,8 +434,8 @@ export default async function handler(req, res) {
     return res.status(502).json({
       ok: false,
       diagnosticVersion: DIAGNOSTIC_VERSION,
-      dexError,
-      pumpError,
+      dexError: dexError ? "DexScreener temporairement indisponible." : null,
+      pumpError: pumpError ? "Pump.fun temporairement indisponible." : null,
       error: "Services de recherche temporairement indisponibles."
     });
   }
@@ -450,8 +450,8 @@ export default async function handler(req, res) {
       dexscreener: dexAvailable,
       pumpfun: pumpAvailable
     },
-    dexError,
-    pumpError,
+    dexError: dexError ? "DexScreener temporairement indisponible." : null,
+    pumpError: pumpError ? "Pump.fun temporairement indisponible." : null,
     count: results.length,
     results,
     note:

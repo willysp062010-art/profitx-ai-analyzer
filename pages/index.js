@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import PfxPoolStatus from "../components/PfxPoolStatus";
 
 
 const DEFAULT_MINT =
@@ -1263,7 +1264,7 @@ async function searchToken(query) {
           <div className="panel">
 
             <h2>
-              État réel du marché
+              {data.mint === DEFAULT_MINT ? "Activité de la paire analysée" : "État réel du marché"}
             </h2>
 
             <div className="pairGrid">
@@ -1309,10 +1310,14 @@ async function searchToken(query) {
             </div>
 
             <div className="hint">
+              {data.mint === DEFAULT_MINT && market.dexId && (
+                <p>Paire suivie pour ces chiffres : {market.dexId}.</p>
+              )}
               {activityState.description}
             </div>
 
           </div>
+          {data.mint === DEFAULT_MINT && <PfxPoolStatus analysisContext />}
           {(token.name ||
             token.symbol) && (
 
@@ -1516,7 +1521,7 @@ async function searchToken(query) {
                 </strong>
                 <small style={{ display: "block", marginTop: 5, opacity: 0.8 }}>
                   {observed.liquidityUsd == null
-                    ? "Non chiffrée par DexScreener : aucune liquidité réelle confirmée."
+                    ? "Liquidité non chiffrée par DexScreener pour cette paire."
                     : market?.dexId?.toLowerCase() === "pumpfun"
                       ? "Paire Pump.fun : valeur de marché indicative, pas une preuve de liquidité DEX retirable."
                       : "Valeur déclarée par DexScreener ; réserves et possibilité de revente non auditées."}

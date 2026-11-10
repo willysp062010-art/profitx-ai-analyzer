@@ -294,6 +294,28 @@ export default function Radar() {
   const router = useRouter();
 
   const [source, setSource] = useState("live");
+  const [pumpTokens, setPumpTokens] = useState([]);
+  const [pumpLoading, setPumpLoading] = useState(false);
+  const [pumpError, setPumpError] = useState("");
+  const [pumpLoaded, setPumpLoaded] = useState(false);
+  async function loadPumpDiscovery() {
+    setPumpLoading(true);
+    setPumpError("");
+    try {
+      const response = await fetch("/api/radar-discovery", { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok || data?.ok !== true || !Array.isArray(data?.tokens)) {
+        throw new Error(data?.error || "Flux Pump.fun indisponible.");
+      }
+      setPumpTokens(data.tokens);
+      setPumpLoaded(true);
+    } catch (error) {
+      setPumpError(error?.message || "Flux Pump.fun indisponible.");
+    } finally {
+      setPumpLoading(false);
+    }
+  }
+
   const [tokens, setTokens] = useState([]);
   const [totalIndexed, setTotalIndexed] = useState(null);
   const [radarPage, setRadarPage] = useState(0);
@@ -767,6 +789,36 @@ export default function Radar() {
               </span>
             </div>
           )}
+
+          <section className="riskGlobalBanner" aria-label="Découverte Pump.fun">
+            <strong>CRÉATIONS RÉCENTES PUMP.FUN · DÉCOUVERTE NON AUDITÉE</strong>
+            <p>
+              Échantillon limité aux créations récentes renvoyées par Pump.fun.
+              Ce flux ne garantit ni liquidité, ni revente possible, ni sécurité.
+              Il ne modifie pas les scores du Radar Helius ou du Radar marché.
+            </p>
+            <button type="button" className="refreshButton" onClick={loadPumpDiscovery} disabled={pumpLoading}>
+              {pumpLoading ? "CHARGEMENT..." : pumpLoaded ? "ACTUALISER PUMP.FUN" : "AFFICHER LES CRÉATIONS PUMP.FUN"}
+            </button>
+            {pumpError && <p role="alert">{pumpError}</p>}
+            {pumpLoaded && !pumpError && (
+              <div style={{ marginTop: 16 }}>
+                <p>{pumpTokens.length} token(s) retourné(s), non vérifiés. Cliquez sur un mint pour lancer son analyse.</p>
+                <div style={{ display: "grid", gap: 8, maxHeight: 360, overflowY: "auto" }}>
+                  {pumpTokens.map((coin) => (
+                    <div key={coin.mint} style={{ padding: 10, border: "1px solid #566", borderRadius: 8 }}>
+                      <strong>{coin.name || "Sans nom"} ({coin.symbol || "?"})</strong>
+                      <div style={{ overflowWrap: "anywhere", fontSize: 12 }}>{coin.mint}</div>
+                      <div style={{ fontSize: 12 }}>Non vérifié · Liquidité inconnue · Revente non vérifiée</div>
+                      <button type="button" className="refreshButton" onClick={() => router.push("/?mint=" + encodeURIComponent(coin.mint))}>
+                        OUVRIR DANS ANALYZER
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
 
           <section className="sourceSelector">
             <button

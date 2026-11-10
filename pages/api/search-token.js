@@ -307,7 +307,31 @@ export default async function handler(req, res) {
     }
   }
 
-  // 3. Recherche par nom/symbole dans le registre Jupiter, indépendamment\n  // de la fenêtre des 200 créations récentes Pump.fun.\n  if (!mintQuery && jupiterResponse.status === "fulfilled" && Array.isArray(jupiterResponse.value)) {\n    for (const token of jupiterResponse.value.slice(0, 100)) {\n      const mint = token?.id;\n      const candidate = {\n        mint,\n        name: String(token?.name || ""),\n        symbol: String(token?.symbol || "")\n      };\n      if (!isMint(mint) || !matchesQuery(candidate, query, false)) continue;\n      addToken(tokens, {\n        ...candidate,\n        liquidityUsd: null,\n        volume24hUsd: null,\n        dexId: null,\n        pairAddress: null,\n        url: null,\n        imageUri: typeof token?.icon === "string" && /^https:\\/\\//i.test(token.icon) ? token.icon : null,\n        source: "jupiter-search"\n      });\n    }\n  }\n\n  // 4. Recherche parmi les tokens récents Pump.fun
+  // 3. Recherche par nom/symbole dans le registre Jupiter, indépendamment
+  // de la fenêtre des 200 créations récentes Pump.fun.
+  if (!mintQuery && jupiterResponse.status === "fulfilled" && Array.isArray(jupiterResponse.value)) {
+    for (const token of jupiterResponse.value.slice(0, 100)) {
+      const mint = token?.id;
+      const candidate = {
+        mint,
+        name: String(token?.name || ""),
+        symbol: String(token?.symbol || "")
+      };
+      if (!isMint(mint) || !matchesQuery(candidate, query, false)) continue;
+      addToken(tokens, {
+        ...candidate,
+        liquidityUsd: null,
+        volume24hUsd: null,
+        dexId: null,
+        pairAddress: null,
+        url: null,
+        imageUri: typeof token?.icon === "string" && /^https:\\/\\//i.test(token.icon) ? token.icon : null,
+        source: "jupiter-search"
+      });
+    }
+  }
+
+  // 4. Recherche parmi les tokens récents Pump.fun
   if (pumpAvailable) {
     for (const coin of pumpResponse.value) {
       if (
@@ -452,7 +476,9 @@ export default async function handler(req, res) {
     source: "dexscreener+pumpfun+jupiter",
     sources: {
       dexscreener: dexAvailable,
-      pumpfun: pumpAvailable,\n      jupiter: jupiterResponse.status === "fulfilled" && Array.isArray(jupiterResponse.value)\n    },
+      pumpfun: pumpAvailable,
+      jupiter: jupiterResponse.status === "fulfilled" && Array.isArray(jupiterResponse.value)
+    },
     dexError: dexError ? "DexScreener temporairement indisponible." : null,
     pumpError: pumpError ? "Pump.fun temporairement indisponible." : null,
     count: results.length,

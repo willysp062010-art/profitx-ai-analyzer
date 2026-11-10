@@ -1284,11 +1284,11 @@ export default function Radar() {
                         </span>
                       )}
                       <span>
-                        Payeur du lancement : {token.creatorAddress
+                        Adresse associée au lancement : {token.creatorAddress
                           ? shortMint(token.creatorAddress)
                           : "NON IDENTIFIÉ"}
                         {token.creatorAddress && token.creatorSeenTokenCount !== null
-                          ? " • " + token.creatorSeenTokenCount + " lancement(s) associés dans la base PFX"
+                          ? " • " + token.creatorSeenTokenCount + " token(s) associés dans la base PFX"
                           : " • historique non disponible"}
                         {" — observation limitée aux tokens indexés par PFX ; cette adresse ne prouve pas l'identité du créateur ni l'ensemble de ses lancements."}
                       </span>

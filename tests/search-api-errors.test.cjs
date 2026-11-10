@@ -46,3 +46,24 @@ test("search API hides upstream errors even with an official token fallback", as
   assert.doesNotMatch(JSON.stringify(res.body), /sensitive-upstream-detail/);
   assert.equal(res.body.results[0].verificationStatus, "OFFICIAL_PROJECT_MINT");
 });
+
+test("Jupiter discovers matching Solana tokens outside the recent Pump.fun window", async () => {
+  const mint = "DezXAZ8z7PnrnRJjz3wXBoRgixCaKGkYVfQ1pPB263";
+  const handler = loadHandler(async (url) => {
+    if (url.includes("dexscreener.com")) return { ok: true, json: async () => ({ pairs: [] }) };
+    if (url.includes("pump.fun")) return { ok: true, json: async () => [] };
+    if (url.includes("jup.ag")) return { ok: true, json: async () => [
+      { id: mint, name: "Bonk", symbol: "BONK", icon: "https://example.com/bonk.png" },
+      { id: "invalid", name: "Bonk", symbol: "BONK" },
+      { id: "11111111111111111111111111111111", name: "Other", symbol: "OTHER" }
+    ] };
+    throw Error("Unexpected URL: " + url);
+  });
+  const res = response();
+  await handler({ method: "GET", query: { q: "BONK" } }, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.ok, true);
+  assert.equal(res.body.sources.jupiter, true);
+  assert.equal(res.body.results.length, 1);
+  assert.equal(res.body.results[0].mint, mint);
+});

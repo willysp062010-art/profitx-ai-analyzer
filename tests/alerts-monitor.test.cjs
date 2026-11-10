@@ -90,3 +90,23 @@ test("persisted threshold state survives unavailable market data and rearms only
  assert.equal(rearmed.newlyTriggered,true);
  assert.equal(buildDatabaseUpdate(alert,rearmed).trigger_count,2);
 });
+
+test("monitor processes never-checked and least recently checked alerts first", async () => {
+  const env = {
+    SUPABASE_URL: "https://example.com",
+    SUPABASE_SERVICE_ROLE_KEY: "private",
+    PFX_ALERTS_MONITOR_SECRET: "test"
+  };
+  const handler = load(env, async (url, options) => {
+    const params = new URL(url).searchParams;
+    assert.equal(options.method, "GET");
+    assert.equal(params.get("enabled"), "eq.true");
+    assert.equal(params.get("chain_id"), "eq.solana");
+    assert.equal(params.get("order"), "last_checked_at.asc.nullsfirst,created_at.asc,id.asc");
+    assert.equal(params.get("limit"), "200");
+    return new Response("[]");
+  });
+  const res = await invoke(handler, "POST", { authorization: "Bearer test" });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.summary.checked, 0);
+});

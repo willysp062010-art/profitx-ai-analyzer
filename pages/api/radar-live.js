@@ -566,21 +566,22 @@ export default async function handler(req, res) {
     const rows = await response.json();
     if (!Array.isArray(rows)) throw new Error("Invalid Supabase response");
 
-    const [identityResult, marketResult, chainResult] = await Promise.allSettled([
-      enrichOnRead(rows, url, key),
-      enrichMarketRows(rows, url, key),
-      fetchOnchainAuthorities(rows)
-    ]);
-    if (chainResult.status === "rejected") {
-      console.warn("PFX Radar onchain checks:", chainResult.reason?.message);
-    }
-    const onchainChecks = chainResult.status === "fulfilled" ? chainResult.value : new Map();
+    const onchainPromise = fetchOnchainAuthorities(rows).catch((error) => {
+      console.warn("PFX Radar onchain checks:", error.message);
+      return new Map();
+    });
+    // Concentration depends on mint supply, but neither it nor creator
+    // history needs to wait for metadata or market persistence.
+    const [, marketResult, chainResult, concentrationResult, creatorsResult] =
+      await Promise.allSettled([
+        enrichOnRead(rows, url, key),
+        enrichMarketRows(rows, url, key),
+        onchainPromise,
+        onchainPromise.then((checks) => fetchConcentration(rows, checks)),
+        fetchCreatorHistory(rows, url, key)
+      ]);
+    const onchainChecks = chainResult.value || new Map();
     const liveMarkets = marketResult.status === "fulfilled" ? marketResult.value : new Map();
-
-    const [concentrationResult, creatorsResult] = await Promise.allSettled([
-      fetchConcentration(rows, onchainChecks),
-      fetchCreatorHistory(rows, url, key)
-    ]);
     const concentrations = concentrationResult.status === "fulfilled" ? concentrationResult.value : new Map();
     const creatorCounts = creatorsResult.status === "fulfilled" ? creatorsResult.value : new Map();
 

@@ -417,7 +417,7 @@ async function loadActiveAlerts() {
     `?enabled=eq.true` +
       `&chain_id=eq.solana` +
       `&select=*` +
-      `&order=created_at.asc` +
+      `&order=last_checked_at.asc.nullsfirst,created_at.asc,id.asc` +
       `&limit=${MAX_ALERTS_PER_RUN}`,
     {
       method: "GET",

@@ -48,7 +48,7 @@ test("search API hides upstream errors even with an official token fallback", as
 });
 
 test("Jupiter discovers matching Solana tokens outside the recent Pump.fun window", async () => {
-  const mint = "DezXAZ8z7PnrnRJjz3wXBoRgixCaKGkYVfQ1pPB263";
+  const mint = "So11111111111111111111111111111111111111112";
   const handler = loadHandler(async (url) => {
     if (url.includes("dexscreener.com")) return { ok: true, json: async () => ({ pairs: [] }) };
     if (url.includes("pump.fun")) return { ok: true, json: async () => [] };

@@ -1086,9 +1086,11 @@ async function searchToken(query) {
           Pas de promesse de rendement.
         </p>
 
-        <div className="search">
+        <div className="search" style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "flex-start" }}>
 
           <input
+            aria-label="Nom, symbole ou adresse mint Solana"
+            style={{ minWidth: 0, flex: "1 1 240px" }}
             value={mint}
            onChange={(e) => {
   const value = e.target.value;
@@ -1106,17 +1108,20 @@ async function searchToken(query) {
             autoComplete="off"
           />
 {tokenSearchLoading && (
-  <p>Recherche des tokens Solana...</p>
+  <p role="status" style={{ flexBasis: "100%", order: 3 }}>Recherche des tokens Solana...</p>
 )}
 
 {tokenSearchError && (
-  <p style={{ color: "#ff7070" }}>
+  <p role="alert" style={{ color: "#ff7070", flexBasis: "100%", order: 3 }}>
     {tokenSearchError}
   </p>
 )}
 
 {tokenResults.length > 0 && (
   <div style={{
+    flexBasis: "100%",
+    order: 3,
+    boxSizing: "border-box",
     width: "100%",
     maxHeight: "280px",
     overflowY: "auto",
@@ -1162,6 +1167,7 @@ async function searchToken(query) {
   </div>
 )}
           <button
+            style={{ order: 2, flexShrink: 0, minHeight: 60 }}
             onClick={analyze}
             disabled={
               loading ||

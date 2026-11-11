@@ -20,9 +20,10 @@ function cleanText(value, maxLength = 500) {
 }
 
 function normalizeAlert(alert = {}) {
+  if (!alert || typeof alert !== "object" || Array.isArray(alert)) return null;
   const rawTarget = alert.targetValue;
   const targetValue = rawTarget === null || rawTarget === undefined ||
-    typeof rawTarget === "boolean" || String(rawTarget).trim() === ""
+    !["string", "number"].includes(typeof rawTarget) || String(rawTarget).trim() === ""
     ? NaN
     : Number(rawTarget);
 
@@ -33,11 +34,14 @@ function normalizeAlert(alert = {}) {
     metric: cleanText(alert.metric, 100),
     condition: cleanText(alert.condition, 50).toLowerCase(),
     target_value: targetValue,
-    enabled: alert.enabled !== false,
+    enabled: alert.enabled === undefined ? true : alert.enabled,
   };
 }
 
 function validateAlert(alert) {
+  if (!alert || typeof alert.enabled !== "boolean") {
+    return "Alerte invalide : enabled doit être un booléen.";
+  }
   if (!alert.alert_id) {
     return "alert_id manquant.";
   }

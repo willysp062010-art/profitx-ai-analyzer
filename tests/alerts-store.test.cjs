@@ -145,3 +145,14 @@ test("GET returns dated server evaluations including a measured zero, without pr
  assert.equal(Object.hasOwn(r.body.alerts[0],"client_id"),false);
  assert.equal(Object.hasOwn(r.body.alerts[0],"last_condition_met"),false);
 });
+
+for (const targetValue of [[1], {value: 1}, true]) test(`POST rejects non-scalar threshold ${JSON.stringify(targetValue)}`, async () => {
+ const calls=[];const handler=load(mockFetch(calls));
+ const res=await invoke(handler,"POST",{clientId:"test",alert:{...alert,targetValue}});
+ assert.equal(res.statusCode,400);assert.equal(calls.length,0);
+});
+for (const malformed of [null, [], {...alert,enabled:"false"}, {...alert,enabled:0}]) test(`POST rejects malformed alert ${JSON.stringify(malformed)}`,async()=>{
+ const calls=[];const handler=load(mockFetch(calls));
+ const res=await invoke(handler,"POST",{clientId:"test",alert:malformed});
+ assert.equal(res.statusCode,400);assert.equal(calls.length,0);
+});

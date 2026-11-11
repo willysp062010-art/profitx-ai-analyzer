@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { isSolanaMint } from "../utils/watchlist";
 import Head from "next/head";
 import AnalysisQualityNotice from "../components/AnalysisQualityNotice";
 import MarketDataNotice from "../components/MarketDataNotice";
@@ -92,12 +93,13 @@ export default function IntelligencePage() {
     useState("");
 
   async function runIntelligence() {
+    if (loading) return;
     const cleanMint =
       mint.trim();
 
-    if (!cleanMint) {
+    if (!isSolanaMint(cleanMint)) {
       setError(
-        "Saisis un mint Solana avant de lancer PFX Intelligence."
+        "Saisis une adresse mint Solana complète et valide avant de lancer PFX Intelligence."
       );
       return;
     }
@@ -120,7 +122,8 @@ export default function IntelligencePage() {
 
       if (
         !analyzerResponse.ok ||
-        analyzerData?.ok !== true
+        analyzerData?.ok !== true ||
+        analyzerData?.mint !== cleanMint
       ) {
         throw new Error(
           analyzerData?.error ||
@@ -335,11 +338,13 @@ export default function IntelligencePage() {
             <input
               id="mint"
               value={mint}
-              onChange={(event) =>
-                setMint(
-                  event.target.value
-                )
-              }
+              disabled={loading}
+              onChange={(event) => {
+                setMint(event.target.value);
+                setAnalyzer(null);
+                setResult(null);
+                setError("");
+              }}
               onKeyDown={(event) => {
                 if (
                   event.key ===

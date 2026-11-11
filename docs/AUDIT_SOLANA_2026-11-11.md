@@ -63,3 +63,7 @@ La compilation de production et la suite de régression doivent passer avant fus
 - Le champ de recherche inclut ses bordures et son espacement dans sa largeur, évitant un débordement sur les écrans étroits. La validation visuelle sur téléphone reste ouverte.
 
 - Radar : l’absence de résultats filtrés est désormais affichée même lorsque le bloc PFX officiel reste visible. Le message précise la portée de la page et n’apparaît pas pendant une recherche externe en cours.
+
+- Intelligence : validation du mint avant tout appel, rejet d’une réponse Analyzer portant un autre mint, blocage des doubles lancements, champ non modifiable pendant le traitement et suppression de l’ancien résultat dès modification du mint.
+- Alertes persistantes : les objets/listes/booléens ne sont plus convertis en seuils numériques ; une valeur enabled non booléenne ou un objet alerte mal formé est rejeté avant écriture. Tests isolés uniquement, sans déclenchement du moniteur privé.
+- Validation de cette livraison : 143 tests et compilation de production réussis.

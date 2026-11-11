@@ -1,7 +1,8 @@
-const VERSION = "1.1.0";
+import { assessAnalysisQuality, describeStructure } from "../../utils/analysis-quality";
+const VERSION = "1.2.0";
 
 function isNumber(value) {
-  if (value === null || value === undefined || value === "") {
+  if (!["number", "string"].includes(typeof value) || String(value).trim() === "") {
     return false;
   }
 
@@ -152,7 +153,7 @@ function metricEntries(scores) {
   );
 }
 
-function buildStrengths(scores) {
+function buildStrengths(scores, quality) {
   return metricEntries(scores)
     .filter(
       (item) => item.value >= 80
@@ -165,7 +166,7 @@ function buildStrengths(scores) {
       label: item.label,
       score: item.value,
       text:
-        `${item.label} : indicateur solide ` +
+        (quality.status === "COMPLETE" ? `${item.label} : indicateur solide ` : `${item.label} : score observé dans un périmètre limité `) +
         `selon les données actuellement disponibles ` +
         `(${Math.round(item.value)}/100).`
     }));
@@ -191,23 +192,24 @@ function buildWatchPoints(scores) {
 }
 
 function getEconomicState(observed) {
+  const observation = value => { const n = numberOrNull(value); return n !== null && n >= 0 ? n : null; };
   const volume =
-    numberOrNull(
+    observation(
       observed?.volume24hUsd
     );
 
   const transactions =
-    numberOrNull(
+    observation(
       observed?.transactions24h
     );
 
   const buys =
-    numberOrNull(
+    observation(
       observed?.buys24h
     );
 
   const sells =
-    numberOrNull(
+    observation(
       observed?.sells24h
     );
 
@@ -259,6 +261,11 @@ function getEconomicState(observed) {
         "transactions, achats et ventes observés " +
         "sont tous à zéro."
     };
+  }
+
+  if (!knownValues.some(value => value > 0)) {
+    return { state: "UNKNOWN", volume, transactions, buys, sells,
+      text: "Les seules valeurs connues sont nulles ; les données manquantes empêchent de qualifier l’activité." };
   }
 
   if (
@@ -344,7 +351,8 @@ function buildSummary({
   economicState,
   strengths,
   watchPoints,
-  missingData
+  missingData,
+  quality
 }) {
   const name =
     tokenName || "Le token";
@@ -354,7 +362,9 @@ function buildSummary({
 
   let opening;
 
-  if (structural === null) {
+  if (quality.status !== "COMPLETE") {
+    opening = `${name} : ${describeStructure(structural, quality).summary}`;
+  } else if (structural === null) {
     opening =
       `${name} dispose d'une lecture structurelle ` +
       `encore partielle avec les données disponibles.`;
@@ -384,7 +394,7 @@ function buildSummary({
       strengths.slice(0, 2);
 
     strengthText =
-      ` Les principaux points solides observés ` +
+      (quality.status === "COMPLETE" ? ` Les principaux points solides observés ` : ` Les scores disponibles les plus élevés `) +
       `concernent ${joinLabels(mainStrengths)}.`;
   }
 
@@ -396,7 +406,7 @@ function buildSummary({
     marketText =
       " La faiblesse actuelle du profil provient " +
       "notamment de l'absence d'activité de marché " +
-      "sur les dernières 24 heures.";
+      "dans le périmètre observé sur les dernières 24 heures.";
   } else if (
     economicState.state === "LOW"
   ) {
@@ -475,7 +485,7 @@ function buildEconomicReading(
       "Sur les dernières 24 heures, l'Analyzer observe " +
       "0 $ de volume, 0 transaction, 0 achat et 0 vente. " +
       "Il s'agit de valeurs observées à zéro et non " +
-      "de données remplacées ou estimées."
+      "de données remplacées ou estimées. Ces mesures ne couvrent pas nécessairement tous les marchés du token."
     );
   }
 
@@ -563,8 +573,10 @@ function buildConclusion({
   scores,
   economicState,
   strengths,
-  watchPoints
+  watchPoints,
+  quality
 }) {
+  if (quality.status !== "COMPLETE") return describeStructure(scores.structural, quality).summary;
   if (
     scores.structural !== null &&
     scores.market !== null &&
@@ -681,8 +693,22 @@ function buildIntelligence(analyzer) {
       modules
     });
 
-  const strengths =
-    buildStrengths(scores);
+  const assessedQuality = assessAnalysisQuality({
+    components: { liquidity: scores.liquidity, distribution: scores.distribution, security: scores.security, maturity: scores.maturity },
+    activity: scores.activity, volume: scores.volume, totalScore: scores.global,
+    isToken2022: modules.token2022?.isToken2022,
+    extensionsScored: modules.token2022?.scoringReady === true,
+    priceStatus: analyzer.market?.priceStatus,
+  });
+  const declared = analyzer.dataQuality;
+  const statuses = ["COMPLETE", "PARTIAL", "CONFLICTING", "UNAVAILABLE"];
+  const status = statuses[Math.max(statuses.indexOf(assessedQuality.status), statuses.indexOf(declared?.status))];
+  const quality = { ...assessedQuality, status,
+    label: { COMPLETE: "Contrôles disponibles", PARTIAL: "Analyse partielle", CONFLICTING: "Données contradictoires", UNAVAILABLE: "Données insuffisantes" }[status],
+    scoreStatus: status === "UNAVAILABLE" ? "UNAVAILABLE" : status === "COMPLETE" ? "CALCULATED" : "PROVISIONAL",
+    issues: uniqueStrings([...assessedQuality.issues, ...safeArray(declared?.issues)]) };
+
+  const strengths = buildStrengths(scores, quality);
 
   const watchPoints =
     buildWatchPoints(scores);
@@ -702,7 +728,8 @@ function buildIntelligence(analyzer) {
       economicState,
       strengths,
       watchPoints,
-      missingData
+      missingData,
+      quality
     });
 
   const economicReading =
@@ -715,7 +742,8 @@ function buildIntelligence(analyzer) {
       scores,
       economicState,
       strengths,
-      watchPoints
+      watchPoints,
+      quality
     });
 
   const warnings =
@@ -776,6 +804,7 @@ function buildIntelligence(analyzer) {
     scores,
 
     dataQuality: {
+      ...quality,
       missingCount:
         missingData.length,
 

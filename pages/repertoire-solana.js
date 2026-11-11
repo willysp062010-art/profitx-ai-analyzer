@@ -33,7 +33,7 @@ export default function RepertoireSolana(){
         if(!response.ok||!data.ok)throw Error(data.error||"Recherche indisponible");
         return data;
       })
-      .then(data=>{if(ctl.signal.aborted)return;snapshotRef.current=data.snapshot||"";setState({loading:false,tokens:data.tokens,count:data.count,hasMore:data.hasMore,error:""});})
+      .then(data=>{if(ctl.signal.aborted)return;snapshotRef.current=data.snapshot||"";setState({loading:false,tokens:data.tokens,count:data.count,hasMore:data.hasMore,indexingPending:data.identityIndexingPending||0,error:""});})
       .catch(err=>{if(!ctl.signal.aborted&&err.name!=="AbortError")setState(old=>({...old,loading:false,error:err.message}));});
     return ()=>ctl.abort();
   },[term,page,identifiedOnly]);
@@ -96,6 +96,7 @@ export default function RepertoireSolana(){
       </section>}
       {!state.loading&&!state.error&&state.tokens.length===0&&<div style={styles.card}>Aucun autre token trouvé dans notre base actuelle. Cela ne prouve pas son inexistence sur Solana.</div>}
       <p style={styles.muted}>Les valeurs de marché de cette base sont historiques : leur fraîcheur n’est pas vérifiée. Lancez une analyse du mint pour consulter les données disponibles au moment de la demande. Les noms sont des métadonnées déclarées, pas une validation du projet.</p>
+      {state.indexingPending>0&&<p role="status" style={styles.muted}>{state.indexingPending} nom(s) lu(s) sur Solana sont encore en attente d’indexation pour la recherche par nom. La recherche par mint reste disponible.</p>}
       {state.tokens.map(t=><article key={t.mint} style={styles.card}>
         <div style={{fontSize:12,fontWeight:700,marginBottom:12,color:t.identityStatus==="metadata_present"?"#42f9a1":"#f7d894"}}>
           {t.identityStatus==="metadata_present"?"NOM ET SYMBOLE RENSEIGNÉS · NON AUDITÉ":"IDENTITÉ NON RENSEIGNÉE"}
@@ -116,7 +117,7 @@ export default function RepertoireSolana(){
           <div><span style={styles.muted}>Liquidité enregistrée</span><div>{money(t.liquidityUsd)}</div></div>
           <div><span style={styles.muted}>Volume 24 h enregistré</span><div>{money(t.volume24hUsd)}</div></div>
           <div><span style={styles.muted}>Données du marché</span><div>{t.marketDataStatus==="not_available"?"Non disponibles":"Historiques · actualité non vérifiée"}</div></div>
-          <div><span style={styles.muted}>Analyse</span><div>{t.status||"N/D"}</div></div>
+          <div><span style={styles.muted}>État de l’enregistrement</span><div>{({pending:"À analyser",enriched:"Métadonnées récupérées",metadata_missing:"Métadonnées à compléter",flagged:"Signal à examiner",verified:"Analyse enregistrée — non auditée"})[t.status]||"État non renseigné"}</div></div>
         </div>
       </article>)}
       {term.length>=2&&<section style={{marginTop:35}}>

@@ -54,3 +54,29 @@ test("directory leaves missing totals and metadata unknown on upstream metadata 
   assert.equal(r.body.tokens[0].name, "Nom non récupéré");
   assert.equal(r.body.tokens[0].identityStatus, "metadata_unconfirmed");
 });
+
+test("recovered directory names are indexed without overwriting risk, status or market data", async () => {
+  let patch;
+  const handler = load(async (url, options) => {
+    if (options?.method === "PATCH") { patch = JSON.parse(options.body); return new Response(null, { status: 204 }); }
+    if (String(url).includes("database.test")) return new Response(JSON.stringify([{ mint, analysis_status: "flagged" }]), { headers: { "content-range": "0-0/1" } });
+    return new Response(JSON.stringify({ result: { value: [{ owner: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb", data: { parsed: { type: "mint", info: { extensions: [{ extension: "tokenMetadata", state: { mint, name: "Gǒu", symbol: "GǑU" } }] } } } }] } }));
+  });
+  const r = await invoke(handler, { page: "1" });
+  assert.deepEqual(Object.keys(patch).sort(), ["name", "symbol"]);
+  assert.equal(r.body.tokens[0].status, "flagged");
+  assert.equal(r.body.tokens[0].nameSearchable, true);
+  assert.equal(r.body.identityIndexingPending, 0);
+});
+
+test("an indexing outage keeps the observed name but explicitly marks name search pending", async () => {
+  const handler = load(async (url, options) => {
+    if (options?.method === "PATCH") return new Response("{}", { status: 503 });
+    if (String(url).includes("database.test")) return new Response(JSON.stringify([{ mint }]), { headers: { "content-range": "0-0/1" } });
+    return new Response(JSON.stringify({ result: { value: [{ owner: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb", data: { parsed: { type: "mint", info: { extensions: [{ extension: "tokenMetadata", state: { mint, name: "Gǒu" } }] } } } }] } }));
+  });
+  const r = await invoke(handler, { page: "1" });
+  assert.equal(r.body.tokens[0].name, "Gǒu");
+  assert.equal(r.body.tokens[0].nameSearchable, false);
+  assert.equal(r.body.identityIndexingPending, 1);
+});

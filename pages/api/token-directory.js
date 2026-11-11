@@ -37,6 +37,21 @@ export default async function handler(req, res) {
     const count = Number.isSafeInteger(countValue) && countValue >= 0 ? countValue : null;
     const rpc = process.env.SOLANA_RPC_URL || (process.env.HELIUS_API_KEY ? "https://mainnet.helius-rpc.com/?api-key=" + encodeURIComponent(process.env.HELIUS_API_KEY) : "https://api.mainnet-beta.solana.com");
     const identities = await directoryIdentities(rows, rpc);
+    // Index only newly recovered identity fields; never change risk/status/market data.
+    const indexed = new Set();
+    await Promise.allSettled(rows.slice(0, size).map(async row => {
+      const identity = identities.get(row.mint);
+      const patch = {};
+      if (!identityText(row.name) && identity?.name) patch.name = identity.name;
+      if (!identityText(row.symbol) && identity?.symbol) patch.symbol = identity.symbol;
+      if (!Object.keys(patch).length) return;
+      try {
+        const saved = await fetch(url + "/rest/v1/pfx_radar_tokens?chain_id=eq.solana&mint=eq." + encodeURIComponent(row.mint), {
+          method: "PATCH", headers: { apikey: key, Authorization: "Bearer " + key, "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify(patch), signal: AbortSignal.timeout(3000) });
+        if (saved.ok) indexed.add(row.mint);
+      } catch { /* The recovered name remains visible; indexing stays explicitly pending. */ }
+    }));
     const tokens = rows.map(row => {
       const identity = identities.get(row.mint);
       const name = identityText(row.name) || identity?.name;
@@ -45,10 +60,11 @@ export default async function handler(req, res) {
         platform: row.launch_platform || row.source || "N/D", detectedAt: row.detected_at,
         liquidityUsd: row.liquidity_usd ?? null, volume24hUsd: row.volume_24h_usd ?? null, marketCapUsd: row.market_cap_usd ?? null,
         status: row.analysis_status, identityStatus: name && symbol ? "metadata_present" : "metadata_unconfirmed",
+        nameSearchable: Boolean(identityText(row.name) || indexed.has(row.mint)),
         marketDataStatus: row.liquidity_usd == null && row.volume_24h_usd == null ? "not_available" : "historical_unverified" };
     });
     return res.status(200).json({ ok: true, source: "observed_sol_tokens", coverage: "partial", identifiedOnly: identified,
-      page, pageSize: size, maxPage: MAX_PAGE, count, snapshot: snapshot?.toISOString() || rows[0]?.detected_at || null,
+      page, pageSize: size, maxPage: MAX_PAGE, count, identityIndexingPending: tokens.filter(token => token.name !== "Nom non récupéré" && !token.nameSearchable).length, snapshot: snapshot?.toISOString() || rows[0]?.detected_at || null,
       hasMore: page < MAX_PAGE && (count === null ? rows.length === size : page * size < count), tokens });
   } catch {
     return res.status(502).json({ ok: false, error: "Répertoire temporairement indisponible." });

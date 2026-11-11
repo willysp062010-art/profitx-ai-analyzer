@@ -15,8 +15,10 @@ const PHANTOM_URL = "https://phantom.com/";
 
 export default function ObtenirPFX() {
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState("");
 
   async function copyMint() {
+    setCopyError("");
     try {
       await navigator.clipboard.writeText(PFX_MINT);
       setCopied(true);
@@ -26,6 +28,7 @@ export default function ObtenirPFX() {
       }, 2500);
     } catch {
       setCopied(false);
+      setCopyError("Copie automatique indisponible. Sélectionnez et copiez le mint affiché ci-dessus.");
     }
   }
 
@@ -100,6 +103,7 @@ export default function ObtenirPFX() {
             </button>
           </div>
 
+          {copyError && <p role="alert">{copyError}</p>}
           <div className="warning">
             <strong>IMPORTANT — SÉCURITÉ</strong>
 

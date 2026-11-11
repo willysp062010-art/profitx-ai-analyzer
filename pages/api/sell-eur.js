@@ -1,4 +1,4 @@
-import { checkedQuote } from "../../utils/quote-validation";
+import { checkedQuote, quoteImpactPercent } from "../../utils/quote-validation";
 import { isSolanaMint } from "../../utils/watchlist";
 // PROFITX AI — indicative EUR-denominated round-trip quote. No wallet, transaction or signature.
 const USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
@@ -48,7 +48,8 @@ export default async function handler(req, res) {
       tokenAmountRaw: tokenRaw, usdPerEur, fxDate: fx.date ?? null,
       indicativeSaleEur: Number(returnedEur.toFixed(4)),
       indicativeDifferenceEur: Number((eur - returnedEur).toFixed(4)),
-      priceImpactPct: sell.priceImpactPct ?? sell.priceImpact ?? null,
+      priceImpactPct: quoteImpactPercent(sell),
+      priceImpactUnit: "percentage_points",
       quotedAt: new Date().toISOString(),
       note: "Deux cotations indicatives achat puis vente, et non une simulation de portefeuille ou une exécution. L'écart inclut spread/impact éventuel, pas des frais réseau exhaustifs. USDC peut s'écarter de 1 USD. Aucun slippage maximal ni succès de vente garanti."
     });

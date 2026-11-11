@@ -7,7 +7,7 @@ import { useRouter } from "next/router";
 const DEFAULT_MINT =
   "6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump";
 const PFX_OFFICIAL_LOGO =
-  "/profitx-logo-01-pumpfun.png";
+  "/pfx-token-officiel.png";
 function isPfxToken(mint) {
   return String(mint || "").trim() === DEFAULT_MINT;
 }
@@ -317,35 +317,12 @@ export default function IntelligencePage() {
             observée d'un token Solana.
           </p>
         </section>
-<section className="brandEvolution">
-  <div className="brandEvolutionTitle">
-    <span>IDENTITÉ PROFITX</span>
-    <strong>De PFX à PROFITX AI</strong>
-  </div>
-
+<section className="brandEvolution" aria-label="Identité PROFITX AI">
+  <div className="brandEvolutionTitle"><span>PROFITX AI</span><strong>Analyse des tokens Solana</strong></div>
   <div className="brandLogos">
-    <div className="brandLogoCard">
-      <div className="brandLogoLabel">
-        ÉVOLUTION • AI ANALYZER
-      </div>
-      <img
-        src="/profitx-logo-02-analyzer.png"
-        alt="PROFITX AI Analyzer"
-      />
-      <strong>PROFITX AI ANALYZER</strong>
-      <span>Deuxième génération</span>
-    </div>
-
     <div className="brandLogoCard current">
-      <div className="brandLogoLabel">
-        IDENTITÉ ACTUELLE
-      </div>
-      <img
-        src="/ChatGPT Image 5 sept. 2026, 08_15_55.png"
-        alt="Identité actuelle PROFITX"
-      />
-      <strong>PROFITX AI</strong>
-      <span>Identité actuelle</span>
+      <img src="/profitx-logo-02-analyzer.png" alt="Logo officiel PROFITX AI Analyzer" />
+      <strong>PROFITX AI ANALYZER</strong>
     </div>
   </div>
 </section>
@@ -996,7 +973,8 @@ export default function IntelligencePage() {
 
 .brandLogos {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 340px);
+  justify-content: center;
   gap: 14px;
 }
 

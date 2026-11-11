@@ -49,23 +49,14 @@ const CONDITIONS = [
 ];
 
 function loadStorage(key) {
-  if (typeof window === "undefined") {
-    return [];
+  if (typeof window === "undefined") return [];
+  const saved = window.localStorage.getItem(key);
+  if (!saved) return [];
+  const parsed = JSON.parse(saved);
+  if (!Array.isArray(parsed) || parsed.some(item => !item || typeof item !== "object" || Array.isArray(item))) {
+    throw new Error("Stockage local illisible.");
   }
-
-  try {
-    const saved = window.localStorage.getItem(key);
-
-    if (!saved) {
-      return [];
-    }
-
-    const parsed = JSON.parse(saved);
-
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+  return parsed;
 }
 
 function saveStorage(key, value) {
@@ -108,9 +99,8 @@ function createClientId() {
     ) {
       generated = crypto.randomUUID();
     } else {
-      generated = `pfx-${Date.now()}-${Math.random()
-        .toString(36)
-        .slice(2, 12)}`;
+      if (!crypto?.getRandomValues) return "";
+      generated = Array.from(crypto.getRandomValues(new Uint8Array(32)), value => value.toString(16).padStart(2,"0")).join("");
     }
 
     window.localStorage.setItem(
@@ -120,9 +110,7 @@ function createClientId() {
 
     return generated;
   } catch {
-    return `pfx-${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2, 12)}`;
+    return "";
   }
 }
 
@@ -337,6 +325,7 @@ export default function Alerts() {
   const [watchlist, setWatchlist] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [loaded, setLoaded] = useState(false);
+  const [storageReady, setStorageReady] = useState(false);
 
   const [clientId, setClientId] = useState("");
 
@@ -358,6 +347,8 @@ export default function Alerts() {
   const [copiedId, setCopiedId] =
     useState("");
 
+  const [saving, setSaving] = useState(false);
+  const [busyAlert, setBusyAlert] = useState("");
   const [checking, setChecking] =
     useState(false);
   const [refreshingResults, setRefreshingResults] = useState(false);
@@ -375,16 +366,20 @@ export default function Alerts() {
     let cancelled = false;
 
     async function initializeAlerts() {
-      const storedWatchlist = loadStorage(
-        WATCHLIST_STORAGE_KEY
-      );
-
-      const storedAlerts = loadStorage(
-        ALERTS_STORAGE_KEY
-      );
-
-      const currentClientId =
-        createClientId();
+      let storedWatchlist, storedAlerts, currentClientId;
+      try {
+        storedWatchlist = loadStorage(WATCHLIST_STORAGE_KEY);
+        storedAlerts = loadStorage(ALERTS_STORAGE_KEY);
+        currentClientId = createClientId();
+        if (!currentClientId) throw Error("Identifiant non sauvegardé");
+      } catch {
+        if (!cancelled) {
+          setEngineError("Stockage local inaccessible ou illisible. Les données existantes n’ont pas été remplacées. L’accès aux alertes nécessite un stockage local fonctionnel dans ce navigateur.");
+          setLoaded(true);
+        }
+        return;
+      }
+      setStorageReady(true);
 
       if (cancelled) {
         return;
@@ -491,15 +486,11 @@ export default function Alerts() {
   }, []);
 
   useEffect(() => {
-    if (!loaded) {
-      return;
+    if (!loaded || !storageReady) return;
+    if (!saveStorage(ALERTS_STORAGE_KEY, alerts)) {
+      setEngineError("La sauvegarde locale des résultats a échoué. Les règles déjà synchronisées restent sur le serveur, mais les contrôles manuels récents peuvent être perdus après fermeture.");
     }
-
-    saveStorage(
-      ALERTS_STORAGE_KEY,
-      alerts
-    );
-  }, [alerts, loaded]);
+  }, [alerts, loaded, storageReady]);
 
   const selectedToken = useMemo(() => {
     return (
@@ -526,6 +517,7 @@ export default function Alerts() {
 
   async function createAlert(event) {
     event.preventDefault();
+    if (saving) return;
     clearMessages();
 
     if (!selectedToken) {
@@ -627,6 +619,7 @@ export default function Alerts() {
      * Si Supabase refuse l'opération, on n'affiche
      * pas une fausse alerte persistante à l'utilisateur.
      */
+    setSaving(true);
     try {
       await saveAlertToServer(
         clientId,
@@ -648,10 +641,11 @@ export default function Alerts() {
         saveError?.message ||
           "Impossible d'enregistrer l'alerte sur le serveur."
       );
-    }
+    } finally { setSaving(false); }
   }
 
   async function toggleAlert(id) {
+    if (busyAlert) return;
     clearMessages();
 
     const currentAlert =
@@ -673,6 +667,7 @@ export default function Alerts() {
     const nextEnabled =
       currentAlert.enabled === false;
 
+    setBusyAlert(id);
     try {
       await updateAlertOnServer(
         clientId,
@@ -701,10 +696,11 @@ export default function Alerts() {
         updateError?.message ||
           "Impossible de modifier l'alerte."
       );
-    }
+    } finally { setBusyAlert(""); }
   }
 
   async function deleteAlert(id) {
+    if (busyAlert) return;
     clearMessages();
 
     if (!clientId) {
@@ -714,6 +710,7 @@ export default function Alerts() {
       return;
     }
 
+    setBusyAlert(id);
     try {
       await deleteAlertFromServer(
         clientId,
@@ -740,7 +737,7 @@ export default function Alerts() {
         deleteError?.message ||
           "Impossible de supprimer l'alerte."
       );
-    }
+    } finally { setBusyAlert(""); }
   }
 
   async function copyAddress(
@@ -1219,8 +1216,9 @@ export default function Alerts() {
                 <button
                   type="submit"
                   className="createButton"
+                  disabled={saving || !clientId}
                 >
-                  + CRÉER L&apos;ALERTE
+                  {saving ? "ENREGISTREMENT..." : "+ CRÉER L’ALERTE"}
                 </button>
               </form>
             )}
@@ -1506,6 +1504,7 @@ export default function Alerts() {
                         <button
                           type="button"
                           className="secondary"
+                          disabled={Boolean(busyAlert)}
                           onClick={() =>
                             toggleAlert(
                               alert.id
@@ -1532,6 +1531,7 @@ export default function Alerts() {
                         <button
                           type="button"
                           className="delete"
+                          disabled={Boolean(busyAlert)}
                           onClick={() =>
                             deleteAlert(
                               alert.id

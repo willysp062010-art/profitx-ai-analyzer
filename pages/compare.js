@@ -370,7 +370,7 @@ function buildInsights(a, b) {
     insights.push(
       `${tokenSymbol(
         higherToken
-      )} présente une ${item.label} supérieure (${item.format(
+      )} affiche une valeur plus élevée pour ${item.label} (${item.format(
         value
       )}).`
     );
@@ -473,6 +473,7 @@ function TokenPicker({ id, label, value, onChange, selected, onSelect, disabled 
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState("");
+  const [sourceNotice, setSourceNotice] = useState("");
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -481,9 +482,11 @@ function TokenPicker({ id, label, value, onChange, selected, onSelect, disabled 
       setResults([]);
       setSearching(false);
       setSearchError("");
+      setSourceNotice("");
       return;
     }
     const controller = new AbortController();
+    setResults([]); setSearching(true); setSearchError(""); setSourceNotice("");
     const timer = setTimeout(async () => {
       setSearching(true);
       setSearchError("");
@@ -491,9 +494,11 @@ function TokenPicker({ id, label, value, onChange, selected, onSelect, disabled 
         const response = await fetch("/api/search-token?q=" + encodeURIComponent(query), { signal: controller.signal });
         const data = await response.json();
         if (!response.ok || data?.ok !== true) throw new Error(data?.error || "Recherche indisponible.");
+        if (controller.signal.aborted) return;
         setResults(Array.isArray(data.results) ? data.results : []);
+        setSourceNotice(data.pumpError || "");
       } catch (error) {
-        if (error.name !== "AbortError") {
+        if (!controller.signal.aborted && error.name !== "AbortError") {
           setResults([]);
           setSearchError(error.message || "Recherche indisponible.");
         }
@@ -514,12 +519,14 @@ function TokenPicker({ id, label, value, onChange, selected, onSelect, disabled 
         disabled={disabled}
         onChange={(event) => { onChange(event.target.value); setOpen(true); }}
         onFocus={() => setOpen(true)}
+        onKeyDown={event => { if (event.key === "Escape") setOpen(false); }}
         placeholder="Nom, symbole ou adresse mint Solana"
         autoComplete="off"
         spellCheck={false}
         aria-autocomplete="list"
         aria-expanded={open && !selected && value.trim().length >= 2 && !isSolanaMint(value.trim())}
       />
+      {sourceNotice && open && !selected && <p role="status" style={{ color: "#ffd18b", fontSize: 12 }}>{sourceNotice} Couverture de recherche partielle.</p>}
       {selected && (
         <div style={{ color: "#2bfa88", fontSize: 12, marginTop: 6, overflowWrap: "anywhere" }}>
           ✓ {selected.name || selected.symbol} ({selected.symbol || "?"}) — {selected.mint}

@@ -3,7 +3,7 @@ import PfxPoolStatus from "../components/PfxPoolStatus";
 import MarketDataNotice from "../components/MarketDataNotice";
 import AnalysisQualityNotice from "../components/AnalysisQualityNotice";
 import { describeStructure } from "../utils/analysis-quality";
-import { readWatchlist, writeWatchlist, mergeWatchlist } from "../utils/watchlist";
+import { readWatchlist, writeWatchlist, mergeWatchlist, isSolanaMint } from "../utils/watchlist";
 
 
 const DEFAULT_MINT =
@@ -442,6 +442,9 @@ const [tokenSearchLoading, setTokenSearchLoading] = useState(false);
 const [tokenSearchError, setTokenSearchError] = useState("");
 const [tokenSearchNotice, setTokenSearchNotice] = useState("");
 const tokenSearchRequest = useRef(0);
+const tokenSearchTimer = useRef(null);
+const tokenSearchAbort = useRef(null);
+useEffect(() => () => { clearTimeout(tokenSearchTimer.current); tokenSearchAbort.current?.abort(); }, []);
   const [data, setData] =
     useState(null);
 
@@ -462,6 +465,7 @@ const tokenSearchRequest = useRef(0);
     } catch { setWatchlistNotice("Impossible d'enregistrer le token dans ce navigateur. La Watchlist n'a pas été modifiée."); }
   }
 
+  const quoteContext = useRef(0);
   const [sellQuote, setSellQuote] = useState(null);
   const [sellQuoteLoading, setSellQuoteLoading] = useState(false);
   const [sellQuoteError, setSellQuoteError] = useState("");
@@ -472,6 +476,7 @@ const tokenSearchRequest = useRef(0);
 
   async function testEurQuote(eur) {
     if (!data?.mint || eurQuoteLoading) return;
+    const context = quoteContext.current;
     setEurQuoteLoading(true);
     setEurQuote(null);
     setEurQuoteError("");
@@ -479,11 +484,11 @@ const tokenSearchRequest = useRef(0);
       const response = await fetch(`/api/sell-eur?mint=${encodeURIComponent(data.mint)}&eur=${eur}`);
       const result = await response.json();
       if (!response.ok || result?.ok !== true) throw new Error(result?.error || "Service indisponible.");
-      setEurQuote(result);
+      if (context === quoteContext.current) setEurQuote({ ...result, eurReference: eur });
     } catch (err) {
-      setEurQuoteError(err?.message || "Estimation indisponible.");
+      if (context === quoteContext.current) setEurQuoteError(err?.message || "Estimation indisponible.");
     } finally {
-      setEurQuoteLoading(false);
+      if (context === quoteContext.current) setEurQuoteLoading(false);
     }
   }
 
@@ -507,6 +512,8 @@ const tokenSearchRequest = useRef(0);
   }
 
   async function testSellQuote() {
+    if (sellQuoteLoading) return;
+    const context = quoteContext.current;
     const tokenMint = data?.mint;
     let rawAmount;
     try {
@@ -527,11 +534,11 @@ const tokenSearchRequest = useRef(0);
       if (!response.ok || result?.ok !== true) {
         throw new Error(result?.error || "Cotation indisponible.");
       }
-      setSellQuote(result);
+      if (context === quoteContext.current) setSellQuote({ ...result, tokenAmount: sellQuoteAmount });
     } catch (err) {
-      setSellQuoteError(err?.message || "Service de cotation indisponible.");
+      if (context === quoteContext.current) setSellQuoteError(err?.message || "Service de cotation indisponible.");
     } finally {
-      setSellQuoteLoading(false);
+      if (context === quoteContext.current) setSellQuoteLoading(false);
     }
   }
 
@@ -549,6 +556,9 @@ const tokenSearchRequest = useRef(0);
 
 async function searchToken(query) {
   const requestId = ++tokenSearchRequest.current;
+  tokenSearchAbort.current?.abort();
+  const controller = new AbortController();
+  tokenSearchAbort.current = controller;
   const text = query.trim();
 
   setTokenResults([]);
@@ -561,7 +571,7 @@ async function searchToken(query) {
 
   try {
     const response = await fetch(
-      `/api/search-token?q=${encodeURIComponent(text)}`
+      `/api/search-token?q=${encodeURIComponent(text)}`, { signal: controller.signal }
     );
 
     if (!response.ok) {
@@ -587,18 +597,15 @@ async function searchToken(query) {
   }
 }
   async function analyze() {
+    const cleanMint = mint.trim();
+    if (!isSolanaMint(cleanMint)) { setError("Sélectionnez un token dans les résultats ou collez une adresse mint Solana valide."); return; }
+    clearTimeout(tokenSearchTimer.current); tokenSearchAbort.current?.abort();
+    quoteContext.current++;
+    setSellQuoteLoading(false); setEurQuoteLoading(false);
     tokenSearchRequest.current++;
     setTokenResults([]);
     setTokenSearchLoading(false);
     setWatchlistNotice("");
-    const cleanMint = mint.trim();
-
-    if (!cleanMint) {
-      setError(
-        "Veuillez entrer une adresse mint Solana."
-      );
-      return;
-    }
 
     setLoading(true);
     setError("");
@@ -1081,11 +1088,17 @@ async function searchToken(query) {
             aria-label="Nom, symbole ou adresse mint Solana"
             style={{ minWidth: 0, flex: "1 1 240px" }}
             value={mint}
+            disabled={loading}
            onChange={(e) => {
   const value = e.target.value;
-  setMint(value);
-  setTokenResults([]);
-  searchToken(value);
+  quoteContext.current++;
+  setData(null); setSellQuote(null); setEurQuote(null);
+  setSellQuoteLoading(false); setEurQuoteLoading(false);
+  setMint(value); setError("");
+  setTokenResults([]); setTokenSearchNotice(""); setTokenSearchError("");
+  tokenSearchRequest.current++; tokenSearchAbort.current?.abort(); clearTimeout(tokenSearchTimer.current);
+  setTokenSearchLoading(value.trim().length >= 2);
+  if (value.trim().length >= 2) tokenSearchTimer.current = setTimeout(() => searchToken(value), 300);
 }}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
@@ -1125,8 +1138,10 @@ async function searchToken(query) {
         key={token.mint}
         type="button"
         onClick={() => {
+          clearTimeout(tokenSearchTimer.current); tokenSearchAbort.current?.abort();
           tokenSearchRequest.current++;
           setTokenSearchLoading(false);
+          setError("");
           setMint(token.mint);
           setTokenResults([]);
           setTokenSearchError("");
@@ -1689,10 +1704,11 @@ async function searchToken(query) {
               <label htmlFor="sell-quote-amount">Quantité de tokens à vendre (simulation)</label>
               <input
                 id="sell-quote-amount"
-                aria-label="Quantité brute de tokens à coter"
-                inputMode="numeric"
+                aria-label="Quantité de tokens à coter"
+                disabled={sellQuoteLoading}
+                inputMode="decimal"
                 value={sellQuoteAmount}
-                onChange={(event) => setSellQuoteAmount(event.target.value)}
+                onChange={(event) => { setSellQuoteAmount(event.target.value); setSellQuote(null); setSellQuoteError(""); }}
                 style={{ maxWidth: "180px", padding: "8px", color: "#111" }}
               />
               <button type="button" disabled={sellQuoteLoading} onClick={testSellQuote}>
@@ -1717,6 +1733,7 @@ async function searchToken(query) {
               {eurQuoteError && <p role="alert">{eurQuoteError}</p>}
               {eurQuote && (
                 <div className="observed" aria-live="polite" style={{ marginTop: "12px" }}>
+                  <div><span>Montant de référence</span><strong>{eurQuote.eurReference} €</strong></div>
                   <div><span>Résultat</span><strong>{eurQuote.status === "ROUTE_QUOTED" ? "Deux routes cotées" : "Cotation indisponible"}</strong></div>
                   {eurQuote.indicativeSaleEur != null && <div><span>Revente indicative</span><strong>{new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 4 }).format(eurQuote.indicativeSaleEur)}</strong></div>}
                   {eurQuote.indicativeDifferenceEur != null && <div><span>Écart indicatif achat/revente</span><strong>{new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 4 }).format(eurQuote.indicativeDifferenceEur)}</strong></div>}
@@ -1728,6 +1745,7 @@ async function searchToken(query) {
             </div>
             {sellQuote && (
               <div className="observed" aria-live="polite">
+                <div><span>Quantité cotée</span><strong>{sellQuote.tokenAmount} token(s)</strong></div>
                 <div><span>Résultat Jupiter</span><strong>{sellQuote.status === "ROUTE_QUOTED" ? "Route cotée (indicative)" : "Cotation indisponible"}</strong></div>
                 {sellQuote.outputAmountRaw != null && (
                   <div><span>Sortie SOL estimée</span><strong>{new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 9 }).format(Number(sellQuote.outputAmountRaw) / 1e9)} SOL</strong></div>

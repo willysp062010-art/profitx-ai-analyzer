@@ -107,7 +107,7 @@ function normalizeToken(token, index) {
   return {
     id: mint || `token-${index}`,
     mint,
-    name: token?.name || token?.baseToken?.name || "Token inconnu",
+    name: token?.name && token.name !== "Token inconnu" ? token.name : token?.baseToken?.name || "Nom non récupéré",
     symbol: token?.symbol || token?.baseToken?.symbol || "N/D",
     priceUsd: num(token?.priceUsd) ?? num(token?.price),
     marketCap:
@@ -543,6 +543,7 @@ export default function Radar() {
 
   const pageCoverage = useMemo(() => ({
     total: tokens.length,
+    namesMissing: tokens.filter(token => token.name === "Nom non récupéré").length,
     marketObserved: tokens.filter((token) => token.liquidityVerification === "dexscreener_live_pair").length,
     pairsFound: tokens.filter((token) => token.marketFetchedAt !== null).length,
     historicalSales: tokens.filter((token) => token.sellabilityEvidence === "historical_sales_observed").length,
@@ -800,6 +801,9 @@ export default function Radar() {
             </div>
           )}
 
+          {source === "live" && pageCoverage.namesMissing > 0 && <p role="status" className="onchainLine">
+            {pageCoverage.namesMissing} nom(s) non récupéré(s) sur cette page. Le mint est détecté, mais ses métadonnées ne sont pas encore disponibles auprès des sources consultées. Cela ne signifie pas que le token n’a pas de nom et ne constitue pas un verdict de risque.
+          </p>}
           <section className="riskGlobalBanner" aria-label="Découverte Pump.fun">
             <strong>CRÉATIONS RÉCENTES PUMP.FUN · DÉCOUVERTE NON AUDITÉE</strong>
             <p>

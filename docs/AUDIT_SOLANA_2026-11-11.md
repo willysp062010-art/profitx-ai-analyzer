@@ -45,3 +45,13 @@ Cet audit couvre les pages publiques de l’Analyzer et le site de présentation
 ## Vérification de livraison
 
 La compilation de production et la suite de régression doivent passer avant fusion. La préproduction sert à confirmer les filtres PostgREST avec de vraies données ; les pages publiques sont revérifiées après déploiement. Les journaux d’exécution sont inspectés sur le déploiement livré. Aucun résultat de ces contrôles à venir n’est présumé dans ce document.
+
+## Complément de vérification de livraison
+
+- Les huit pages publiques renvoient HTTP 200 ; Intelligence Test redirige vers Intelligence. Les deux seules images référencées par ces pages sont présentes (200). L’ancien visuel avec marquage Pump.fun n’est plus référencé.
+- Token-2022 répond avec les données PFX via le RPC configuré. Le répertoire a retourné 25 noms sur 25 dans l’échantillon testé ; les noms récupérés sont aussi indexés pour que la recherche par nom puisse les retrouver. Une panne d’indexation conserve le nom affiché et signale l’attente.
+- La recherche Gǒu ne se transforme plus en Gu. Les deux pages successives testées gardent le même instant de référence et ne contiennent aucun mint commun.
+- La cotation de vente répond avec une unité explicite en points de pourcentage. L’ancienne route Search Backup renvoie le mint PFX déclaré en premier.
+- Le contrôle de santé du moniteur distingue la configuration du passage quotidien d’une preuve d’exécution : il ne prétend pas que la dernière exécution a été vérifiée.
+- Les requêtes POST de contrôle vers le webhook et le moniteur privé n’ont pas été validées comme test en production : le contrôle automatique d’autorisation les a refusées, à cause du risque d’ingestion ou de déclenchement d’un traitement. Leurs protections sont vérifiées par lecture du code et tests isolés. Aucune autorisation d’exécuter un traitement privé réel n’est présumée.
+- Les parcours complémentaires du navigateur sont consignés dans la description de la livraison ; les limites mobile et cycles futurs ci-dessus restent ouvertes.

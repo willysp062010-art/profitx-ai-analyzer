@@ -25,6 +25,14 @@ test("health endpoint does not falsely advertise active scheduling or emails",as
  assert.equal(res.body.scheduled,false);
  assert.equal(res.body.emailNotifications,false);
 });
+test("health reports configured daily scheduling without claiming an execution or running the monitor",async()=>{
+ const res=await invoke(load({SUPABASE_URL:"https://example.test",SUPABASE_SERVICE_ROLE_KEY:"private",PFX_ALERTS_MONITOR_SECRET:"private-monitor",CRON_SECRET:"private-cron"}),"GET");
+ assert.equal(res.body.scheduled,true);
+ assert.equal(res.body.monitoringMode,"daily_schedule_configured");
+ assert.equal(res.body.lastExecutionVerified,false);
+ assert.equal(res.body.emailNotifications,false);
+ assert.equal(JSON.stringify(res.body).includes("private-monitor"),false);
+});
 test("monitor rejects missing private Supabase key",async()=>{
  const res=await invoke(load({SUPABASE_URL:"https://example.com",PFX_ALERTS_MONITOR_SECRET:"test"}),"POST",
  {authorization:"Bearer test"});

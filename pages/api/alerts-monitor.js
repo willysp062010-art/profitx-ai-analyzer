@@ -725,14 +725,17 @@ export default async function handler(
    * de santé. Il ne lance aucune alerte.
    */
   if (req.method === "GET") {
+    const schedulingConfigured = Boolean(process.env.CRON_SECRET && SUPABASE_URL && SUPABASE_KEY && MONITOR_SECRET);
     return send(res, 200, {
       ok: true,
       service:
         "PFX Alerts Automatic Monitor",
       version: VERSION,
       status: "online",
-      automaticMonitoring: false,
-      scheduled: false,
+      automaticMonitoring: schedulingConfigured,
+      scheduled: schedulingConfigured,
+      monitoringMode: schedulingConfigured ? "daily_schedule_configured" : "private_manual",
+      lastExecutionVerified: false,
       emailNotifications: EMAIL_NOTIFICATIONS_ENABLED,
       configured: Boolean(
         SUPABASE_URL &&

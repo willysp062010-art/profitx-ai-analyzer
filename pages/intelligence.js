@@ -1,5 +1,7 @@
 import { useState } from "react";
 import Head from "next/head";
+import AnalysisQualityNotice from "../components/AnalysisQualityNotice";
+import MarketDataNotice from "../components/MarketDataNotice";
 import { useRouter } from "next/router";
 
 const DEFAULT_MINT =
@@ -11,6 +13,7 @@ function isPfxToken(mint) {
 }
 function isNumber(value) {
   return (
+    ["number", "string"].includes(typeof value) && String(value).trim() !== "" &&
     value !== null &&
     value !== undefined &&
     value !== "" &&
@@ -496,6 +499,8 @@ export default function IntelligencePage() {
               </div>
             </div>
 
+            <AnalysisQualityNotice quality={result.dataQuality} />
+            <MarketDataNotice market={analyzer.market} />
             <div className="scoreGrid">
               <ScoreCard
                 label="SCORE GLOBAL"

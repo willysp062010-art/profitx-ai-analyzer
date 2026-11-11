@@ -7,7 +7,8 @@ const quality = fs.readFileSync(path.join(__dirname, "../utils/analysis-quality.
 const source = fs.readFileSync(path.join(__dirname, "../pages/api/intelligence.js"), "utf8")
   .replace(/^import .*;$/gm, "").replace("export default async function handler(", "async function handler(");
 const ctx = { console };
-vm.runInNewContext(quality + "\n" + source, ctx);
+const warningSource = fs.readFileSync(path.join(__dirname, "../utils/security-warning.js"), "utf8").replace(/export function /g, "function ");
+vm.runInNewContext(quality + "\n" + warningSource + "\n" + source, ctx);
 function analysis() {
   return { ok: true, token: { name: "Test" }, score: { total: 95, structural: 95, market: 95,
     components: { liquidity: 95, distribution: 95, security: 95, maturity: 95, activity: 95, volume: 95 } },
@@ -66,4 +67,17 @@ test("complete controls retain calculated scores without changing observed value
   assert.equal(r.dataQuality.scoreStatus, "CALCULATED");
   assert.equal(r.scores.global, 95);
   assert.equal(r.intelligence.economicState, "ACTIVE");
+});
+
+test("security warnings explain each known technical signal without hiding its limitation",()=>{
+ const a=analysis();a.modules.security.warnings=["MINT_AUTHORITY_ACTIVE","FREEZE_AUTHORITY_ACTIVE","TOKEN_2022_REQUIRES_EXTENSION_ANALYSIS","UNKNOWN_TOKEN_PROGRAM","MINT_NOT_CONFIRMED_INITIALIZED","TOKEN_SUPPLY_RPC_UNAVAILABLE","Future warning"];
+ const warnings=ctx.buildIntelligence(a).intelligence.warnings;
+ assert.ok(warnings.some(x=>x.includes("nouveaux tokens")));
+ assert.ok(warnings.some(x=>x.includes("gelés")));
+ assert.ok(warnings.some(x=>x.includes("Token-2022")&&x.includes("limité")));
+ assert.ok(warnings.some(x=>x.includes("pas identifié")));
+ assert.ok(warnings.some(x=>x.includes("initialisation")));
+ assert.ok(warnings.some(x=>x.includes("circulation")));
+ assert.ok(warnings.includes("Future warning"));
+ for(const code of a.modules.security.warnings.slice(0,-1))assert.ok(!warnings.includes(code));
 });

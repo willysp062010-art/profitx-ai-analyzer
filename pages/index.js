@@ -1,3 +1,4 @@
+import { securityWarningText } from "../utils/security-warning";
 import { useEffect, useRef, useState } from "react";
 import PfxPoolStatus from "../components/PfxPoolStatus";
 import MarketDataNotice from "../components/MarketDataNotice";
@@ -2278,7 +2279,7 @@ async function searchToken(query) {
                 0 && (
 
                 <div className="missing">
-                  {security.warnings.join(
+                  {security.warnings.map(securityWarningText).join(
                     " • "
                   )}
                 </div>

@@ -66,6 +66,8 @@ La compilation de production et la suite de régression doivent passer avant fus
 
 - Intelligence : validation du mint avant tout appel, rejet d’une réponse Analyzer portant un autre mint, blocage des doubles lancements, champ non modifiable pendant le traitement et suppression de l’ancien résultat dès modification du mint.
 - Alertes persistantes : les objets/listes/booléens ne sont plus convertis en seuils numériques ; une valeur enabled non booléenne ou un objet alerte mal formé est rejeté avant écriture. Tests isolés uniquement, sans déclenchement du moniteur privé.
-- Validation de cette livraison : 144 tests et compilation de production réussis.
+- Validation de cette livraison : 145 tests et compilation de production réussis.
 
 - Le stockage des alertes valide aussi le décodage Base58 sur 32 octets, et pas seulement l’apparence de l’adresse.
+
+- Analyzer et Intelligence : les six signaux techniques de sécurité connus sont expliqués en français ; les limites Token-2022 ne sont pas présentées comme une garantie.

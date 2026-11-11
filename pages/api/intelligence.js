@@ -1,3 +1,4 @@
+import { securityWarningText } from "../../utils/security-warning";
 import { assessAnalysisQuality, describeStructure } from "../../utils/analysis-quality";
 const VERSION = "1.2.0";
 
@@ -664,7 +665,7 @@ function buildWarnings({
   return uniqueStrings([
     ...safeArray(
       security?.warnings
-    ),
+    ).map(securityWarningText),
 
     ...safeArray(
       diagnostic?.warnings

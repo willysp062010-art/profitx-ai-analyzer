@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import PfxPoolStatus from "../components/PfxPoolStatus";
 import MarketDataNotice from "../components/MarketDataNotice";
 import AnalysisQualityNotice from "../components/AnalysisQualityNotice";
@@ -441,6 +441,7 @@ const [tokenResults, setTokenResults] = useState([]);
 const [tokenSearchLoading, setTokenSearchLoading] = useState(false);
 const [tokenSearchError, setTokenSearchError] = useState("");
 const [tokenSearchNotice, setTokenSearchNotice] = useState("");
+const tokenSearchRequest = useRef(0);
   const [data, setData] =
     useState(null);
 
@@ -547,13 +548,14 @@ const [tokenSearchNotice, setTokenSearchNotice] = useState("");
   }, []);
 
 async function searchToken(query) {
+  const requestId = ++tokenSearchRequest.current;
   const text = query.trim();
 
   setTokenResults([]);
   setTokenSearchError("");
   setTokenSearchNotice("");
 
-  if (text.length < 2) return;
+  if (text.length < 2) { setTokenSearchLoading(false); return; }
 
   setTokenSearchLoading(true);
 
@@ -571,18 +573,23 @@ async function searchToken(query) {
     if (!result.ok) {
       throw new Error("Recherche impossible");
     }
+    if (requestId !== tokenSearchRequest.current) return;
 
     setTokenResults(result.results || []);
     setTokenSearchNotice(result.pumpError || "");
   } catch (err) {
+    if (requestId !== tokenSearchRequest.current) return;
     setTokenSearchError(
       "Impossible de rechercher les tokens pour le moment."
     );
   } finally {
-    setTokenSearchLoading(false);
+    if (requestId === tokenSearchRequest.current) setTokenSearchLoading(false);
   }
 }
   async function analyze() {
+    tokenSearchRequest.current++;
+    setTokenResults([]);
+    setTokenSearchLoading(false);
     setWatchlistNotice("");
     const cleanMint = mint.trim();
 
@@ -1093,7 +1100,7 @@ async function searchToken(query) {
   <p role="status" style={{ flexBasis: "100%", order: 3 }}>Recherche des tokens Solana...</p>
 )}
 
-{tokenSearchNotice && <p role="status" style={{ color: "#ffd18b" }}>{tokenSearchNotice} La couverture de recherche peut être partielle.</p>}
+{tokenSearchNotice && <p role="status" style={{ color: "#ffd18b", flexBasis: "100%", order: 3 }}>{tokenSearchNotice} La couverture de recherche peut être partielle.</p>}
 {tokenSearchError && (
   <p role="alert" style={{ color: "#ff7070", flexBasis: "100%", order: 3 }}>
     {tokenSearchError}
@@ -1118,6 +1125,8 @@ async function searchToken(query) {
         key={token.mint}
         type="button"
         onClick={() => {
+          tokenSearchRequest.current++;
+          setTokenSearchLoading(false);
           setMint(token.mint);
           setTokenResults([]);
           setTokenSearchError("");

@@ -6,14 +6,22 @@ const path = require("node:path");
 const qualitySource = fs.readFileSync(path.join(__dirname, "../utils/analysis-quality.js"), "utf8")
   .replace(/export function /g, "function ");
 const dexSource = fs.readFileSync(path.join(__dirname, "../utils/dex-market.js"), "utf8").replace(/export function /g, "function ");
-const source = dexSource + "\n" + qualitySource + "\n" + fs.readFileSync(path.join(__dirname, "../pages/api/analyze.js"), "utf8")
-  .replace('import { assessAnalysisQuality } from "../../utils/analysis-quality";', "")
+const internalSource = fs.readFileSync(path.join(__dirname, "../utils/internal-module.js"), "utf8").replace("export async function", "async function");
+const source = internalSource + "\n" + dexSource + "\n" + qualitySource + "\n" + fs.readFileSync(path.join(__dirname, "../pages/api/analyze.js"), "utf8")
+  .replace(/^import .*;$/gm, "")
   .replace('import { selectDexPair } from "../../utils/dex-market";', "")
   .replace("export default async function handler(", "async function handler(")
   + "\nmodule.exports = { selectDexPair, dexMetrics, dexData, handler };";
 function load(fetchImpl = async () => { throw Error("Unexpected network request"); }) {
   const ctx = { module: { exports: {} }, process: { env: {} }, fetch: fetchImpl,
     AbortController, setTimeout, clearTimeout, console, Buffer };
+  for (const name of ["activity", "holders", "security", "token2022"]) {
+    const moduleCtx = { ...ctx, module: { exports: {} } };
+    const moduleSource = fs.readFileSync(path.join(__dirname, `../pages/api/${name}.js`), "utf8")
+      .replace("export default async function handler(", "async function handler(");
+    vm.runInNewContext(moduleSource + "\nmodule.exports = handler;", moduleCtx);
+    ctx[name + "Handler"] = moduleCtx.module.exports;
+  }
   vm.runInNewContext(source, ctx);
   return ctx.module.exports;
 }

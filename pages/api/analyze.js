@@ -1,3 +1,8 @@
+import activityHandler from "./activity";
+import holdersHandler from "./holders";
+import securityHandler from "./security";
+import token2022Handler from "./token2022";
+import { runInternalModule } from "../../utils/internal-module";
 import { selectDexPair } from "../../utils/dex-market";
 import { assessAnalysisQuality } from "../../utils/analysis-quality";
 
@@ -225,55 +230,15 @@ async function fetchJson(url, options = {}) {
    INTERNAL MODULES
 ========================================================= */
 
-function baseUrl(req) {
-  const host =
-    req.headers?.["x-forwarded-host"] ||
-    req.headers?.host ||
-    process.env.VERCEL_URL;
+const INTERNAL_MODULES = {
+  activity: activityHandler,
+  holders: holdersHandler,
+  security: securityHandler,
+  token2022: token2022Handler,
+};
 
-  if (!host) {
-    return null;
-  }
-
-  const protocol =
-    req.headers?.["x-forwarded-proto"] ||
-    (process.env.VERCEL_URL
-      ? "https"
-      : "http");
-
-  return `${protocol}://${host}`;
-}
-
-async function moduleCall(
-  req,
-  name,
-  mint
-) {
-  const base =
-    baseUrl(req);
-
-  if (!base) {
-    return {
-      ok: false,
-      error:
-        "URL interne indisponible."
-    };
-  }
-
-  try {
-    return await fetchJson(
-      `${base}/api/${name}?mint=${encodeURIComponent(
-        mint
-      )}`
-    );
-  } catch (error) {
-    return {
-      ok: false,
-      error:
-        error?.message ||
-        `Erreur ${name}.`
-    };
-  }
+async function moduleCall(req, name, mint) {
+  return runInternalModule(INTERNAL_MODULES[name], mint, TIMEOUT);
 }
 
 /* =========================================================
@@ -2602,7 +2567,7 @@ export default async function handler(
         activity.available &&
         activity.volumeStatus ===
           "ZERO_ACTIVITY"
-          ? "Aucun mouvement économique détecté sur les dernières 24 heures. Les valeurs 0 correspondent à une absence d'activité réelle."
+          ? "Aucun mouvement économique détecté sur les dernières 24 heures. Les valeurs 0 concernent uniquement le périmètre observé et ne prouvent pas une inactivité sur tous les marchés."
           : `Analyse ProfitX ${VERSION} basée prioritairement sur les données on-chain et les modules ProfitX.`
     }
   );

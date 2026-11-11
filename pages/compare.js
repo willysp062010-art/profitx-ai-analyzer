@@ -75,7 +75,7 @@ function shortMint(mint) {
 
 function statusLabel(status) {
   const labels = {
-    VALID: "Marché actif",
+    VALID: "Marché détecté",
     GRADUATED: "Gradué",
     BONDING_CURVE: "Bonding curve",
     NO_MARKET: "Aucun marché",
@@ -852,6 +852,7 @@ export default function ComparePage() {
                         {resultA?.source ||
                           "source N/D"}
                       </span>
+                      {resultA.dataQuality?.scoreStatus === "PROVISIONAL" && <span className="badge secondary" style={{ color: "#ffd18b" }}>SCORE INDICATIF · {resultA.dataQuality.label}</span>}
                     </div>
                   </article>
 
@@ -896,6 +897,7 @@ export default function ComparePage() {
                         {resultB?.source ||
                           "source N/D"}
                       </span>
+                      {resultB.dataQuality?.scoreStatus === "PROVISIONAL" && <span className="badge secondary" style={{ color: "#ffd18b" }}>SCORE INDICATIF · {resultB.dataQuality.label}</span>}
                     </div>
                   </article>
                 </div>

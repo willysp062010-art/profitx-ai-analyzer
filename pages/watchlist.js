@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
-
-const STORAGE_KEY = "profitx-watchlist-v1";
+import { WATCHLIST_KEY, isSolanaMint, readWatchlist, writeWatchlist, mergeWatchlist, parseWatchlistImport, makeWatchlistBackup } from "../utils/watchlist";
 
 const NETWORKS = [
   {
@@ -36,27 +35,13 @@ function shortAddress(value, start = 10, end = 10) {
   return `${value.slice(0, start)}...${value.slice(-end)}`;
 }
 
-function loadWatchlist() {
-  if (typeof window === "undefined") return [];
-
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-
-    if (!raw) return [];
-
-    const parsed = JSON.parse(raw);
-
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
 export default function Watchlist() {
   const router = useRouter();
 
   const [items, setItems] = useState([]);
   const [loaded, setLoaded] = useState(false);
+  const [storageReady, setStorageReady] = useState(false);
+  const [notice, setNotice] = useState("");
 
   const [chainId, setChainId] = useState("solana");
   const [tokenAddress, setTokenAddress] = useState("");
@@ -64,23 +49,47 @@ export default function Watchlist() {
   const [copied, setCopied] = useState("");
 
   useEffect(() => {
-    setItems(loadWatchlist());
+    function refresh() {
+      try { setItems(readWatchlist(window.localStorage)); setStorageReady(true); }
+      catch { setStorageReady(false); setError("Stockage local inaccessible ou Watchlist illisible. Aucune donnée enregistrée n'a été remplacée."); }
+    }
+    refresh();
     setLoaded(true);
+    const onStorage = event => { if (event.key === WATCHLIST_KEY || event.key === null) refresh(); };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
 
-  useEffect(() => {
-    if (!loaded) return;
+  function commitItems(next) {
+    if (!storageReady) { setError("Le stockage local n'est pas disponible. La Watchlist n'a pas été modifiée."); return false; }
+    try { writeWatchlist(window.localStorage, next); setItems(next); return true; }
+    catch { setError("Sauvegarde impossible dans ce navigateur. La modification n'a pas été enregistrée."); return false; }
+  }
 
+  function exportItems() {
     try {
-      window.localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify(items)
-      );
-    } catch {
-      // La Watchlist reste utilisable pendant la session
-      // même si le stockage local est indisponible.
-    }
-  }, [items, loaded]);
+      const current = readWatchlist(window.localStorage);
+      const url = URL.createObjectURL(new Blob([JSON.stringify(makeWatchlistBackup(current), null, 2)], { type: "application/json" }));
+      const link = document.createElement("a");
+      link.href = url; link.download = "PROFITX_WATCHLIST.json";
+      document.body.appendChild(link); link.click(); link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setNotice("Sauvegarde exportée. Conservez ce fichier pour retrouver vos tokens sur un autre appareil.");
+    } catch { setError("Impossible d'exporter la Watchlist."); }
+  }
+
+  async function importItems(event) {
+    const file = event.target.files?.[0]; event.target.value = "";
+    if (!file) return;
+    setError(""); setNotice("");
+    try {
+      if (file.size > 256 * 1024) throw Error("Fichier trop volumineux (256 Ko maximum).");
+      const incoming = parseWatchlistImport(await file.text());
+      const current = readWatchlist(window.localStorage);
+      const next = mergeWatchlist(current, incoming);
+      if (commitItems(next)) setNotice(`${next.length - current.length} token(s) ajouté(s). Les tokens déjà présents sont conservés.`);
+    } catch (error) { setError(error.message || "Import impossible. La Watchlist n'a pas été modifiée."); }
+  }
 
   const selectedNetwork = useMemo(
     () =>
@@ -96,6 +105,7 @@ export default function Watchlist() {
     const cleanAddress = tokenAddress.trim();
 
     setError("");
+    setNotice("");
 
     if (!cleanAddress) {
       setError("Entrez une adresse de token.");
@@ -109,8 +119,8 @@ export default function Watchlist() {
       return;
     }
 
-    if (chainId === "solana" && !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(cleanAddress)) {
-      setError("Adresse Mint Solana invalide : entrez une adresse Base58 de 32 à 44 caractères.");
+    if (chainId === "solana" && !isSolanaMint(cleanAddress)) {
+      setError("Adresse mint Solana invalide. Copiez l’adresse complète du token.");
       return;
     }
 
@@ -134,18 +144,17 @@ export default function Watchlist() {
       addedAt: new Date().toISOString(),
     };
 
-    setItems((current) => [
-      newItem,
-      ...current,
-    ]);
-
-    setTokenAddress("");
+    try {
+      if (commitItems(mergeWatchlist(readWatchlist(window.localStorage), [newItem]))) {
+        setTokenAddress(""); setNotice("Token enregistré dans la Watchlist de ce navigateur.");
+      }
+    } catch (error) { setError(error.message || "Ajout impossible."); }
   }
 
   function removeToken(id) {
-    setItems((current) =>
-      current.filter((item) => item.id !== id)
-    );
+    setError(""); setNotice("");
+    try { commitItems(readWatchlist(window.localStorage).filter(item => item.id !== id)); }
+    catch { setError("La suppression n'a pas été enregistrée."); }
   }
 
   async function copyAddress(address) {
@@ -288,6 +297,7 @@ export default function Watchlist() {
                 <option
                   key={network.id}
                   value={network.id}
+                  disabled={!network.enabled}
                 >
                   {network.label}
                   {network.enabled
@@ -298,6 +308,7 @@ export default function Watchlist() {
             </select>
 
             <input
+              aria-label="Adresse mint Solana à suivre"
               value={tokenAddress}
               onChange={(event) =>
                 setTokenAddress(event.target.value)
@@ -316,13 +327,22 @@ export default function Watchlist() {
           </form>
 
           <div className="hint">
-            Solana est actuellement pris en charge.
-            La structure de la Watchlist est déjà prévue
-            pour l'évolution Multi-Chain de ProfitX.
+            La Watchlist est enregistrée uniquement dans ce navigateur, sur cet appareil.
+            Exportez-la pour la sauvegarder ou la transférer sur votre téléphone ou votre ordinateur.
+            Seul Solana est actuellement pris en charge.
           </div>
 
+          <div className="navigation" style={{ marginTop: 16 }}>
+            <button type="button" className="secondaryButton" onClick={exportItems} disabled={!loaded || !storageReady}>EXPORTER LA WATCHLIST</button>
+            <label className="secondaryButton" style={{ cursor: "pointer" }}>
+              IMPORTER UNE SAUVEGARDE
+              <input type="file" accept="application/json,.json" aria-label="Importer une sauvegarde Watchlist" onChange={importItems} disabled={!loaded || !storageReady} style={{ display: "block", marginTop: 8, maxWidth: "100%" }} />
+            </label>
+          </div>
+          {notice && <p role="status" style={{ color: "#65efad" }}>{notice}</p>}
+
           {error && (
-            <div className="error">
+            <div className="error" role="alert">
               {error}
             </div>
           )}

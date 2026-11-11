@@ -1,8 +1,9 @@
+import { checkedQuote } from "../../utils/quote-validation";
+import { isSolanaMint } from "../../utils/watchlist";
 // PROFITX AI — read-only Solana sell quote via Jupiter Swap API v2.
 // This endpoint NEVER builds, signs or submits a transaction.
 const SOL = "So11111111111111111111111111111111111111112";
 const USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
-const BASE58 = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
@@ -10,7 +11,7 @@ export default async function handler(req, res) {
   const mint = String(req.query.mint || "").trim();
   const raw = String(req.query.amount || "").trim();
   const outputMint = req.query.output === "USDC" ? USDC : SOL;
-  if (!BASE58.test(mint) || mint === SOL || mint === USDC || !/^[1-9][0-9]{0,17}$/.test(raw)) {
+  if (!isSolanaMint(mint) || mint === SOL || mint === USDC || !/^[1-9][0-9]{0,17}$/.test(raw)) {
     return res.status(400).json({ ok: false, error: "Mint ou quantité brute invalide." });
   }
   const controller = new AbortController();
@@ -27,16 +28,12 @@ export default async function handler(req, res) {
     if (!response.ok || !quote || quote.error || quote.errorCode) {
       return res.status(200).json({
         ok: true, status: "QUOTE_UNAVAILABLE", executableNow: null,
-        reason: quote?.errorMessage || quote?.error || "Aucune cotation exploitable disponible.",
+        reason: "Aucune cotation exploitable disponible pour ce montant.",
         providerStatus: response.status,
         note: "Absence de cotation ne signifie pas preuve d'impossibilité de revente."
       });
     }
-    const outAmount = quote.outAmount ?? quote.outputAmount ?? null;
-    const inAmount = quote.inAmount ?? quote.inputAmount ?? raw;
-    if (!outAmount || !/^[0-9]+$/.test(String(outAmount)) || BigInt(String(outAmount)) === 0n) {
-      return res.status(200).json({ ok: true, status: "QUOTE_UNAVAILABLE", executableNow: null, reason: "Montant de sortie absent ou nul." });
-    }
+    const { input: inAmount, output: outAmount } = checkedQuote(quote, mint, outputMint, raw);
     return res.status(200).json({
       ok: true, status: "ROUTE_QUOTED", executableNow: null,
       inputMint: mint, outputMint, inputAmountRaw: String(inAmount),

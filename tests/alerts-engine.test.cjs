@@ -3,7 +3,9 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
-const source = fs.readFileSync(path.join(__dirname, "../pages/api/alerts.js"), "utf8")
+const dexSource = fs.readFileSync(path.join(__dirname, "../utils/dex-market.js"), "utf8").replace(/export function /g, "function ");
+const source = dexSource + "\n" + fs.readFileSync(path.join(__dirname, "../pages/api/alerts.js"), "utf8")
+  .replace('import { selectDexPair } from "../../utils/dex-market";', "")
   .replace("export default async function handler(", "async function handler(")
   + "\nmodule.exports = { handler };";
 const MINT = "6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump";
@@ -55,4 +57,12 @@ test("verified market threshold is evaluated", async () => {
   const res=await call(handler,[base]);
   assert.equal(res.statusCode,200);
   assert.equal(res.body.summary.triggered,1);
+});
+
+test("conflicting pool prices cannot trigger a manual price alert", async () => {
+ const pairs=[1000,1,1.1].map((price,i)=>({chainId:"solana",baseToken:{address:MINT},
+ pairAddress:`pool${i}`,liquidity:{usd:3000-i*1000},priceUsd:String(price),priceChange:{h24:900}}));
+ const res=await call(load(async()=>({ok:true,json:async()=>pairs})),[base]);
+ assert.equal(res.body.summary.triggered,0);
+ assert.equal(res.body.summary.unavailable,1);
 });

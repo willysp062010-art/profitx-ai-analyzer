@@ -81,3 +81,15 @@ test("scheduler logs the monitor result only for authenticated calls", async () 
   assert.equal(logs[0][1].status, 503);
   assert.ok(logs[0][1].durationMs >= 0);
 });
+
+test("scheduler logs aggregate counts without client identifiers or per-rule data",async()=>{
+ const logs=[]; const r=res(); const json=r.json;
+ const handler=load({CRON_SECRET:"cron",PFX_ALERTS_MONITOR_SECRET:"monitor"},
+ async(_req,response)=>response.json({ok:true,summary:{checked:3,triggered:1,errors:0,unavailable:2,clientId:"private"},results:[{clientId:"private"}]}),
+ (...args)=>logs.push(args));
+ await handler({method:"GET",headers:{authorization:"Bearer cron"}},r);
+ assert.equal(logs[0][1].summary.checked,3);
+ assert.equal(logs[0][1].summary.errors,0);
+ assert.doesNotMatch(JSON.stringify(logs),/private|clientId/);
+ assert.equal(r.json,json);
+});

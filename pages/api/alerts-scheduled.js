@@ -22,7 +22,19 @@ export default async function handler(req, res) {
 
   // No email delivery: the monitor deliberately disables shared-email notifications.
   const startedAt = Date.now();
-  const result = await monitorHandler({
+  let summary = null;
+  const originalJson = res.json;
+  res.json = function (payload) {
+    if (payload?.summary && typeof payload.summary === "object") {
+      summary = Object.fromEntries(["activeAlerts", "checked", "triggered", "newlyTriggered", "watching", "unavailable", "errors"]
+        .filter(key => Number.isSafeInteger(payload.summary[key]) && payload.summary[key] >= 0)
+        .map(key => [key, payload.summary[key]]));
+    }
+    return originalJson.call(this, payload);
+  };
+  let result;
+  try {
+    result = await monitorHandler({
     ...req,
     method: "POST",
     headers: {
@@ -30,10 +42,14 @@ export default async function handler(req, res) {
       authorization: `Bearer ${monitorSecret}`,
       "x-pfx-monitor-secret": undefined,
     },
-  }, res);
+    }, res);
+  } finally {
+    res.json = originalJson;
+  }
   console.info("PFX alerts cron completed", {
     status: res.statusCode,
     durationMs: Date.now() - startedAt,
+    ...(summary ? { summary } : {}),
   });
   return result;
 }

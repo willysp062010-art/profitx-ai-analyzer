@@ -3,6 +3,7 @@ import PfxPoolStatus from "../components/PfxPoolStatus";
 import MarketDataNotice from "../components/MarketDataNotice";
 import AnalysisQualityNotice from "../components/AnalysisQualityNotice";
 import { describeStructure } from "../utils/analysis-quality";
+import { readWatchlist, writeWatchlist, mergeWatchlist } from "../utils/watchlist";
 
 
 const DEFAULT_MINT =
@@ -447,6 +448,17 @@ const [tokenSearchError, setTokenSearchError] = useState("");
 
   const [error, setError] =
     useState("");
+  const [watchlistNotice, setWatchlistNotice] = useState("");
+
+  function followAnalyzedToken(openAlerts = false) {
+    if (!data?.mint) return;
+    try {
+      const next = mergeWatchlist(readWatchlist(window.localStorage), [{ mint: data.mint, name: data.token?.name, symbol: data.token?.symbol }]);
+      writeWatchlist(window.localStorage, next);
+      setWatchlistNotice("Token enregistré dans la Watchlist de ce navigateur.");
+      if (openAlerts) window.location.assign("/alerts?mint=" + encodeURIComponent(data.mint));
+    } catch { setWatchlistNotice("Impossible d'enregistrer le token dans ce navigateur. La Watchlist n'a pas été modifiée."); }
+  }
 
   const [sellQuote, setSellQuote] = useState(null);
   const [sellQuoteLoading, setSellQuoteLoading] = useState(false);
@@ -568,6 +580,7 @@ async function searchToken(query) {
   }
 }
   async function analyze() {
+    setWatchlistNotice("");
     const cleanMint = mint.trim();
 
     if (!cleanMint) {
@@ -1235,6 +1248,11 @@ async function searchToken(query) {
 
 
           <AnalysisQualityNotice quality={data.dataQuality} />
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, margin: "16px 0" }}>
+            <button type="button" onClick={() => followAnalyzedToken()} style={{ padding: "12px 18px", cursor: "pointer" }}>SUIVRE CE TOKEN</button>
+            <button type="button" onClick={() => followAnalyzedToken(true)} style={{ padding: "12px 18px", cursor: "pointer" }}>CRÉER UNE ALERTE</button>
+          </div>
+          {watchlistNotice && <p role="status" style={{ color: "#d8e5dd" }}>{watchlistNotice}</p>}
           <div className="panel">
 
             <h2>

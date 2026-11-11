@@ -1,3 +1,4 @@
+import { selectDexPair } from "../../utils/dex-market";
 const DEXSCREENER_BASE =
   "https://api.dexscreener.com";
 
@@ -127,44 +128,10 @@ async function fetchJson(
   }
 }
 
-function chooseBestPair(
-  pairs,
-  tokenAddress
-) {
-  if (!Array.isArray(pairs)) {
-    return null;
-  }
-
-  const matchingPairs = pairs.filter(
-    (pair) =>
-      pair?.chainId === "solana" &&
-      pair?.baseToken?.address ===
-        tokenAddress
-  );
-
-  if (matchingPairs.length === 0) {
-    return null;
-  }
-
-  return matchingPairs.sort((a, b) => {
-    const liquidityA =
-      toNumber(a?.liquidity?.usd) || 0;
-
-    const liquidityB =
-      toNumber(b?.liquidity?.usd) || 0;
-
-    if (liquidityB !== liquidityA) {
-      return liquidityB - liquidityA;
-    }
-
-    const volumeA =
-      toNumber(a?.volume?.h24) || 0;
-
-    const volumeB =
-      toNumber(b?.volume?.h24) || 0;
-
-    return volumeB - volumeA;
-  })[0];
+function chooseBestPair(pairs, tokenAddress) {
+  const selected = selectDexPair(pairs, tokenAddress);
+  return selected.pair ? { ...selected.pair, pfxPriceStatus: selected.priceStatus,
+    pfxTokenIsBase: selected.pair.baseToken?.address === tokenAddress } : null;
 }
 
 function extractMarketData(pair) {
@@ -173,13 +140,9 @@ function extractMarketData(pair) {
   }
 
   return {
-    priceUsd: toNumber(
-      pair.priceUsd
-    ),
+    priceUsd: pair.pfxTokenIsBase === false || pair.pfxPriceStatus === "CONFLICTING_POOL_PRICES" ? null : toNumber(pair.priceUsd),
 
-    change24h: toNumber(
-      pair?.priceChange?.h24
-    ),
+    change24h: pair.pfxTokenIsBase === false || pair.pfxPriceStatus === "CONFLICTING_POOL_PRICES" ? null : toNumber(pair?.priceChange?.h24),
 
     liquidityUsd: toNumber(
       pair?.liquidity?.usd
@@ -196,11 +159,11 @@ function extractMarketData(pair) {
       pair?.dexId || null,
 
     symbol:
-      pair?.baseToken?.symbol ||
+      (pair.pfxTokenIsBase === false ? pair?.quoteToken?.symbol : pair?.baseToken?.symbol) ||
       null,
 
     name:
-      pair?.baseToken?.name ||
+      (pair.pfxTokenIsBase === false ? pair?.quoteToken?.name : pair?.baseToken?.name) ||
       null,
   };
 }

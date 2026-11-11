@@ -1,3 +1,5 @@
+import { isSolanaMint } from "../../utils/watchlist";
+
 const SUPABASE_URL = process.env.SUPABASE_URL;
 // This endpoint accesses private alert records using a server-only credential.
 // Never fall back to a public/anonymous Supabase key.
@@ -46,7 +48,7 @@ function validateAlert(alert) {
     return "alert_id manquant.";
   }
 
-  if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(alert.token_address)) {
+  if (!isSolanaMint(alert.token_address)) {
     return "token_address Solana invalide.";
   }
 

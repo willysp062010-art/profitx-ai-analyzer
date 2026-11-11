@@ -5,13 +5,16 @@ const path = require("node:path");
 const vm = require("node:vm");
 
 const source = fs.readFileSync(path.join(__dirname, "../pages/api/alerts-store.js"), "utf8")
+  .replace(/^import .*isSolanaMint.*\n/, "")
   .replace("export default async function handler(", "async function handler(")
   + "\nmodule.exports = { handler };";
 const MINT = "6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump";
 const alert = { id: "test-alert", chainId: "solana", tokenAddress: MINT,
   metric: "priceUsd", condition: "above", targetValue: 1 };
 function load(fetchImpl) {
-  const context = { module: { exports: {} }, fetch: fetchImpl,
+  const addressSource=fs.readFileSync(path.join(__dirname,"../utils/watchlist.js"),"utf8");
+  const isSolanaMint=new Function(addressSource.slice(addressSource.indexOf("export function isSolanaMint"),addressSource.indexOf("export function readWatchlist")).replace("export function","function")+"; return isSolanaMint;")();
+  const context = { isSolanaMint, module: { exports: {} }, fetch: fetchImpl,
     process: { env: { SUPABASE_URL: "https://example.supabase.co",
       SUPABASE_SERVICE_ROLE_KEY: "test-key" } }, console, Date, Number,
     String, JSON, encodeURIComponent };
@@ -154,5 +157,11 @@ for (const targetValue of [[1], {value: 1}, true]) test(`POST rejects non-scalar
 for (const malformed of [null, [], {...alert,enabled:"false"}, {...alert,enabled:0}]) test(`POST rejects malformed alert ${JSON.stringify(malformed)}`,async()=>{
  const calls=[];const handler=load(mockFetch(calls));
  const res=await invoke(handler,"POST",{clientId:"test",alert:malformed});
+ assert.equal(res.statusCode,400);assert.equal(calls.length,0);
+});
+
+test("POST rejects Base58 text that does not decode to a 32-byte Solana address",async()=>{
+ const calls=[];const handler=load(mockFetch(calls));
+ const res=await invoke(handler,"POST",{clientId:"test",alert:{...alert,tokenAddress:"z".repeat(44)}});
  assert.equal(res.statusCode,400);assert.equal(calls.length,0);
 });

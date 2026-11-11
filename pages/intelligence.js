@@ -297,7 +297,7 @@ export default function IntelligencePage() {
 
         <section className="hero">
           <div className="eyebrow">
-            PFX INTELLIGENCE V1.1
+            PFX INTELLIGENCE V1.2
           </div>
 
           <h1>
@@ -324,18 +324,6 @@ export default function IntelligencePage() {
   </div>
 
   <div className="brandLogos">
-    <div className="brandLogoCard historical">
-      <div className="brandLogoLabel">
-        IDENTITÉ ORIGINALE • PUMP.FUN
-      </div>
-      <img
-        src="/profitx-logo-01-pumpfun.png"
-        alt="Logo historique PROFITX PFX Pump.fun"
-      />
-      <strong>PROFITX PFX</strong>
-      <span>Identité historique</span>
-    </div>
-
     <div className="brandLogoCard">
       <div className="brandLogoLabel">
         ÉVOLUTION • AI ANALYZER
@@ -1008,7 +996,7 @@ export default function IntelligencePage() {
 
 .brandLogos {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -1020,10 +1008,6 @@ export default function IntelligencePage() {
   background: #050906;
   text-align: center;
   overflow: hidden;
-}
-
-.brandLogoCard.historical {
-  border-color: rgba(0, 255, 136, 0.48);
 }
 
 .brandLogoCard.current {

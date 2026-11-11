@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import PfxPoolStatus from "../components/PfxPoolStatus";
+import MarketDataNotice from "../components/MarketDataNotice";
 
 const OFFICIAL_PFX_MINT = "6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump";
 
@@ -940,8 +941,17 @@ export default function ComparePage() {
                 </div>
               </section>
 
+              <section className="reading">
+                <h2>Périmètre des données comparées</h2>
+                <h3>{tokenName(resultA, "Token A")}</h3>
+                <MarketDataNotice market={resultA.market} />
+                <h3>{tokenName(resultB, "Token B")}</h3>
+                <MarketDataNotice market={resultB.market} />
+              </section>
               {(resultA.mint === OFFICIAL_PFX_MINT || resultB.mint === OFFICIAL_PFX_MINT) && (
-                <PfxPoolStatus analysisContext />
+                <PfxPoolStatus analysisContext analysisVolume24hUsd={
+                  (resultA.mint === OFFICIAL_PFX_MINT ? resultA : resultB).observed?.volume24hUsd ?? null
+                } />
               )}
 
               <section className="reading">

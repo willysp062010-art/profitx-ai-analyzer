@@ -13,7 +13,7 @@ const DEFAULT_RPC =
     : "https://api.mainnet-beta.solana.com";
 
 const TIMEOUT = 12000;
-const VERSION = "4.5.0";
+const VERSION = "4.5.1";
 
 /* =========================================================
    BASIC HELPERS
@@ -421,6 +421,42 @@ async function tokenSupply(mint) {
    DEXSCREENER
 ========================================================= */
 
+function selectDexPair(pairs, mint) {
+  // Addresses from other chains must never be treated as Solana markets.
+  const matching = (Array.isArray(pairs) ? pairs : []).filter(p =>
+    p?.chainId === "solana" &&
+    (p?.baseToken?.address === mint || p?.quoteToken?.address === mint)
+  );
+  const ranked = [...matching].sort((a, b) => {
+    const aBase = a?.baseToken?.address === mint;
+    const bBase = b?.baseToken?.address === mint;
+    if (aBase !== bBase) return aBase ? -1 : 1;
+    return (num(b?.liquidity?.usd) ?? 0) - (num(a?.liquidity?.usd) ?? 0);
+  });
+  const pair = ranked[0] ?? null;
+  // Compare distinct, funded base-token pools. Missing prices are not zeroes.
+  const seen = new Set();
+  const prices = matching.filter(p => {
+    if (p?.baseToken?.address !== mint || !p.pairAddress || seen.has(p.pairAddress) ||
+      !(num(p?.liquidity?.usd) > 0) || !(num(p.priceUsd) > 0)) return false;
+    seen.add(p.pairAddress);
+    return true;
+  }).map(p => num(p.priceUsd)).sort((a, b) => a - b);
+  let priceStatus = !pair ? "UNAVAILABLE" : pair.baseToken?.address !== mint
+    ? "QUOTE_PRICE_UNAVAILABLE" : "SINGLE_SOURCE";
+  if (pair?.baseToken?.address === mint && prices.length >= 3) {
+    const middle = Math.floor(prices.length / 2);
+    const median = prices.length % 2 ? prices[middle] : (prices[middle - 1] + prices[middle]) / 2;
+    const supporting = prices.filter(p => p >= median / 3 && p <= median * 3).length;
+    const selectedPrice = num(pair.priceUsd);
+    if (supporting >= Math.ceil(prices.length * 2 / 3) && selectedPrice > 0 &&
+      (selectedPrice > median * 10 || selectedPrice < median / 10)) {
+      priceStatus = "CONFLICTING_POOL_PRICES";
+    }
+  }
+  return { pair, priceStatus, comparedPricePools: prices.length, matchingPairCount: matching.length };
+}
+
 async function dexData(mint) {
   try {
     const result =
@@ -442,14 +478,8 @@ async function dexData(mint) {
       };
     }
 
-    const matchingPairs =
-      pairs.filter(
-        p =>
-          p?.baseToken?.address === mint ||
-          p?.quoteToken?.address === mint
-      );
-
-    if (!matchingPairs.length) {
+    const selection = selectDexPair(pairs, mint);
+    if (!selection.pair) {
       return {
         pair: null,
         error:
@@ -457,32 +487,8 @@ async function dexData(mint) {
       };
     }
 
-    const solana =
-      matchingPairs.filter(
-        p =>
-          p?.chainId ===
-          "solana"
-      );
-
-    const list =
-      solana.length
-        ? solana
-        : matchingPairs;
-
-    list.sort(
-      (a, b) =>
-        (num(
-          b?.liquidity?.usd
-        ) || 0) -
-        (num(
-          a?.liquidity?.usd
-        ) || 0)
-    );
-
     return {
-      pair:
-        list[0] || null,
-
+      ...selection,
       error: null
     };
   } catch (error) {
@@ -724,7 +730,8 @@ function pumpMetrics(
 function dexMetrics(
   pair,
   mint,
-  supply
+  supply,
+  priceStatus = "SINGLE_SOURCE"
 ) {
   if (!pair) {
     return null;
@@ -748,12 +755,12 @@ function dexMetrics(
     return null;
   }
 
-  const buys =
+  const pairBuys =
     num(
       pair?.txns?.h24?.buys
     );
 
-  const sells =
+  const pairSells =
     num(
       pair?.txns?.h24?.sells
     );
@@ -761,39 +768,19 @@ function dexMetrics(
   const basePriceUsd =
     num(pair?.priceUsd);
 
-  const priceNative =
-    num(pair?.priceNative);
+  // Buys and sells in the feed describe the base-token side of the pool.
+  const buys = isBase ? pairBuys : pairSells;
+  const sells = isBase ? pairSells : pairBuys;
 
   let analyzedPriceUsd = null;
   let analyzedMarketCapUsd = null;
 
-  if (isBase) {
+  if (isBase && priceStatus !== "CONFLICTING_POOL_PRICES") {
     analyzedPriceUsd =
       basePriceUsd;
 
-    analyzedMarketCapUsd =
-      firstNumber(
-        pair?.marketCap,
-        pair?.fdv
-      );
-  } else if (
-    basePriceUsd !== null &&
-    priceNative !== null &&
-    priceNative > 0
-  ) {
-    analyzedPriceUsd =
-      basePriceUsd /
-      priceNative;
-
-    if (
-      supply?.uiAmount !== null &&
-      supply?.uiAmount !== undefined &&
-      supply.uiAmount > 0
-    ) {
-      analyzedMarketCapUsd =
-        analyzedPriceUsd *
-        supply.uiAmount;
-    }
+    // FDV is not circulating market capitalization.
+    analyzedMarketCapUsd = num(pair?.marketCap);
   }
 
   const tokenInfo =
@@ -1368,7 +1355,7 @@ function diagnostic({
       0
   ) {
     warnings.push(
-      "Aucune activité économique détectée sur 24h."
+      "Aucune activité détectée sur 24 h dans le périmètre observé."
     );
   }
 
@@ -1456,7 +1443,7 @@ function diagnostic({
     state = "INACTIVE";
 
     conclusion =
-      "Le marché est actuellement inactif. ProfitX observe une structure analysable mais aucun mouvement économique récent.";
+      "Les sources retenues ne détectent pas de mouvement récent dans le périmètre observé. Cela ne prouve pas une inactivité globale du token.";
   } else if (
     market !== null &&
     market < 25
@@ -1649,7 +1636,8 @@ export default async function handler(
     dexMetrics(
       dex?.pair,
       mint,
-      supply
+      supply,
+      dex?.priceStatus
     );
 
   const dexAgeHours =
@@ -1929,6 +1917,12 @@ export default async function handler(
     });
 
   const missingData = [];
+
+  if (dex?.priceStatus === "CONFLICTING_POOL_PRICES") {
+    diag.warnings.push("Prix divergents entre les pools : prix et capitalisation non retenus.");
+  } else if (dex?.priceStatus === "QUOTE_PRICE_UNAVAILABLE") {
+    diag.warnings.push("Le token est coté en contrepartie : son prix et sa capitalisation ne sont pas vérifiés.");
+  }
 
   if (
     liquidity === null
@@ -2426,6 +2420,12 @@ export default async function handler(
       data,
 
       market: {
+        priceStatus: dex?.priceStatus ?? "UNAVAILABLE",
+        comparedPricePools: dex?.comparedPricePools ?? 0,
+        matchingPairCount: dex?.matchingPairCount ?? 0,
+        tokenSide: dMetrics?.tokenSide ?? null,
+        volumeSource: activity.available && activity.volume24hUsd !== null ? "sampled_transactions" : dMetrics ? "selected_pair" : "unavailable",
+        transactionsSource: activity.available && activity.transactions24h !== null ? "sampled_transactions" : dMetrics ? "selected_pair" : "unavailable",
         pairAddress:
           dMetrics?.pairAddress ??
           null,
@@ -2457,9 +2457,7 @@ export default async function handler(
                 null,
 
               priceUsd:
-                dex.pair
-                  .priceUsd ??
-                null,
+                dMetrics?.priceUsd ?? null,
 
               liquidityUsd:
                 dex.pair
@@ -2474,10 +2472,7 @@ export default async function handler(
                 null,
 
               marketCapUsd:
-                dex.pair
-                  ?.marketCap ??
-                dex.pair?.fdv ??
-                null
+                dMetrics?.marketCapUsd ?? null
             }
           : null,
 

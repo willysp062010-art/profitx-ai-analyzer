@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import PfxPoolStatus from "../components/PfxPoolStatus";
+import MarketDataNotice from "../components/MarketDataNotice";
 
 
 const DEFAULT_MINT =
@@ -143,9 +144,9 @@ function getActivityState(observed, activity) {
     sells === 0
   ) {
     return {
-      label: "INACTIF",
+      label: "AUCUNE ACTIVITÉ OBSERVÉE",
       description:
-        "Aucun mouvement économique détecté sur les dernières 24 heures.",
+        "Aucun mouvement détecté sur 24 heures dans le périmètre observé ; cela ne couvre pas nécessairement tous les marchés du token.",
       className: "inactive"
     };
   }
@@ -430,10 +431,10 @@ function buildProfitxDiagnostic({
     marketMessage =
       "Activité du marché non vérifiée : les données des dernières 24 heures sont indisponibles, et non égales à zéro.";
   } else if (
-    activityState?.label === "INACTIF"
+    activityState?.label === "AUCUNE ACTIVITÉ OBSERVÉE"
   ) {
     marketMessage =
-      "Aucun mouvement économique n'est détecté sur les dernières 24 heures. Les zéros de volume et de transactions sont traités comme de vrais zéros, pas comme des données manquantes.";
+      "Les sources retenues affichent zéro activité sur 24 heures dans le périmètre observé. Cela ne prouve pas une inactivité sur tous les marchés du token.";
   } else if (
     activityState?.label === "ACTIVITÉ PARTIELLEMENT MESURÉE"
   ) {
@@ -1264,7 +1265,7 @@ async function searchToken(query) {
           <div className="panel">
 
             <h2>
-              {data.mint === DEFAULT_MINT ? "Activité de la paire analysée" : "État réel du marché"}
+              Activité observée — périmètre indiqué
             </h2>
 
             <div className="pairGrid">
@@ -1310,14 +1311,12 @@ async function searchToken(query) {
             </div>
 
             <div className="hint">
-              {data.mint === DEFAULT_MINT && market.dexId && (
-                <p>Paire suivie pour ces chiffres : {market.dexId}.</p>
-              )}
               {activityState.description}
+              <MarketDataNotice market={market} />
             </div>
 
           </div>
-          {data.mint === DEFAULT_MINT && <PfxPoolStatus analysisContext />}
+          {data.mint === DEFAULT_MINT && <PfxPoolStatus analysisContext analysisVolume24hUsd={observed.volume24hUsd} />}
           {(token.name ||
             token.symbol) && (
 

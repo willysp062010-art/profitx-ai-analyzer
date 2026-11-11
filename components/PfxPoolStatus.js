@@ -4,7 +4,7 @@ function formatted(value, digits = 2) {
   if (value === null || value === undefined || !Number.isFinite(Number(value))) return "N/D";
   return Number(value).toLocaleString("fr-FR", { maximumFractionDigits: digits });
 }
-export default function PfxPoolStatus({ analysisContext = false }) {
+export default function PfxPoolStatus({ analysisContext = false, analysisVolume24hUsd = null }) {
   const [pool, setPool] = useState(null);
   const [status, setStatus] = useState("loading");
   useEffect(() => {
@@ -42,6 +42,11 @@ export default function PfxPoolStatus({ analysisContext = false }) {
         <div><div style={text}>Réserve PFX</div><strong>{formatted(pool.pfxReserve, 3)}</strong></div>
         <div><div style={text}>Volume 24 h</div><strong>{formatted(pool.volume24hUsd)} $</strong></div>
       </div>
+      {analysisContext && analysisVolume24hUsd === 0 && Number(pool.volume24hUsd) > 0 &&
+        <p role="status" style={{ ...text, color: "#ffd18b" }}>
+          Raydium rapporte un volume positif alors que l'analyse affiche zéro.
+          Les sources ou fenêtres de mesure divergent : une inactivité globale de PFX n'est pas confirmée.
+        </p>}
       <p style={{ ...text, fontSize: 12 }}>
         Source : Raydium API v3 · Consultation : {new Date(pool.checkedAt).toLocaleString("fr-FR")}.
         Les chiffres peuvent être différés ; ils ne garantissent pas la liquidité disponible à la seconde.

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import PfxPoolStatus from "../components/PfxPoolStatus";
+import MarketDataNotice from "../components/MarketDataNotice";
 
 
 const DEFAULT_MINT =
@@ -143,9 +144,9 @@ function getActivityState(observed, activity) {
     sells === 0
   ) {
     return {
-      label: "INACTIF",
+      label: "AUCUNE ACTIVITÉ OBSERVÉE",
       description:
-        "Aucun mouvement économique détecté sur les dernières 24 heures.",
+        "Aucun mouvement détecté sur 24 heures dans le périmètre observé ; cela ne couvre pas nécessairement tous les marchés du token.",
       className: "inactive"
     };
   }
@@ -430,10 +431,10 @@ function buildProfitxDiagnostic({
     marketMessage =
       "Activité du marché non vérifiée : les données des dernières 24 heures sont indisponibles, et non égales à zéro.";
   } else if (
-    activityState?.label === "INACTIF"
+    activityState?.label === "AUCUNE ACTIVITÉ OBSERVÉE"
   ) {
     marketMessage =
-      "Aucun mouvement économique n'est détecté sur les dernières 24 heures. Les zéros de volume et de transactions sont traités comme de vrais zéros, pas comme des données manquantes.";
+      "Les sources retenues affichent zéro activité sur 24 heures dans le périmètre observé. Cela ne prouve pas une inactivité sur tous les marchés du token.";
   } else if (
     activityState?.label === "ACTIVITÉ PARTIELLEMENT MESURÉE"
   ) {
@@ -1085,9 +1086,11 @@ async function searchToken(query) {
           Pas de promesse de rendement.
         </p>
 
-        <div className="search">
+        <div className="search" style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "flex-start" }}>
 
           <input
+            aria-label="Nom, symbole ou adresse mint Solana"
+            style={{ minWidth: 0, flex: "1 1 240px" }}
             value={mint}
            onChange={(e) => {
   const value = e.target.value;
@@ -1105,17 +1108,20 @@ async function searchToken(query) {
             autoComplete="off"
           />
 {tokenSearchLoading && (
-  <p>Recherche des tokens Solana...</p>
+  <p role="status" style={{ flexBasis: "100%", order: 3 }}>Recherche des tokens Solana...</p>
 )}
 
 {tokenSearchError && (
-  <p style={{ color: "#ff7070" }}>
+  <p role="alert" style={{ color: "#ff7070", flexBasis: "100%", order: 3 }}>
     {tokenSearchError}
   </p>
 )}
 
 {tokenResults.length > 0 && (
   <div style={{
+    flexBasis: "100%",
+    order: 3,
+    boxSizing: "border-box",
     width: "100%",
     maxHeight: "280px",
     overflowY: "auto",
@@ -1161,6 +1167,7 @@ async function searchToken(query) {
   </div>
 )}
           <button
+            style={{ order: 2, flexShrink: 0, minHeight: 60 }}
             onClick={analyze}
             disabled={
               loading ||
@@ -1264,7 +1271,7 @@ async function searchToken(query) {
           <div className="panel">
 
             <h2>
-              {data.mint === DEFAULT_MINT ? "Activité de la paire analysée" : "État réel du marché"}
+              Activité observée — périmètre indiqué
             </h2>
 
             <div className="pairGrid">
@@ -1310,14 +1317,12 @@ async function searchToken(query) {
             </div>
 
             <div className="hint">
-              {data.mint === DEFAULT_MINT && market.dexId && (
-                <p>Paire suivie pour ces chiffres : {market.dexId}.</p>
-              )}
               {activityState.description}
+              <MarketDataNotice market={market} />
             </div>
 
           </div>
-          {data.mint === DEFAULT_MINT && <PfxPoolStatus analysisContext />}
+          {data.mint === DEFAULT_MINT && <PfxPoolStatus analysisContext analysisVolume24hUsd={observed.volume24hUsd} />}
           {(token.name ||
             token.symbol) && (
 

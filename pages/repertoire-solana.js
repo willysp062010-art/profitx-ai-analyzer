@@ -53,13 +53,15 @@ export default function RepertoireSolana(){
       });
     return ()=>ctrl.abort();
   },[term]);
+  const queryPending=q.trim()!==term;
+  const searching=state.loading||queryPending;
   const officialMint="6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump";
   const styles={
     page:{minHeight:"100vh",background:"#070b0a",color:"#e7f5ed",fontFamily:"Arial, sans-serif",padding:"24px"},
     shell:{maxWidth:1180,margin:"0 auto"},
     card:{background:"#101b17",border:"1px solid #294c3b",borderRadius:14,padding:18,marginTop:12},
     link:{color:"#42f9a1",textDecoration:"none"},
-    input:{width:"100%",maxWidth:610,background:"#101b17",border:"1px solid #347c58",borderRadius:10,padding:15,color:"white",fontSize:16},
+    input:{boxSizing:"border-box",width:"100%",maxWidth:610,background:"#101b17",border:"1px solid #347c58",borderRadius:10,padding:15,color:"white",fontSize:16},
     btn:{background:"#123626",color:"#e7f5ed",border:"1px solid #347c58",padding:"10px 16px",borderRadius:8,cursor:"pointer"},
     muted:{color:"#9cb4a5"}
   };
@@ -85,7 +87,7 @@ export default function RepertoireSolana(){
           {identifiedOnly?"Afficher tous les tokens":"Afficher seulement les tokens identifiés"}
         </button>
       </div>
-      <p style={styles.muted}>{state.loading?"Recherche en cours...":state.error?"Erreur : "+state.error:state.count===null?"Résultats disponibles":state.count.toLocaleString("fr-FR")+" tokens trouvés"} · Page {page}</p>
+      <p style={styles.muted}>{searching?"Recherche en cours...":state.error?"Erreur : "+state.error:state.count===null?"Résultats disponibles":state.count.toLocaleString("fr-FR")+" tokens trouvés"} · Page {page}</p>
       {<section style={{...styles.card,borderColor:"#42f9a1"}}>
         <div style={{color:"#42f9a1",fontWeight:800}}>PROFITX AI / ANALYZER — MINT PFX DÉCLARÉ</div>
         <h2>PROFITX — PFX</h2>
@@ -94,10 +96,10 @@ export default function RepertoireSolana(){
         <PfxPoolStatus />
         <Link href={"/?mint="+officialMint} style={styles.link}>Analyser le mint PFX →</Link>
       </section>}
-      {!state.loading&&!state.error&&state.tokens.length===0&&<div style={styles.card}>Aucun autre token trouvé dans notre base actuelle. Cela ne prouve pas son inexistence sur Solana.</div>}
+      {!searching&&!state.error&&state.tokens.length===0&&<div style={styles.card}>Aucun autre token trouvé dans notre base actuelle. Cela ne prouve pas son inexistence sur Solana.</div>}
       <p style={styles.muted}>Les valeurs de marché de cette base sont historiques : leur fraîcheur n’est pas vérifiée. Lancez une analyse du mint pour consulter les données disponibles au moment de la demande. Les noms sont des métadonnées déclarées, pas une validation du projet.</p>
-      {state.indexingPending>0&&<p role="status" style={styles.muted}>{state.indexingPending} nom(s) lu(s) sur Solana sont encore en attente d’indexation pour la recherche par nom. La recherche par mint reste disponible.</p>}
-      {state.tokens.map(t=><article key={t.mint} style={styles.card}>
+      {!searching&&state.indexingPending>0&&<p role="status" style={styles.muted}>{state.indexingPending} nom(s) lu(s) sur Solana sont encore en attente d’indexation pour la recherche par nom. La recherche par mint reste disponible.</p>}
+      {!searching&&state.tokens.map(t=><article key={t.mint} style={styles.card}>
         <div style={{fontSize:12,fontWeight:700,marginBottom:12,color:t.identityStatus==="metadata_present"?"#42f9a1":"#f7d894"}}>
           {t.identityStatus==="metadata_present"?"NOM ET SYMBOLE RENSEIGNÉS · NON AUDITÉ":"IDENTITÉ NON RENSEIGNÉE"}
         </div>
@@ -120,7 +122,7 @@ export default function RepertoireSolana(){
           <div><span style={styles.muted}>État de l’enregistrement</span><div>{({pending:"À analyser",enriched:"Métadonnées récupérées",metadata_missing:"Métadonnées à compléter",flagged:"Signal à examiner",verified:"Analyse enregistrée — non auditée"})[t.status]||"État non renseigné"}</div></div>
         </div>
       </article>)}
-      {term.length>=2&&<section style={{marginTop:35}}>
+      {!queryPending&&term.length>=2&&<section style={{marginTop:35}}>
         <h2 style={{color:"#42f9a1"}}>Résultats des marchés Solana</h2>
         <p style={styles.muted}>Recherche complémentaire DexScreener / Jupiter / Pump.fun. Résultats distincts de notre base : aucun token tiers n'est audité ou vérifié par PROFITX AI.</p>
         {external.loading&&<p>Recherche des marchés...</p>}
@@ -135,9 +137,9 @@ export default function RepertoireSolana(){
         {!external.loading&&!external.error&&external.results.length===0&&<p style={styles.muted}>Aucun marché correspondant trouvé dans les sources externes disponibles.</p>}
       </section>}
       <div style={{display:"flex",gap:12,marginTop:24,alignItems:"center",flexWrap:"wrap"}}>
-        <button style={styles.btn} disabled={page===1||state.loading} onClick={()=>setPage(n=>Math.max(1,n-1))}>← Précédent</button>
+        <button style={styles.btn} disabled={page===1||searching} onClick={()=>setPage(n=>Math.max(1,n-1))}>← Précédent</button>
         <span>Page {page}</span>
-        <button style={styles.btn} disabled={!state.hasMore||state.loading} onClick={()=>setPage(n=>n+1)}>Suivant →</button>
+        <button style={styles.btn} disabled={!state.hasMore||searching} onClick={()=>setPage(n=>n+1)}>Suivant →</button>
       </div>
     </div>
   </main>;

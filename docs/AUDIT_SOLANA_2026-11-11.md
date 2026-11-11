@@ -55,3 +55,9 @@ La compilation de production et la suite de régression doivent passer avant fus
 - Le contrôle de santé du moniteur distingue la configuration du passage quotidien d’une preuve d’exécution : il ne prétend pas que la dernière exécution a été vérifiée.
 - Les requêtes POST de contrôle vers le webhook et le moniteur privé n’ont pas été validées comme test en production : le contrôle automatique d’autorisation les a refusées, à cause du risque d’ingestion ou de déclenchement d’un traitement. Leurs protections sont vérifiées par lecture du code et tests isolés. Aucune autorisation d’exécuter un traitement privé réel n’est présumée.
 - Les parcours complémentaires du navigateur sont consignés dans la description de la livraison ; les limites mobile et cycles futurs ci-dessus restent ouvertes.
+
+## Vérifications complémentaires
+
+- Le compte rendu enregistré de la surveillance confirme le passage du cron du 11 novembre à 05:33:28 heure de Paris : HTTP 200, 779 ms, marqueur « PFX alerts cron completed ». Aucun bilan individuel des alertes : leur réussite complète n’est pas déduite de ce passage. Les contrôles des 12 et 13 restent programmés.
+- Le répertoire masque immédiatement les résultats et bloque la pagination pendant la temporisation de saisie ; les anciens résultats ne sont plus présentés sous une nouvelle requête.
+- Le champ de recherche inclut ses bordures et son espacement dans sa largeur, évitant un débordement sur les écrans étroits. La validation visuelle sur téléphone reste ouverte.

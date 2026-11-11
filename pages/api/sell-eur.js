@@ -1,6 +1,7 @@
+import { checkedQuote } from "../../utils/quote-validation";
+import { isSolanaMint } from "../../utils/watchlist";
 // PROFITX AI — indicative EUR-denominated round-trip quote. No wallet, transaction or signature.
 const USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
-const MINT = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 async function jsonFetch(url, headers, signal) {
   const r = await fetch(url, { headers, signal });
   const body = await r.json().catch(() => ({}));
@@ -12,7 +13,7 @@ export default async function handler(req, res) {
   if (req.method !== "GET") return res.status(405).json({ ok: false, error: "Méthode non autorisée." });
   const mint = String(req.query.mint || "").trim();
   const eur = Number(req.query.eur);
-  if (!MINT.test(mint) || mint === USDC || ![10, 100, 1000].includes(eur)) {
+  if (!isSolanaMint(mint) || mint === USDC || ![10, 100, 1000].includes(eur)) {
     return res.status(400).json({ ok: false, error: "Paramètres invalides." });
   }
   const controller = new AbortController();
@@ -35,10 +36,10 @@ export default async function handler(req, res) {
     };
     // First find how many tokens ~EUR amount could buy; then independently quote their sale.
     const buy = await quote(USDC, mint, usdcRaw);
-    const tokenRaw = String(buy.outAmount ?? buy.outputAmount ?? "");
+    const tokenRaw = checkedQuote(buy, USDC, mint, String(usdcRaw)).output;
     if (!/^[1-9][0-9]{0,17}$/.test(tokenRaw)) throw new Error("Aucune quantité de token cotable.");
     const sell = await quote(mint, USDC, tokenRaw);
-    const returnedRaw = String(sell.outAmount ?? sell.outputAmount ?? "");
+    const returnedRaw = checkedQuote(sell, mint, USDC, tokenRaw).output;
     if (!/^[0-9]+$/.test(returnedRaw)) throw new Error("Aucune sortie USDC cotable.");
     const returnedUsd = Number(returnedRaw) / 1e6;
     const returnedEur = returnedUsd / usdPerEur;
@@ -52,7 +53,7 @@ export default async function handler(req, res) {
       note: "Deux cotations indicatives achat puis vente, et non une simulation de portefeuille ou une exécution. L'écart inclut spread/impact éventuel, pas des frais réseau exhaustifs. USDC peut s'écarter de 1 USD. Aucun slippage maximal ni succès de vente garanti."
     });
   } catch (error) {
-    return res.status(200).json({ ok: true, status: "QUOTE_UNAVAILABLE", reason: error?.name === "AbortError" ? "Délai dépassé." : error?.message || "Estimation indisponible.", note: "Absence de cotation ne prouve pas une impossibilité de revente." });
+    return res.status(200).json({ ok: true, status: "QUOTE_UNAVAILABLE", reason: error?.name === "AbortError" ? "Délai dépassé." : "Estimation indisponible.", note: "Absence de cotation ne prouve pas une impossibilité de revente." });
   } finally {
     clearTimeout(timeout);
   }

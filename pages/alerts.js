@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
+import { alertResultFromRow, latestAlertResult, isOldAlertResult, mergeAlertRecords as mergeAlerts } from "../utils/alert-results";
 
 const WATCHLIST_STORAGE_KEY = "profitx-watchlist-v1";
 const ALERTS_STORAGE_KEY = "profitx-alerts-v1";
@@ -141,29 +142,8 @@ function serverRowToAlert(row) {
     triggered: row.status === "triggered",
     createdAt:
       row.created_at || new Date().toISOString(),
+    lastEvaluation: alertResultFromRow(row),
   };
-}
-
-function mergeAlerts(localAlerts, serverAlerts) {
-  const merged = new Map();
-
-  for (const alert of serverAlerts || []) {
-    if (alert?.id) {
-      merged.set(alert.id, alert);
-    }
-  }
-
-  for (const alert of localAlerts || []) {
-    if (alert?.id && !merged.has(alert.id)) {
-      merged.set(alert.id, alert);
-    }
-  }
-
-  return Array.from(merged.values()).sort(
-    (a, b) =>
-      new Date(b.createdAt || 0).getTime() -
-      new Date(a.createdAt || 0).getTime()
-  );
 }
 
 async function readServerAlerts(clientId) {
@@ -380,6 +360,7 @@ export default function Alerts() {
 
   const [checking, setChecking] =
     useState(false);
+  const [refreshingResults, setRefreshingResults] = useState(false);
 
   const [checkedAt, setCheckedAt] =
     useState("");
@@ -413,8 +394,10 @@ export default function Alerts() {
       setWatchlist(storedWatchlist);
 
       if (storedWatchlist.length > 0) {
+        const requestedMint = new URLSearchParams(window.location.search).get("mint");
+        const requestedToken = storedWatchlist.find(item => item.chainId === "solana" && item.tokenAddress === requestedMint);
         setSelectedTokenId(
-          storedWatchlist[0].id ||
+          requestedToken?.id || storedWatchlist[0].id ||
             `${storedWatchlist[0].chainId}:${storedWatchlist[0].tokenAddress}`
         );
       }
@@ -805,6 +788,22 @@ export default function Alerts() {
     });
   }
 
+  async function refreshServerResults() {
+    if (!clientId || refreshingResults) return;
+    setRefreshingResults(true);
+    clearMessages();
+    try {
+      const rows = await readServerAlerts(clientId);
+      setAlerts(current => mergeAlerts(current, rows));
+      setEngineError("");
+      setSuccess("Résultats enregistrés actualisés. La date de chaque contrôle est affichée sur sa règle.");
+    } catch (error) {
+      setError("Impossible d'actualiser les résultats enregistrés. Réessayez plus tard.");
+    } finally {
+      setRefreshingResults(false);
+    }
+  }
+
   async function checkAlertsNow() {
     if (checking) {
       return;
@@ -851,11 +850,13 @@ export default function Alerts() {
       for (const result of data.results || []) {
         if (result?.id) {
           nextResults[result.id] =
-            result;
+            { ...result, checkedAt: data.checkedAt || null, source: "manual" };
         }
       }
 
       setEngineResults(nextResults);
+      setAlerts(current => current.map(alert => nextResults[alert.id]
+        ? { ...alert, lastManualEvaluation: nextResults[alert.id] } : alert));
 
       setCheckedAt(
         data.checkedAt ||
@@ -1262,6 +1263,9 @@ export default function Alerts() {
               </div>
 
               <div className="engineControls">
+                <button type="button" className="secondary" onClick={refreshServerResults} disabled={!clientId || refreshingResults || checking}>
+                  {refreshingResults ? "ACTUALISATION..." : "ACTUALISER LES RÉSULTATS"}
+                </button>
                 {checkedAt && (
                   <span className="lastCheck">
                     DERNIÈRE VÉRIFICATION{" "}
@@ -1336,10 +1340,7 @@ export default function Alerts() {
                   const enabled =
                     alert.enabled !== false;
 
-                  const engineResult =
-                    engineResults[
-                      alert.id
-                    ] || null;
+                  const engineResult = latestAlertResult(engineResults[alert.id] || alert.lastManualEvaluation, alert.lastEvaluation);
 
                   const engineStatus =
                     !enabled
@@ -1353,7 +1354,7 @@ export default function Alerts() {
                       ? "DÉCLENCHÉE"
                       : engineStatus ===
                         "watching"
-                      ? "SURVEILLANCE"
+                      ? "SEUIL NON ATTEINT"
                       : engineStatus ===
                         "no_market_data" ||
                         engineStatus ===
@@ -1362,6 +1363,8 @@ export default function Alerts() {
                       : engineStatus ===
                         "paused"
                       ? "PAUSE"
+                      : engineStatus === "error"
+                      ? "ERREUR DE CONTRÔLE"
                       : "À VÉRIFIER";
 
                   return (
@@ -1452,7 +1455,7 @@ export default function Alerts() {
 
                       <div className="marketResult">
                         <span>
-                          VALEUR ACTUELLE
+                          DERNIÈRE VALEUR OBSERVÉE
                         </span>
 
                         <strong
@@ -1493,6 +1496,11 @@ export default function Alerts() {
                           </small>
                         )}
                       </div>
+
+                      {engineResult?.checkedAt && <div className="hint">
+                        Dernier contrôle {engineResult.source === "manual" ? "à la demande" : "enregistré sur le serveur"} : {new Date(engineResult.checkedAt).toLocaleString("fr-FR")}.
+                        {isOldAlertResult(engineResult) && <strong style={{ display: "block", color: "#ffd18b" }}>Résultat ancien : une nouvelle vérification est nécessaire.</strong>}
+                      </div>}
 
                       <div className="cardFooter">
                         <button
@@ -1553,17 +1561,16 @@ export default function Alerts() {
               </span>
 
               <h2>
-                Moteur de vérification à la demande
+                Contrôles enregistrés et vérification à la demande
               </h2>
 
               <p>
-                Vos règles sont sauvegardées sur le serveur.
-                Utilisez le bouton de vérification pour comparer
-                leurs seuils aux données de marché disponibles.
-                La surveillance automatique en continu et les
-                notifications par e-mail ne sont pas encore activées.
-                Une règle enregistrée ne déclenche donc pas
-                de notification sans vérification manuelle.
+                Vos règles synchronisées sont conservées sur le serveur.
+                Un passage quotidien du moteur est configuré ; les règles sont traitées par lots.
+                Consultez la date de chaque résultat pour connaître sa fraîcheur.
+                « Actualiser les résultats » recharge les contrôles enregistrés ;
+                « Vérifier maintenant » effectue une nouvelle lecture à la demande.
+                Il ne s'agit pas d'une surveillance en continu. Les notifications par e-mail ne sont pas activées.
               </p>
             </div>
           </section>

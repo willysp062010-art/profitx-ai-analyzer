@@ -3,7 +3,9 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const vm = require("node:vm");
 const path = require("node:path");
-const source = fs.readFileSync(path.join(__dirname, "../pages/api/alerts-monitor.js"),"utf8")
+const dexSource = fs.readFileSync(path.join(__dirname, "../utils/dex-market.js"), "utf8").replace(/export function /g, "function ");
+const source = dexSource + "\n" + fs.readFileSync(path.join(__dirname, "../pages/api/alerts-monitor.js"),"utf8")
+  .replace('import { selectDexPair } from "../../utils/dex-market";', "")
   .replace("export default async function handler(", "async function handler(")
   + "\nmodule.exports={handler,chooseBestPair,extractMarketData};";
 function load(env={},fetchImpl=async()=>{throw Error("Unexpected external request")}) {
@@ -109,4 +111,17 @@ test("monitor processes never-checked and least recently checked alerts first", 
   const res = await invoke(handler, "POST", { authorization: "Bearer test" });
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.summary.checked, 0);
+});
+
+test("conflicting pool prices cannot create an automatic threshold crossing",()=>{
+ const ctx={module:{exports:{}},process:{env:{}},AbortController,setTimeout,clearTimeout,Date,console};
+ vm.runInNewContext(source.replace("module.exports={handler,chooseBestPair,extractMarketData};","module.exports={chooseBestPair,extractMarketData,buildEvaluation};"),ctx);
+ const mint="6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump";
+ const pairs=[1000,1,1.1].map((price,i)=>({chainId:"solana",baseToken:{address:mint},
+ pairAddress:`pool${i}`,liquidity:{usd:3000-i*1000},priceUsd:String(price),priceChange:{h24:900}}));
+ const {chooseBestPair,extractMarketData,buildEvaluation}=ctx.module.exports;
+ const market=extractMarketData(chooseBestPair(pairs,mint),mint);
+ assert.equal(market.priceUsd,null); assert.equal(market.change24h,null);
+ const result=buildEvaluation({metric:"priceUsd",condition:"above",targetValue:1,lastConditionMet:false},market,new Date().toISOString());
+ assert.equal(result.triggeredNow,false); assert.equal(result.conditionObserved,false);
 });

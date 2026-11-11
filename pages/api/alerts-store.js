@@ -4,7 +4,7 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const TABLE_NAME = "pfx_alerts";
-const PUBLIC_ALERT_COLUMNS = "alert_id,chain_id,token_address,metric,condition,target_value,enabled,status,created_at";
+const PUBLIC_ALERT_COLUMNS = "alert_id,chain_id,token_address,metric,condition,target_value,enabled,status,created_at,current_value,token_symbol,dex_id,last_checked_at,last_triggered_at,trigger_count";
 function publicAlert(row) {
   if (!row || typeof row !== "object") return null;
   return Object.fromEntries(PUBLIC_ALERT_COLUMNS.split(",").map((key) => [key, row[key] ?? null]));

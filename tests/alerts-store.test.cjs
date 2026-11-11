@@ -132,3 +132,16 @@ test("database errors do not expose internal Supabase details to the browser",as
  assert.equal(result.body.error,"PERSISTENCE_ERROR");
  assert.doesNotMatch(JSON.stringify(result.body),/private database schema and secret details/);
 });
+
+test("GET returns dated server evaluations including a measured zero, without private ownership or threshold memory",async()=>{
+ const checked="2026-11-11T04:15:00Z";
+ const handler=load(async()=>({ok:true,status:200,text:async()=>JSON.stringify([
+  {alert_id:"rule",status:"watching",current_value:0,last_checked_at:checked,client_id:"private",last_condition_met:false,trigger_count:2}
+ ])}));
+ const r=await invoke(handler,"GET",null,{clientId:"browser"});
+ assert.equal(r.body.alerts[0].current_value,0);
+ assert.equal(r.body.alerts[0].last_checked_at,checked);
+ assert.equal(r.body.alerts[0].trigger_count,2);
+ assert.equal(Object.hasOwn(r.body.alerts[0],"client_id"),false);
+ assert.equal(Object.hasOwn(r.body.alerts[0],"last_condition_met"),false);
+});

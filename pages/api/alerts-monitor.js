@@ -1,3 +1,4 @@
+import { selectDexPair } from "../../utils/dex-market";
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const ALERT_EMAIL_TO = process.env.PFX_ALERTS_EMAIL_TO;
@@ -145,64 +146,10 @@ async function fetchJson(url) {
   return await response.json();
 }
 
-function chooseBestPair(
-  pairs,
-  tokenAddress
-) {
-  if (!Array.isArray(pairs)) {
-    return null;
-  }
-
-  const matchingPairs = pairs.filter(
-    (pair) => {
-      if (pair?.chainId !== "solana") {
-        return false;
-      }
-
-      const baseAddress =
-        pair?.baseToken?.address || "";
-
-      const quoteAddress =
-        pair?.quoteToken?.address || "";
-
-      return (
-        baseAddress === tokenAddress ||
-        quoteAddress === tokenAddress
-      );
-    }
-  );
-
-  if (matchingPairs.length === 0) {
-    return null;
-  }
-
-  // Prefer a market where the monitored token is the base token:
-  // DexScreener priceUsd and 24h price change describe the base token.
-  // A deeper quote-side pool must not hide usable token price data.
-  return [...matchingPairs].sort(
-    (a, b) => {
-      const aIsBase = a?.baseToken?.address === tokenAddress;
-      const bIsBase = b?.baseToken?.address === tokenAddress;
-      if (aIsBase !== bIsBase) return aIsBase ? -1 : 1;
-      const liquidityA =
-        toNumber(a?.liquidity?.usd) || 0;
-
-      const liquidityB =
-        toNumber(b?.liquidity?.usd) || 0;
-
-      if (liquidityB !== liquidityA) {
-        return liquidityB - liquidityA;
-      }
-
-      const volumeA =
-        toNumber(a?.volume?.h24) || 0;
-
-      const volumeB =
-        toNumber(b?.volume?.h24) || 0;
-
-      return volumeB - volumeA;
-    }
-  )[0];
+function chooseBestPair(pairs, tokenAddress) {
+  const selected = selectDexPair(pairs, tokenAddress);
+  return selected.pair ? { ...selected.pair, pfxPriceStatus: selected.priceStatus,
+    pfxTokenIsBase: selected.pair.baseToken?.address === tokenAddress } : null;
 }
 
 function extractMarketData(
@@ -230,11 +177,11 @@ function extractMarketData(
    * d'utiliser un prix potentiellement associé
    * au mauvais côté de la paire.
    */
-  const priceUsd = tokenIsBase
+  const priceUsd = tokenIsBase && pair.pfxPriceStatus !== "CONFLICTING_POOL_PRICES"
     ? toNumber(pair?.priceUsd)
     : null;
 
-  const change24h = tokenIsBase
+  const change24h = tokenIsBase && pair.pfxPriceStatus !== "CONFLICTING_POOL_PRICES"
     ? toNumber(pair?.priceChange?.h24)
     : null;
 
@@ -488,6 +435,7 @@ function buildEvaluation(
       checkedAt,
       newlyTriggered: false,
       triggeredNow: false,
+      conditionObserved: false,
     };
   }
 

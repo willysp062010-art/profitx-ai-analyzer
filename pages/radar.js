@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import PfxPoolStatus from "../components/PfxPoolStatus";
+import { readWatchlist, writeWatchlist, mergeWatchlist } from "../utils/watchlist";
 
 const REFRESH_INTERVAL = 60000;
-const WATCHLIST_KEY = "profitx-watchlist-v1";
 const OFFICIAL_PFX_MINT = "6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump";
 const OFFICIAL_PFX_TOKEN = {
   mint: OFFICIAL_PFX_MINT,
@@ -355,16 +355,15 @@ export default function Radar() {
   const [evidenceFilter, setEvidenceFilter] = useState("all");
 
   const [watchlist, setWatchlist] = useState([]);
+  const [watchlistMessage, setWatchlistMessage] = useState("");
   const [copiedMint, setCopiedMint] = useState("");
 
   useEffect(() => {
     try {
-      const saved = JSON.parse(
-        window.localStorage.getItem(WATCHLIST_KEY) || "[]"
-      );
-      if (Array.isArray(saved)) setWatchlist(saved);
+      setWatchlist(readWatchlist(window.localStorage));
     } catch {
       setWatchlist([]);
+      setWatchlistMessage("La Watchlist locale est inaccessible. Son contenu n'a pas été remplacé.");
     }
   }, []);
 
@@ -377,25 +376,12 @@ export default function Radar() {
 
   function addToWatchlist(token) {
     if (!token?.mint || isInWatchlist(token.mint)) return;
-
-    const updated = [
-      {
-        id: `solana:${token.mint}`,
-        chainId: "solana",
-        tokenAddress: token.mint,
-        addedAt: new Date().toISOString(),
-      },
-      ...watchlist,
-    ];
-
-    setWatchlist(updated);
-
     try {
-      window.localStorage.setItem(
-        WATCHLIST_KEY,
-        JSON.stringify(updated)
-      );
-    } catch {}
+      const updated = mergeWatchlist(readWatchlist(window.localStorage), [{ mint: token.mint, name: token.name, symbol: token.symbol }]);
+      writeWatchlist(window.localStorage, updated);
+      setWatchlist(updated);
+      setWatchlistMessage("Token enregistré dans la Watchlist de ce navigateur.");
+    } catch { setWatchlistMessage("Impossible d'enregistrer le token. La Watchlist n'a pas été modifiée."); }
   }
 
   const loadRadar = useCallback(
@@ -685,6 +671,7 @@ export default function Radar() {
 
       <main className="radarPage">
         <div className="radarShell">
+          {watchlistMessage && <p role="status" style={{ color: "#d8e5dd" }}>{watchlistMessage}</p>}
           <header className="radarHeader">
             <div className="brandBlock">
               <div className="brandMark">PFX</div>

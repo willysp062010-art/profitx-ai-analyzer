@@ -5,8 +5,10 @@ const vm = require("node:vm");
 const path = require("node:path");
 const qualitySource = fs.readFileSync(path.join(__dirname, "../utils/analysis-quality.js"), "utf8")
   .replace(/export function /g, "function ");
-const source = qualitySource + "\n" + fs.readFileSync(path.join(__dirname, "../pages/api/analyze.js"), "utf8")
+const dexSource = fs.readFileSync(path.join(__dirname, "../utils/dex-market.js"), "utf8").replace(/export function /g, "function ");
+const source = dexSource + "\n" + qualitySource + "\n" + fs.readFileSync(path.join(__dirname, "../pages/api/analyze.js"), "utf8")
   .replace('import { assessAnalysisQuality } from "../../utils/analysis-quality";', "")
+  .replace('import { selectDexPair } from "../../utils/dex-market";', "")
   .replace("export default async function handler(", "async function handler(")
   + "\nmodule.exports = { selectDexPair, dexMetrics, dexData, handler };";
 function load(fetchImpl = async () => { throw Error("Unexpected network request"); }) {

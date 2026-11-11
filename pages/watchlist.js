@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
+import Head from "next/head";
 import { WATCHLIST_KEY, isSolanaMint, readWatchlist, writeWatchlist, mergeWatchlist, parseWatchlistImport, makeWatchlistBackup } from "../utils/watchlist";
 
 const NETWORKS = [
@@ -67,6 +68,7 @@ export default function Watchlist() {
   }
 
   function exportItems() {
+    setError(""); setNotice("");
     try {
       const current = readWatchlist(window.localStorage);
       const url = URL.createObjectURL(new Blob([JSON.stringify(makeWatchlistBackup(current), null, 2)], { type: "application/json" }));
@@ -158,6 +160,7 @@ export default function Watchlist() {
   }
 
   async function copyAddress(address) {
+    setError("");
     try {
       await navigator.clipboard.writeText(address);
 
@@ -191,6 +194,7 @@ export default function Watchlist() {
 
   return (
     <>
+      <Head><title>PFX Watchlist — PROFITX AI</title></Head>
       <main className="shell">
         <header className="topbar">
           <div className="brand">

@@ -15,10 +15,10 @@ const PUMP_COIN_URL =
 const PUMP_SOL_PRICE_URL =
   "https://frontend-api-v3.pump.fun/sol-price";
 
-const DEFAULT_RPC =
-  process.env.HELIUS_API_KEY
+const DEFAULT_RPC = process.env.SOLANA_RPC_URL ||
+  (process.env.HELIUS_API_KEY
     ? `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`
-    : "https://api.mainnet-beta.solana.com";
+    : "https://api.mainnet-beta.solana.com");
 
 const TIMEOUT = 12000;
 const VERSION = "4.5.3";

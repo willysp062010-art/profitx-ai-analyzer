@@ -239,3 +239,12 @@ h2 { margin:0 0 26px; font-size:28px; }
     animation: none !important;
   }
 }
+
+/* Keep long token names, mints and numeric values inside narrow layouts. */
+.shell .metric, .shell .observed > div, .shell .pairGrid > div { min-width: 0; }
+.shell .metric strong, .shell .observed strong, .shell .pairGrid strong { overflow-wrap: anywhere; }
+@media (max-width: 480px) {
+  .shell .metrics, .shell .observed, .shell .pairGrid { grid-template-columns: minmax(0, 1fr); }
+  .shell h1 { font-size: clamp(36px, 10vw, 48px); }
+  .shell .topbar { flex-wrap: wrap; gap: 12px; }
+}

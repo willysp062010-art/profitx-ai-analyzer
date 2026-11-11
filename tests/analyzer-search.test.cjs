@@ -10,7 +10,7 @@ function harness() {
   const end = source.indexOf("  async function analyze()", start);
   const state = {};
   const requests = [];
-  const ctx = { tokenSearchRequest: { current: 0 },
+  const ctx = { tokenSearchRequest: { current: 0 }, tokenSearchAbort: { current: null }, AbortController,
     fetch: () => new Promise((resolve, reject) => requests.push({ resolve, reject })),
     setTokenResults: v => state.results = v,
     setTokenSearchError: v => state.error = v,

@@ -1,5 +1,7 @@
-const DEFAULT_RPC =
-  "https://api.mainnet-beta.solana.com";
+const DEFAULT_RPC = process.env.SOLANA_RPC_URL ||
+  (process.env.HELIUS_API_KEY
+    ? `https://mainnet.helius-rpc.com/?api-key=${encodeURIComponent(process.env.HELIUS_API_KEY)}`
+    : "https://api.mainnet-beta.solana.com");
 
 const TOKEN_2022_PROGRAM_ID =
   "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
@@ -1547,18 +1549,20 @@ export default async function handler(
       }
     );
   } catch (error) {
+    const unavailable = error?.name === "AbortError" || /RPC|HTTP|fetch failed|rate.limit|too many/i.test(error?.message || "");
+    if (unavailable) res.setHeader("Retry-After", "5");
+
     return json(
       res,
-      500,
+      unavailable ? 503 : 500,
       {
         ok: false,
 
         module:
           "PROFITX_TOKEN2022",
 
-        error:
-          error?.message ||
-          "Erreur lors de l'analyse Token-2022."
+        error: unavailable ? "Données Token-2022 temporairement indisponibles. Réessayez plus tard." : "Erreur interne du module Token-2022.",
+        retryable: unavailable
       }
     );
   }

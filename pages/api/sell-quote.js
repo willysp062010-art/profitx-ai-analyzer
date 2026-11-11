@@ -1,4 +1,4 @@
-import { checkedQuote } from "../../utils/quote-validation";
+import { checkedQuote, quoteImpactPercent } from "../../utils/quote-validation";
 import { isSolanaMint } from "../../utils/watchlist";
 // PROFITX AI — read-only Solana sell quote via Jupiter Swap API v2.
 // This endpoint NEVER builds, signs or submits a transaction.
@@ -39,7 +39,8 @@ export default async function handler(req, res) {
       inputMint: mint, outputMint, inputAmountRaw: String(inAmount),
       outputAmountRaw: String(outAmount),
       outputDecimals: outputMint === SOL ? 9 : 6,
-      priceImpactPct: quote.priceImpactPct ?? quote.priceImpact ?? null,
+      priceImpactPct: quoteImpactPercent(quote),
+      priceImpactUnit: "percentage_points",
       router: quote.router ?? null,
       quotedAt: new Date().toISOString(),
       note: "Cotation indicative, non simulation d'exécution. La route, les frais, le slippage et la réussite peuvent changer avant signature. Aucune transaction envoyée."

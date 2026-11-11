@@ -632,6 +632,7 @@ export default function Radar() {
       setTimeout(() => setCopiedMint(""), 1500);
     } catch {
       setCopiedMint("");
+      setWatchlistMessage("Copie automatique impossible. Sélectionnez et copiez le mint affiché.");
     }
   }
 

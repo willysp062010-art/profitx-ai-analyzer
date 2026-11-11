@@ -10,7 +10,7 @@ function load(file,fetch){
  const util=["quote-validation","watchlist"].map(name=>fs.readFileSync(path.join(__dirname,`../utils/${name}.js`),"utf8").replace(/export (function|const) /g,"$1 ")).join("\n");
  const api=fs.readFileSync(path.join(__dirname,`../pages/api/${file}.js`),"utf8").replace(/^import .*;$/gm,"").replace("export default async function handler(","async function handler(");
  const ctx={module:{exports:{}},process:{env:{JUPITER_API_KEY:"test-private-key"}},fetch,URL,AbortController,setTimeout,clearTimeout,Date};
- vm.runInNewContext(util+"\n"+api+"\nmodule.exports={handler,checkedQuote};",ctx);
+ vm.runInNewContext(util+"\n"+api+"\nmodule.exports={handler,checkedQuote,quoteImpactPercent};",ctx);
  return ctx.module.exports;
 }
 async function call(handler,query){const res={setHeader(){},status(n){this.statusCode=n;return this;},json(v){this.body=v;return this;}};await handler({method:"GET",query},res);return res;}
@@ -44,4 +44,13 @@ test("EUR estimate validates both independent quote legs",async()=>{
  });
  const res=await call(handler,{mint:PFX,eur:"10"});assert.equal(calls,3);assert.equal(res.body.status,mismatch?"QUOTE_UNAVAILABLE":"ROUTE_QUOTED");
  }
+});
+
+test("Jupiter V2 impact percentages and legacy ratios are normalized to the same display unit", () => {
+ const {quoteImpactPercent}=load("sell-quote",async()=>{throw Error("no network");});
+ assert.equal(quoteImpactPercent({priceImpact:2,priceImpactPct:"0.02"}),2);
+ assert.equal(quoteImpactPercent({priceImpactPct:"0.02"}),2);
+ assert.equal(quoteImpactPercent({priceImpact:0,priceImpactPct:"0.02"}),0);
+ assert.equal(quoteImpactPercent({priceImpact:-0.1}),-0.1);
+ for(const value of [true,[],"",Infinity,"bad"])assert.equal(quoteImpactPercent({priceImpact:value}),null);
 });

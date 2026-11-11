@@ -35,7 +35,7 @@ export default async function handler(req, res) {
     getJson("https://api.dexscreener.com/latest/dex/tokens/" + encodeURIComponent(mint))
   ]);
   const match = Array.isArray(jupiter) ? jupiter.find((token) => token?.id === mint) : null;
-  const dexPairs = Array.isArray(dex?.pairs) ? dex.pairs.filter((pair) => pair?.chainId === "solana" && (pair?.baseToken?.address === mint || pair?.quoteToken?.address === mint)) : [];
+  const dexPairs = Array.isArray(dex?.pairs) ? dex.pairs.filter((pair) => pair?.chainId === "solana" && pair?.baseToken?.address === mint) : [];
   const dexLogo = dexPairs.find((pair) => validLogo(pair?.info?.imageUrl))?.info?.imageUrl;
   const imageUri = validLogo(match?.icon) || validLogo(match?.logoURI) || validLogo(dexLogo);
   return res.status(200).json({ ok: true, mint, imageUri: imageUri || null, source: imageUri ? (validLogo(match?.icon) || validLogo(match?.logoURI) ? "jupiter" : "dexscreener") : null });

@@ -2,9 +2,9 @@ import "../styles/globals.css";
 import Head from "next/head";
 
 const PFX_BACKGROUNDS = [
-  "/ChatGPT%20Image%2019%20mai%202026%2C%2019_22_01.png",
-  "/ChatGPT%20Image%205%20sept.%202026%2C%2008_13_25.png",
-  "/ChatGPT%20Image%205%20sept.%202026%2C%2008_15_55.png",
+  "/pfx-token-officiel.png",
+  "/profitx-logo-02-analyzer.png",
+  "/profitx-logo-02-analyzer.png",
 ];
 
 function PfxBackground() {

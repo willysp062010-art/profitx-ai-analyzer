@@ -3,6 +3,8 @@ import Head from "next/head";
 import { useRouter } from "next/router";
 import PfxPoolStatus from "../components/PfxPoolStatus";
 import MarketDataNotice from "../components/MarketDataNotice";
+import AnalysisQualityNotice from "../components/AnalysisQualityNotice";
+import { canCompareScores } from "../utils/analysis-quality";
 
 const OFFICIAL_PFX_MINT = "6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump";
 
@@ -178,7 +180,7 @@ const ROWS = [
   },
   {
     key: "confidence",
-    label: "Confiance des données",
+    label: "Couverture des contrôles",
     format: (v) =>
       isNumber(v)
         ? `${formatNumber(v, 0)} %`
@@ -281,6 +283,9 @@ const ROWS = [
 ];
 
 function comparisonState(a, b, row) {
+  if (["score", "structural", "market", "security"].includes(row.key) && !canCompareScores(a, b)) {
+    return { a: false, b: false };
+  }
   const va = getValue(a, row.key);
   const vb = getValue(b, row.key);
 
@@ -308,6 +313,12 @@ function buildInsights(a, b) {
   if (!a || !b) return [];
 
   const insights = [];
+
+  for (const result of [a, b]) {
+    if (result.dataQuality?.status && result.dataQuality.status !== "COMPLETE") {
+      insights.push(`${tokenSymbol(result)} : ${result.dataQuality.label.toLowerCase()}. Son score indicatif ne permet pas de conclure à sa solidité globale.`);
+    }
+  }
 
   const candidates = [
     {
@@ -345,6 +356,7 @@ function buildInsights(a, b) {
   ];
 
   for (const item of candidates) {
+    if (item.key === "security" && !canCompareScores(a, b)) continue;
     const va = getValue(a, item.key);
     const vb = getValue(b, item.key);
 
@@ -944,8 +956,10 @@ export default function ComparePage() {
               <section className="reading">
                 <h2>Périmètre des données comparées</h2>
                 <h3>{tokenName(resultA, "Token A")}</h3>
+                <AnalysisQualityNotice quality={resultA.dataQuality} />
                 <MarketDataNotice market={resultA.market} />
                 <h3>{tokenName(resultB, "Token B")}</h3>
+                <AnalysisQualityNotice quality={resultB.dataQuality} />
                 <MarketDataNotice market={resultB.market} />
               </section>
               {(resultA.mint === OFFICIAL_PFX_MINT || resultB.mint === OFFICIAL_PFX_MINT) && (
@@ -1000,7 +1014,7 @@ export default function ComparePage() {
                   </h3>
 
                   <div className="confidenceLine">
-                    Confiance :{" "}
+                    Couverture des contrôles :{" "}
                     <strong>
                       {confidenceLabel(
                         resultA?.diagnostic
@@ -1044,7 +1058,7 @@ export default function ComparePage() {
                   </h3>
 
                   <div className="confidenceLine">
-                    Confiance :{" "}
+                    Couverture des contrôles :{" "}
                     <strong>
                       {confidenceLabel(
                         resultB?.diagnostic

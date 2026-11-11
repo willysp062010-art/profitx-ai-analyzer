@@ -15,7 +15,27 @@ function metadataFor(row) {
 function tokenText(value) {
   if (typeof value !== "string") return null;
   const text = value.trim();
-  return text && text !== "N/D" && text !== "Token inconnu" ? text : null;
+  return text && text !== "N/D" && text !== "Token inconnu" && text !== "Nom non récupéré" ? text : null;
+}
+
+function mintMetadata(info, mint, owner) {
+  if (owner !== TOKEN_2022_PROGRAM_ID || !Array.isArray(info?.extensions)) return {};
+  const entry = info.extensions.find(item => item?.extension === "tokenMetadata" && item?.state?.mint === mint);
+  return { name: tokenText(entry?.state?.name), symbol: tokenText(entry?.state?.symbol) };
+}
+
+function resolveTokenIdentity(row, chain = {}, market = {}) {
+  const sources = [[row, "indexed_metadata"], [chain, "solana_mint_metadata"], [market, "dexscreener_pair"]];
+  const field = key => {
+    for (const [data, source] of sources) {
+      const value = tokenText(data?.[key]);
+      if (value) return { value, source };
+    }
+    return { value: null, source: null };
+  };
+  const name = field("name"), symbol = field("symbol");
+  return { name: name.value || "Nom non récupéré", symbol: symbol.value || "N/D",
+    nameStatus: name.value ? "available" : "missing", nameSource: name.source, symbolSource: symbol.source };
 }
 
 async function enrichOnRead(rows, supabaseUrl, supabaseKey) {
@@ -239,6 +259,7 @@ async function enrichMarketRows(rows, supabaseUrl, supabaseKey) {
     const buys24h = finiteNonNegative(pair?.txns?.h24?.buys);
     const sells24h = finiteNonNegative(pair?.txns?.h24?.sells);
     const values = {
+      name: tokenText(pair.baseToken?.name), symbol: tokenText(pair.baseToken?.symbol),
       liquidityUsd, volume24h, marketCap, priceUsd, buys24h, sells24h,
       dexId: typeof pair.dexId === "string" ? pair.dexId : null,
       pairAddress: typeof pair.pairAddress === "string" ? pair.pairAddress : null,
@@ -341,6 +362,7 @@ async function fetchOnchainAuthorities(rows) {
           .filter((name) => typeof name === "string").slice(0, 20)
       : null;
     result.set(addresses[index], {
+      ...mintMetadata(info, addresses[index], account.owner),
       tokenExtensions: extensions,
       mintSupplyRaw: typeof info.supply === "string" ? info.supply : null,
       securityChecked: true,
@@ -592,8 +614,7 @@ export default async function handler(req, res) {
       creatorAddress: validMint(row.creator_address) ? row.creator_address : null,
       creatorSeenTokenCount: creatorCounts.get(row.creator_address) ?? null,
       mint: row.mint,
-      name: tokenText(row.name) || "Token inconnu",
-      symbol: tokenText(row.symbol) || "N/D",
+      ...resolveTokenIdentity(row, onchainChecks.get(row.mint), liveMarkets.get(row.mint)),
       source: row.launch_platform || row.source,
       detectedAt: row.detected_at,
       createdOnchainAt: row.created_onchain_at,

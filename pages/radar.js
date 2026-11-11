@@ -622,6 +622,8 @@ export default function Radar() {
       return bv - av;
     });
   }, [tokens, activeSearchResult, searchQuery, sortBy, minimumLiquidity, evidenceFilter, source]);
+  const marketTokens = displayedTokens.filter(token => !(officialPfxMatch && token.mint === OFFICIAL_PFX_MINT));
+  const searchingTokens = searchQuery.length >= 2 && !activeSearchResult;
 
   async function copyMint(mint) {
     if (!mint) return;
@@ -953,7 +955,7 @@ export default function Radar() {
 
             <div className="resultCounter">
               <span>RÉSULTATS FILTRÉS (PAGE ACTUELLE)</span>
-              <strong>{displayedTokens.filter((token) => !(officialPfxMatch && token.mint === OFFICIAL_PFX_MINT)).length}</strong>
+              <strong>{marketTokens.length}</strong>
             </div>
           </section>
 
@@ -998,7 +1000,7 @@ export default function Radar() {
             </section>
           )}
 
-          {searchQuery.length >= 2 && !activeSearchResult && (
+          {searchingTokens && (
             <section className="message" role="status">
               Recherche des tokens Solana au-delà des dernières détections...
             </section>
@@ -1024,18 +1026,20 @@ export default function Radar() {
               <strong>INITIALISATION PFX RADAR</strong>
               <span>Récupération des signaux Solana...</span>
             </section>
-          ) : !error && displayedTokens.length === 0 && !officialPfxMatch ? (
+          ) : !error && !searchingTokens && marketTokens.length === 0 ? (
             <section className="emptyPanel">
               <div className="emptyIcon">◎</div>
-              <strong>AUCUN TOKEN À AFFICHER</strong>
+              <strong>AUCUN AUTRE TOKEN POUR CES FILTRES</strong>
               <p>
-                Aucun autre token ne correspond actuellement aux
-                critères sélectionnés. Le mint PFX déclaré reste accessible en tête de page.
+                Aucun autre token chargé sur cette page ne correspond aux critères sélectionnés.
+                Modifiez les filtres{source === "live" ? " ou consultez une autre page du flux Helius" : ""}.
+                Ce résultat ne prouve pas l’absence de tokens correspondants sur Solana.
+                Le mint PFX déclaré reste accessible en tête de page.
               </p>
             </section>
           ) : (
             <section className="tokenGrid">
-              {displayedTokens.filter((token) => !(officialPfxMatch && token.mint === OFFICIAL_PFX_MINT)).map((token, index) => (
+              {marketTokens.map((token, index) => (
                 <article className="tokenCard" key={token.id}>
                   {token.officialPfx && (
                     <div role="note" style={{

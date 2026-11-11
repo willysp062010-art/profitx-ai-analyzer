@@ -61,3 +61,5 @@ La compilation de production et la suite de régression doivent passer avant fus
 - Le compte rendu enregistré de la surveillance confirme le passage du cron du 11 novembre à 05:33:28 heure de Paris : HTTP 200, 779 ms, marqueur « PFX alerts cron completed ». Aucun bilan individuel des alertes : leur réussite complète n’est pas déduite de ce passage. Les contrôles des 12 et 13 restent programmés.
 - Le répertoire masque immédiatement les résultats et bloque la pagination pendant la temporisation de saisie ; les anciens résultats ne sont plus présentés sous une nouvelle requête.
 - Le champ de recherche inclut ses bordures et son espacement dans sa largeur, évitant un débordement sur les écrans étroits. La validation visuelle sur téléphone reste ouverte.
+
+- Radar : l’absence de résultats filtrés est désormais affichée même lorsque le bloc PFX officiel reste visible. Le message précise la portée de la page et n’apparaît pas pendant une recherche externe en cours.

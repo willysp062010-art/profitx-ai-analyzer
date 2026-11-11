@@ -82,7 +82,9 @@ async function fetchJSON(url) {
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+      const error = new Error(`HTTP ${response.status}`);
+      error.status = response.status;
+      throw error;
     }
 
     return await response.json();
@@ -242,6 +244,12 @@ export default async function handler(req, res) {
     : pumpResponse.status === "rejected"
       ? errorMessage(pumpResponse)
       : "Format de réponse Pump.fun inattendu.";
+
+  const pumpStatus = pumpResponse.status === "rejected" ? pumpResponse.reason?.status : null;
+  const pumpPublicError = !pumpError ? null
+    : pumpStatus === 401 || pumpStatus === 403
+      ? `Pump.fun refuse l’accès aux données depuis notre serveur (HTTP ${pumpStatus}).`
+      : "Pump.fun temporairement indisponible.";
 
   if (dexError) {
     console.error("[PROFITX] DexScreener :", dexError);
@@ -463,7 +471,7 @@ export default async function handler(req, res) {
       ok: false,
       diagnosticVersion: DIAGNOSTIC_VERSION,
       dexError: dexError ? "DexScreener temporairement indisponible." : null,
-      pumpError: pumpError ? "Pump.fun temporairement indisponible." : null,
+      pumpError: pumpPublicError,
       error: "Services de recherche temporairement indisponibles."
     });
   }
@@ -480,7 +488,7 @@ export default async function handler(req, res) {
       jupiter: jupiterResponse.status === "fulfilled" && Array.isArray(jupiterResponse.value)
     },
     dexError: dexError ? "DexScreener temporairement indisponible." : null,
-    pumpError: pumpError ? "Pump.fun temporairement indisponible." : null,
+    pumpError: pumpPublicError,
     count: results.length,
     results,
     note:

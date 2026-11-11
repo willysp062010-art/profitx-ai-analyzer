@@ -67,3 +67,14 @@ test("Jupiter discovers matching Solana tokens outside the recent Pump.fun windo
   assert.equal(res.body.results.length, 1);
   assert.equal(res.body.results[0].mint, mint);
 });
+
+for (const status of [401, 403]) test(`search reports Pump.fun access refusal HTTP ${status}`, async () => {
+  const handler = loadHandler(async url => url.includes("pump.fun")
+    ? { ok: false, status }
+    : { ok: true, json: async () => url.includes("dexscreener") ? { pairs: [] } : [] });
+  const res = response();
+  await handler({ method: "GET", query: { q: "PFX" } }, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.sources.pumpfun, false);
+  assert.equal(res.body.pumpError, `Pump.fun refuse l’accès aux données depuis notre serveur (HTTP ${status}).`);
+});

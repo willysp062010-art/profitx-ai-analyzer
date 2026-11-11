@@ -440,6 +440,7 @@ export default function Home() {
 const [tokenResults, setTokenResults] = useState([]);
 const [tokenSearchLoading, setTokenSearchLoading] = useState(false);
 const [tokenSearchError, setTokenSearchError] = useState("");
+const [tokenSearchNotice, setTokenSearchNotice] = useState("");
   const [data, setData] =
     useState(null);
 
@@ -550,6 +551,7 @@ async function searchToken(query) {
 
   setTokenResults([]);
   setTokenSearchError("");
+  setTokenSearchNotice("");
 
   if (text.length < 2) return;
 
@@ -571,6 +573,7 @@ async function searchToken(query) {
     }
 
     setTokenResults(result.results || []);
+    setTokenSearchNotice(result.pumpError || "");
   } catch (err) {
     setTokenSearchError(
       "Impossible de rechercher les tokens pour le moment."
@@ -1090,6 +1093,7 @@ async function searchToken(query) {
   <p role="status" style={{ flexBasis: "100%", order: 3 }}>Recherche des tokens Solana...</p>
 )}
 
+{tokenSearchNotice && <p role="status" style={{ color: "#ffd18b" }}>{tokenSearchNotice} La couverture de recherche peut être partielle.</p>}
 {tokenSearchError && (
   <p role="alert" style={{ color: "#ff7070", flexBasis: "100%", order: 3 }}>
     {tokenSearchError}
@@ -2099,7 +2103,7 @@ async function searchToken(query) {
                   fournie par son API et données lues via Solana RPC.
                   Association au mint non vérifiée par PDA ; aucune garantie de revente.
                   {observed.onchainCurveStatus === "PUMPFUN_API_BLOCKED"
-                    ? " Lecture indisponible : Pump.fun bloque actuellement l'accès API (HTTP 403)."
+                    ? " Pump.fun refuse l’accès aux données depuis notre serveur (HTTP 403)."
                     : observed.onchainCurveStatus === "CURVE_ADDRESS_UNAVAILABLE"
                       ? " Adresse du compte non disponible ou non confirmée."
                       : observed.onchainCurveStatus === "RPC_ACCOUNT_UNVERIFIED"

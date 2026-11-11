@@ -48,7 +48,7 @@ export default async function handler(req, res) {
           ok: false,
           source: "pumpfun",
           status: "SOURCE_ACCESS_RESTRICTED",
-          error: "Pump.fun refuse actuellement l’accès au flux de découverte depuis notre serveur. Les autres sources du Radar restent indépendantes."
+          error: `Pump.fun refuse l’accès aux données depuis notre serveur (HTTP ${response.status}). Les autres sources du Radar restent indépendantes.`
         });
       }
       throw new Error("Pump.fun HTTP " + response.status);

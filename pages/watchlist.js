@@ -52,7 +52,7 @@ export default function Watchlist() {
   const [removed, setRemoved] = useState(null);
   const [identifying, setIdentifying] = useState("");
   const officialMint = "6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump";
-  const visibleItems = items.filter(item => [item.name, item.symbol, item.tokenAddress].some(value => String(value || "").toLocaleLowerCase().includes(filter.trim().toLocaleLowerCase())));
+  const visibleItems = items.filter(item => [item.name, item.symbol, item.tokenAddress, item.tokenAddress === officialMint ? "PROFITX PFX" : ""].some(value => String(value || "").toLocaleLowerCase().includes(filter.trim().toLocaleLowerCase())));
 
   useEffect(() => {
     function refresh() {

@@ -1,3 +1,5 @@
+import { assessAnalysisQuality } from "../../utils/analysis-quality";
+
 const DEXSCREENER_URL =
   "https://api.dexscreener.com/latest/dex/tokens";
 
@@ -13,7 +15,7 @@ const DEFAULT_RPC =
     : "https://api.mainnet-beta.solana.com";
 
 const TIMEOUT = 12000;
-const VERSION = "4.5.1";
+const VERSION = "4.5.2";
 
 /* =========================================================
    BASIC HELPERS
@@ -1470,6 +1472,8 @@ function diagnostic({
       state,
 
     confidence: {
+      meaning: "CONTROL_AVAILABILITY_ONLY",
+      note: "Disponibilité des contrôles ; ne mesure pas la fiabilité de toutes les données ni la sécurité du token.",
       score:
         confidence,
 
@@ -1916,6 +1920,21 @@ export default async function handler(
       distribution
     });
 
+  const dataQuality = assessAnalysisQuality({
+    components: structural.components,
+    activity: activityValue,
+    volume: volumeValue,
+    isToken2022: token2022?.isToken2022,
+    extensionsScored: token2022?.analysis?.scoringReady === true,
+    priceStatus: dex?.priceStatus,
+    totalScore: globalScore
+  });
+  diag.analysisStatus = dataQuality.status;
+  if (dataQuality.status !== "COMPLETE") {
+    diag.positives = diag.positives.filter(message => !message.includes("Structure globalement solide"));
+    diag.conclusion += " L'analyse reste limitée : le score ne suffit pas à conclure à la solidité globale du token.";
+  }
+
   const missingData = [];
 
   if (dex?.priceStatus === "CONFLICTING_POOL_PRICES") {
@@ -2331,6 +2350,9 @@ export default async function handler(
         token2022?.isToken2022 ??
         null,
 
+      analysisComplete: token2022?.analysis?.analysisComplete ?? null,
+      scoringReady: token2022?.analysis?.scoringReady ?? null,
+
       extensionCount:
         token2022
           ?.analysis
@@ -2562,6 +2584,8 @@ export default async function handler(
       },
 
       diagnostic: diag,
+
+      dataQuality,
 
       missingData,
 

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import PfxPoolStatus from "../components/PfxPoolStatus";
 import MarketDataNotice from "../components/MarketDataNotice";
+import AnalysisQualityNotice from "../components/AnalysisQualityNotice";
+import { describeStructure } from "../utils/analysis-quality";
 
 
 const DEFAULT_MINT =
@@ -300,7 +302,8 @@ function getDistributionView(holders) {
 
 
 function buildProfitxDiagnostic({
-  totalScore,
+  structuralScore,
+  quality,
   liquidityScore,
   distributionScore,
   activityScore,
@@ -310,44 +313,7 @@ function buildProfitxDiagnostic({
   activityState,
   missingData
 }) {
-  const numericTotal =
-    isNumber(totalScore)
-      ? Number(totalScore)
-      : null;
-
-  let level = "Analyse partielle";
-
-  let summary =
-    "Le score global ne peut pas être interprété complètement avec les données actuellement disponibles.";
-
-  if (numericTotal !== null) {
-    if (numericTotal >= 90) {
-      level = "Structure très solide";
-
-      summary =
-        "Les indicateurs disponibles décrivent une structure globalement très solide selon le modèle ProfitX.";
-    } else if (numericTotal >= 75) {
-      level = "Structure solide";
-
-      summary =
-        "Les indicateurs disponibles décrivent une structure globalement solide, avec quelques éléments qui peuvent encore réduire le score.";
-    } else if (numericTotal >= 55) {
-      level = "Structure intermédiaire";
-
-      summary =
-        "Le profil observé est intermédiaire : plusieurs indicateurs sont satisfaisants, mais certains points limitent encore nettement le score.";
-    } else if (numericTotal >= 35) {
-      level = "Structure fragile";
-
-      summary =
-        "Plusieurs indicateurs observés limitent actuellement la solidité du profil analysé.";
-    } else {
-      level = "Structure très fragile";
-
-      summary =
-        "Le profil présente actuellement plusieurs indicateurs faibles ou insuffisants selon le modèle ProfitX.";
-    }
-  }
+  const { level, summary } = describeStructure(structuralScore, quality);
 
   const metrics = [
     {
@@ -783,8 +749,8 @@ async function searchToken(query) {
 
   const profitxDiagnostic =
     buildProfitxDiagnostic({
-      totalScore:
-        score?.total,
+      structuralScore: score?.structural,
+      quality: data?.dataQuality,
       liquidityScore,
       distributionScore,
       activityScore,
@@ -1206,7 +1172,7 @@ async function searchToken(query) {
             <div>
 
               <div className="label">
-                SCORE STRUCTUREL
+                SCORE GLOBAL
               </div>
 
               <div className="score">
@@ -1268,6 +1234,7 @@ async function searchToken(query) {
           </div>
 
 
+          <AnalysisQualityNotice quality={data.dataQuality} />
           <div className="panel">
 
             <h2>
@@ -2308,7 +2275,7 @@ async function searchToken(query) {
 
                 <div>
                   <span>
-                    Analyse complète
+                    Lecture des extensions terminée
                   </span>
 
                   <strong>
@@ -2319,6 +2286,11 @@ async function searchToken(query) {
                         : "N/D — NON ÉVALUÉE"}
                   </strong>
                 </div>
+
+                {token2022.isToken2022 === true && <div>
+                  <span>Extensions intégrées au score</span>
+                  <strong>{token2022.scoringReady === true ? "OUI" : token2022.scoringReady === false ? "NON" : "N/D"}</strong>
+                </div>}
 
               </div>
 
@@ -2465,7 +2437,7 @@ async function searchToken(query) {
 
               <div>
                 <span>
-                  Données disponibles
+                  Couverture des critères structurels
                 </span>
 
                 <strong>
@@ -2557,7 +2529,7 @@ async function searchToken(query) {
 
               <div>
                 <span>
-                  Données disponibles
+                  Couverture des critères structurels
                 </span>
 
                 <strong>

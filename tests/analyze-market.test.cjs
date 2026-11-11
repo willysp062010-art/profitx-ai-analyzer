@@ -3,7 +3,10 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const vm = require("node:vm");
 const path = require("node:path");
-const source = fs.readFileSync(path.join(__dirname, "../pages/api/analyze.js"), "utf8")
+const qualitySource = fs.readFileSync(path.join(__dirname, "../utils/analysis-quality.js"), "utf8")
+  .replace(/export function /g, "function ");
+const source = qualitySource + "\n" + fs.readFileSync(path.join(__dirname, "../pages/api/analyze.js"), "utf8")
+  .replace('import { assessAnalysisQuality } from "../../utils/analysis-quality";', "")
   .replace("export default async function handler(", "async function handler(")
   + "\nmodule.exports = { selectDexPair, dexMetrics, dexData, handler };";
 function load(fetchImpl = async () => { throw Error("Unexpected network request"); }) {
@@ -88,6 +91,9 @@ test("full analyzer response withholds conflicting prices across all public alia
     assert.equal(alias.marketCapUsd, null);
   }
   assert.equal(res.body.market.priceStatus, "CONFLICTING_POOL_PRICES");
+  assert.equal(res.body.dataQuality.status, "CONFLICTING");
+  assert.equal(res.body.dataQuality.scoreStatus, "UNAVAILABLE");
+  assert.equal(res.body.diagnostic.analysisStatus, "CONFLICTING");
   assert.equal(res.body.market.volumeSource, "selected_pair");
   assert.equal(res.body.market.transactionsSource, "selected_pair");
   assert.ok(res.body.diagnostic.warnings.some(w => w.includes("Prix divergents")));

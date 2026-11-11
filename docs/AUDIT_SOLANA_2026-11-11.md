@@ -71,3 +71,11 @@ La compilation de production et la suite de régression doivent passer avant fus
 - Le stockage des alertes valide aussi le décodage Base58 sur 32 octets, et pas seulement l’apparence de l’adresse.
 
 - Analyzer et Intelligence : les six signaux techniques de sécurité connus sont expliqués en français ; les limites Token-2022 ne sont pas présentées comme une garantie.
+
+## Watchlist — identification et gestion
+
+- Affichage des noms/symboles déjà enregistrés, mint complet, date d’ajout, identification locale du mint PFX déclaré et filtre par nom/symbole/adresse.
+- Récupération manuelle des noms depuis une recherche du mint exact, sans attribuer les métadonnées d’un homonyme ; aucun cours ou score inventé.
+- Accès direct aux alertes avec préselection du mint. Retrait annulable, fusion avec l’état du stockage actuel et absence de duplication lors d’une restauration.
+- Une Watchlist inaccessible n’est plus présentée comme simplement vide.
+- 151 tests passent ; compilation de production réussie. Les cas de concurrence de retrait/restauration et d’identification sont couverts par les nouveaux tests.

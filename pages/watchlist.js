@@ -48,6 +48,11 @@ export default function Watchlist() {
   const [tokenAddress, setTokenAddress] = useState("");
   const [error, setError] = useState("");
   const [copied, setCopied] = useState("");
+  const [filter, setFilter] = useState("");
+  const [removed, setRemoved] = useState(null);
+  const [identifying, setIdentifying] = useState("");
+  const officialMint = "6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump";
+  const visibleItems = items.filter(item => [item.name, item.symbol, item.tokenAddress].some(value => String(value || "").toLocaleLowerCase().includes(filter.trim().toLocaleLowerCase())));
 
   useEffect(() => {
     function refresh() {
@@ -155,8 +160,48 @@ export default function Watchlist() {
 
   function removeToken(id) {
     setError(""); setNotice("");
-    try { commitItems(readWatchlist(window.localStorage).filter(item => item.id !== id)); }
+    try {
+      const current = readWatchlist(window.localStorage);
+      const item = current.find(item => item.id === id);
+      if (item && commitItems(current.filter(item => item.id !== id))) {
+        setRemoved(item);
+        setNotice("Token retiré de la Watchlist. Vous pouvez annuler ce retrait.");
+      }
+    }
     catch { setError("La suppression n'a pas été enregistrée."); }
+  }
+
+  async function identifyToken(item) {
+    if (identifying || item.chainId !== "solana" || !storageReady) return;
+    setIdentifying(item.tokenAddress); setError(""); setNotice("");
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12000);
+    try {
+      const response = await fetch("/api/search-token?q=" + encodeURIComponent(item.tokenAddress), {signal: controller.signal});
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw Error("Identification temporairement indisponible.");
+      const match = Array.isArray(data.results) ? data.results.find(token => token.mint === item.tokenAddress) : null;
+      const name = typeof match?.name === "string" ? match.name.trim().slice(0,100) : "";
+      const symbol = typeof match?.symbol === "string" ? match.symbol.trim().slice(0,40) : "";
+      if (!name && !symbol) { setNotice("Aucun nom récupéré pour cette adresse. Le token reste enregistré par son mint."); return; }
+      const current = readWatchlist(window.localStorage);
+      if (!current.some(token => token.chainId === item.chainId && token.tokenAddress === item.tokenAddress)) {
+        setNotice("Ce token a été retiré entre-temps. La Watchlist n’a pas été modifiée."); return;
+      }
+      if (commitItems(current.map(token => token.chainId === item.chainId && token.tokenAddress === item.tokenAddress
+        ? {...token, ...(name ? {name} : {}), ...(symbol ? {symbol} : {})} : token))) setNotice("Nom récupéré pour le mint exact. Ces métadonnées ne constituent pas une vérification du projet.");
+    } catch { setError("Impossible de récupérer le nom actuellement. Votre token reste enregistré."); }
+    finally { clearTimeout(timer); setIdentifying(""); }
+  }
+
+  function undoRemoval() {
+    setError("");
+    try {
+      const current = readWatchlist(window.localStorage);
+      if (removed && commitItems(mergeWatchlist(current, [removed]))) {
+        setRemoved(null); setNotice("Token rétabli dans la Watchlist.");
+      }
+    } catch (error) { setError(error.message || "Restauration impossible."); }
   }
 
   async function copyAddress(address) {
@@ -344,6 +389,7 @@ export default function Watchlist() {
             </label>
           </div>
           {notice && <p role="status" style={{ color: "#65efad" }}>{notice}</p>}
+          {removed && <button type="button" className="secondaryButton" onClick={undoRemoval} disabled={!storageReady}>ANNULER LE DERNIER RETRAIT</button>}
 
           {error && (
             <div className="error" role="alert">
@@ -372,10 +418,15 @@ export default function Watchlist() {
             </div>
           </div>
 
+          <label className="hint" htmlFor="watchlist-filter">Filtrer vos tokens par nom, symbole ou mint</label>
+          <input id="watchlist-filter" value={filter} onChange={event => setFilter(event.target.value)} placeholder="Rechercher dans ma Watchlist" style={{width:"100%",boxSizing:"border-box",padding:14,margin:"12px 0",background:"#07120d",border:"1px solid #347c58",borderRadius:10,color:"white",fontSize:16}} />
+          <p className="hint">{visibleItems.length} affiché(s) sur {items.length} enregistré(s). Les noms déclarés ne constituent pas une vérification du token.</p>
           {!loaded ? (
             <div className="empty">
               Chargement de la Watchlist...
             </div>
+          ) : !storageReady ? (
+            <div className="empty"><strong>Watchlist inaccessible.</strong><span>Les données enregistrées n’ont pas été remplacées. Vérifiez l’accès au stockage de ce navigateur.</span></div>
           ) : items.length === 0 ? (
             <div className="empty">
               <strong>
@@ -387,9 +438,11 @@ export default function Watchlist() {
                 à construire votre Watchlist ProfitX.
               </span>
             </div>
+          ) : visibleItems.length === 0 ? (
+            <div className="empty"><strong>Aucun token ne correspond à votre filtre.</strong><button type="button" className="secondaryButton" onClick={() => setFilter("")}>EFFACER LE FILTRE</button></div>
           ) : (
             <div className="tokenList">
-              {items.map((item) => {
+              {visibleItems.map((item) => {
                 const network =
                   NETWORKS.find(
                     (entry) =>
@@ -408,6 +461,8 @@ export default function Watchlist() {
                             item.chainId}
                         </span>
 
+                        <strong style={{display:"block",marginTop:10,overflowWrap:"anywhere"}}>{item.tokenAddress === officialMint ? "PROFITX (PFX)" : item.name || "Nom non renseigné"}{item.tokenAddress !== officialMint && item.symbol ? " · " + item.symbol : ""}</strong>
+                        {item.tokenAddress === officialMint && <span className="hint">Mint déclaré par PROFITX AI · non audité</span>}
                         <strong className="address">
                           {shortAddress(
                             item.tokenAddress
@@ -421,7 +476,8 @@ export default function Watchlist() {
                         onClick={() =>
                           removeToken(item.id)
                         }
-                        title="Supprimer"
+                        title="Retirer de la Watchlist"
+                        aria-label={"Retirer " + (item.name || item.tokenAddress) + " de la Watchlist"}
                       >
                         ×
                       </button>
@@ -431,7 +487,10 @@ export default function Watchlist() {
                       {item.tokenAddress}
                     </div>
 
+                    <p className="hint">{Number.isFinite(Date.parse(item.addedAt)) ? "Ajouté le " + new Date(item.addedAt).toLocaleDateString("fr-FR") : "Date d’ajout non renseignée"}</p>
                     <div className="actions">
+                      {item.chainId === "solana" && item.tokenAddress !== officialMint && <button type="button" className="copyButton" disabled={Boolean(identifying) || !storageReady} onClick={() => identifyToken(item)}>{identifying === item.tokenAddress ? "IDENTIFICATION…" : item.name ? "ACTUALISER LE NOM" : "RÉCUPÉRER LE NOM"}</button>}
+                      <button type="button" className="copyButton" disabled={item.chainId !== "solana"} onClick={() => router.push("/alerts?mint=" + encodeURIComponent(item.tokenAddress))}>ALERTES</button>
                       <button
                         type="button"
                         className="copyButton"

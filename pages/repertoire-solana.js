@@ -2,6 +2,7 @@ import { nonNegativeObservation } from "../utils/observed-number";
 import {useEffect,useRef,useState} from "react";
 import Head from "next/head";
 import Link from "next/link";
+import DirectoryStats from "../components/DirectoryStats";
 import PfxPoolStatus from "../components/PfxPoolStatus";
 
 const money=(value)=>{
@@ -72,6 +73,7 @@ export default function RepertoireSolana(){
       <div style={{color:"#42f9a1",fontWeight:800,letterSpacing:3}}>PROFITX AI — SOLANA INTELLIGENCE</div>
       <h1 style={{fontSize:"clamp(28px,5vw,46px)",marginBottom:8}}>Répertoire des tokens observés</h1>
       <p style={styles.muted}>Explorez les tokens indexés depuis notre système de détection, y compris les anciennes créations enregistrées.</p>
+      <DirectoryStats />
       <div style={{...styles.card,borderColor:"#937331",color:"#f7d894"}}>
         ⚠ Couverture partielle : ce répertoire ne contient pas encore tous les tokens Solana. Être répertorié ne signifie ni vérifié, ni sûr, ni recommandé à l'achat.
       </div>

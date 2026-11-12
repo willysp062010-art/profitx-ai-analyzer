@@ -25,7 +25,7 @@ export default function AnalyzerUsage() {
     return ()=>{active=false;controller.abort();clearInterval(timer);window.removeEventListener("pfx-usage-updated",refresh);};
   },[]);
   const value=key=>error?"N/D":stats?stats[key].toLocaleString("fr-FR"):"…";
-  return <section aria-label="Utilisation de l’Analyzer" style={{margin:"24px 0",padding:22,border:"1px solid #2b8b5b",borderRadius:16,background:"#0a1d14",color:"#e7f5ed"}}>
+  return <section className="pfxUsagePanel" aria-label="Utilisation de l’Analyzer" style={{margin:"24px 0",padding:22,border:"1px solid #2b8b5b",borderRadius:16,background:"#0a1d14",color:"#e7f5ed"}}>
     <h2 style={{margin:"0 0 8px",fontSize:24}}>L’Analyzer en chiffres</h2>
     <p style={{margin:"0 0 18px",color:"#a9c9b8"}}>Activité observée sur cette page</p>
     <div className="pfxUsageGrid">

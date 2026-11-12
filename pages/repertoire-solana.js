@@ -60,12 +60,12 @@ export default function RepertoireSolana(){
   const searching=state.loading||queryPending;
   const officialMint="6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump";
   const styles={
-    page:{minHeight:"100vh",background:"#070b0a",color:"#e7f5ed",fontFamily:"Arial, sans-serif",padding:"24px"},
+    page:{minHeight:"100vh",background:"transparent",color:"#e7f5ed",fontFamily:"var(--pfx-font)",padding:"24px"},
     shell:{maxWidth:1180,margin:"0 auto"},
-    card:{background:"#101b17",border:"1px solid #294c3b",borderRadius:14,padding:18,marginTop:12},
+    card:{background:"var(--pfx-surface)",border:"1px solid var(--pfx-line)",borderRadius:14,padding:18,marginTop:12},
     link:{color:"#42f9a1",textDecoration:"none"},
-    input:{boxSizing:"border-box",width:"100%",maxWidth:610,background:"#101b17",border:"1px solid #347c58",borderRadius:10,padding:15,color:"white",fontSize:16},
-    btn:{background:"#123626",color:"#e7f5ed",border:"1px solid #347c58",padding:"10px 16px",borderRadius:8,cursor:"pointer"},
+    input:{boxSizing:"border-box",width:"100%",maxWidth:610,background:"var(--pfx-surface)",border:"1px solid #625079",borderRadius:10,padding:15,color:"white",fontSize:16},
+    btn:{background:"#201b2e",color:"#e7f5ed",border:"1px solid #625079",padding:"10px 16px",borderRadius:8,cursor:"pointer"},
     muted:{color:"#9cb4a5"}
   };
   return <main id="pfx-main-content" tabIndex={-1} style={styles.page}>

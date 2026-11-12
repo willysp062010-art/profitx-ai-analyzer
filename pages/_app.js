@@ -1,39 +1,7 @@
 import "../styles/globals.css";
+import "../styles/pfx-observatory.css";
 import Head from "next/head";
 import SiteNavigation from "../components/SiteNavigation";
-
-const PFX_BACKGROUNDS = [
-  "/pfx-token-officiel.png",
-  "/profitx-logo-02-analyzer.png",
-  "/profitx-logo-02-analyzer.png",
-];
-
-function PfxBackground() {
-  const bubbles = [
-    { logo: 0, className: "pfxBubble pfxBubble1" },
-    { logo: 1, className: "pfxBubble pfxBubble2" },
-    { logo: 2, className: "pfxBubble pfxBubble3" },
-    { logo: 1, className: "pfxBubble pfxBubble4" },
-    { logo: 0, className: "pfxBubble pfxBubble5" },
-    { logo: 2, className: "pfxBubble pfxBubble6" },
-    { logo: 0, className: "pfxBubble pfxBubble7" },
-    { logo: 1, className: "pfxBubble pfxBubble8" },
-  ];
-
-  return (
-    <div className="pfxBackground" aria-hidden="true">
-      {bubbles.map((bubble, index) => (
-        <div className={bubble.className} key={index}>
-          <img
-            src={PFX_BACKGROUNDS[bubble.logo]}
-            alt=""
-            draggable="false"
-          />
-        </div>
-      ))}
-    </div>
-  );
-}
 
 export default function App({ Component, pageProps }) {
   return (
@@ -43,7 +11,7 @@ export default function App({ Component, pageProps }) {
         <meta name="description" content="Analysez les risques des tokens Solana : données de marché, sécurité, concentration, Radar, Watchlist et alertes PROFITX AI." key="description" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
-      <PfxBackground />
+      <div className="pfxObservatoryBackground" aria-hidden="true" />
       <div className="pfxSiteContent">
         <SiteNavigation />
         <Component {...pageProps} />

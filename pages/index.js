@@ -1,3 +1,4 @@
+import ObservatoryMark from "../components/ObservatoryMark";
 import QuoteFreshness from "../components/QuoteFreshness";
 import AnalyzerUsage from "../components/AnalyzerUsage";
 import { usageEventId } from "../utils/usage-client";
@@ -805,12 +806,154 @@ async function searchToken(query) {
 
 
   return (
-    <main id="pfx-main-content" tabIndex={-1} className="shell">
+    <main id="pfx-main-content" tabIndex={-1} className="shell pfxAnalyzer">
 
 
 
 
-      <section className="panel">
+      <section className="hero pfxAnalyzerHero">
+        <div className="pfxHeroCopy">
+
+        <div className="eyebrow">
+          L’OBSERVATOIRE DES TOKENS SOLANA
+        </div>
+
+        <h1>
+          Les faits d’abord.<br />
+          <span className="pfxHeadlineAccent">Le risque en clair.</span>
+        </h1>
+
+        <p className="intro">
+          Explorez ce qui se cache derrière un token : liquidité,
+          détenteurs, activité et autorités. Des preuves accessibles,
+          des limites visibles. L’analyse Solana, gratuitement.
+        </p>
+
+        <div className="search" style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "flex-start" }}>
+
+          <input autoCapitalize="none" autoCorrect="off" maxLength={80}
+            aria-label="Nom, symbole ou adresse mint Solana"
+            style={{ minWidth: 0, flex: "1 1 240px" }}
+            value={mint}
+            disabled={loading}
+           onChange={(e) => {
+  const value = e.target.value;
+  quoteContext.current++;
+  setData(null); setSellQuote(null); setEurQuote(null);
+  setSellQuoteLoading(false); setEurQuoteLoading(false);
+  setMint(value); setError("");
+  setTokenResults([]); setTokenSearchNotice(""); setTokenSearchError("");
+  tokenSearchRequest.current++; tokenSearchAbort.current?.abort(); clearTimeout(tokenSearchTimer.current);
+  setTokenSearchLoading(value.trim().length >= 2);
+  if (value.trim().length >= 2) tokenSearchTimer.current = setTimeout(() => searchToken(value), 300);
+}}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                analyze();
+              }
+            }}
+            placeholder="Nom, symbole ou adresse mint Solana"
+            spellCheck="false"
+            autoComplete="off"
+          />
+{tokenSearchLoading && (
+  <p role="status" style={{ flexBasis: "100%", order: 3 }}>Recherche des tokens Solana...</p>
+)}
+
+{tokenSearchNotice && <p role="status" style={{ color: "#ffd18b", flexBasis: "100%", order: 3 }}>{tokenSearchNotice} La couverture de recherche peut être partielle.</p>}
+{tokenSearchError && (
+  <p role="alert" style={{ color: "#ff7070", flexBasis: "100%", order: 3 }}>
+    {tokenSearchError}
+  </p>
+)}
+
+{tokenResults.length > 0 && (
+  <div style={{
+    flexBasis: "100%",
+    order: 3,
+    boxSizing: "border-box",
+    width: "100%",
+    maxHeight: "280px",
+    overflowY: "auto",
+    background: "#101a16",
+    border: "1px solid #32ff85",
+    borderRadius: "8px",
+    padding: "8px"
+  }}>
+    {tokenResults.map((token) => (
+      <button
+        key={token.mint}
+        type="button"
+        onClick={() => {
+          clearTimeout(tokenSearchTimer.current); tokenSearchAbort.current?.abort();
+          tokenSearchRequest.current++;
+          setTokenSearchLoading(false);
+          setError("");
+          setMint(token.mint);
+          setTokenResults([]);
+          setTokenSearchError("");
+        }}
+        style={{
+          display: "block",
+          width: "100%",
+          textAlign: "left",
+          padding: "10px",
+          marginBottom: "5px",
+          background: "#17251d",
+          color: "#ffffff",
+          border: "1px solid #344c3c",
+          borderRadius: "6px",
+          cursor: "pointer",
+          overflowWrap: "anywhere"
+        }}
+      >
+        <strong>{token.name} ({token.symbol})</strong>
+        <div style={{ fontSize: "11px", opacity: 0.8 }}>
+          {token.mint}
+        </div>
+        <div style={{ fontSize: "11px", color: "#ffcb66" }}>
+          {token.verificationStatus === "OFFICIAL_PROJECT_MINT"
+            ? "MINT DÉCLARÉ PAR PROFITX — NON AUDITÉ"
+            : "MINT NON VÉRIFIÉ"}
+        </div>
+      </button>
+    ))}
+  </div>
+)}
+          <button
+            style={{ order: 2, flexShrink: 0, minHeight: 60 }}
+            onClick={analyze}
+            disabled={
+              loading ||
+              !mint.trim()
+            }
+          >
+            {loading
+              ? "Analyse..."
+              : "Analyser"}
+          </button>
+
+        </div>
+
+        <div className="hint">
+          Les données observées sont affichées telles
+          quelles. Un zéro réel reste un zéro et n'est
+          jamais transformé en donnée manquante.
+        </div>
+
+        <div className="pfxHeroFoot"><span>ANALYSE GRATUITE · SANS CONNEXION WALLET</span><a href="/repertoire-solana">Explorer le répertoire <span aria-hidden="true">↗</span></a></div>
+        </div>
+        <ObservatoryMark />
+      </section>
+      <div className="pfxMethodStrip" aria-label="Les trois principes de l’Analyzer">
+        <div><span>01 / OBSERVER</span><strong>Les données disponibles</strong></div>
+        <div><span>02 / COMPRENDRE</span><strong>Les risques et leurs sources</strong></div>
+        <div><span>03 / VÉRIFIER</span><strong>Les limites de chaque résultat</strong></div>
+      </div>
+      <AnalyzerUsage />
+      <details className="pfxProjectDetails">
+        <summary><span>LE PROJET PFX</span> Token officiel, mint et liens du projet <span aria-hidden="true">+</span></summary>
+<section className="panel">
 
         <div className="eyebrow">
           PFX • OFFICIAL PROFITX TOKEN
@@ -1002,142 +1145,7 @@ async function searchToken(query) {
         </div>
 
       </section>
-
-
-      <AnalyzerUsage />
-      <section className="hero">
-
-        <div className="eyebrow">
-          DATA ENGINE • PFX ENGINE • SCORE
-        </div>
-
-        <h1>
-          Analyse structurelle
-          <br />
-          d’un token Solana.
-        </h1>
-
-        <p className="intro">
-          Un moteur conçu pour séparer les données
-          observables, l’activité réelle du marché,
-          les signaux de risque et le score structurel.
-          Pas de promesse de rendement.
-        </p>
-
-        <div className="search" style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "flex-start" }}>
-
-          <input autoCapitalize="none" autoCorrect="off" maxLength={80}
-            aria-label="Nom, symbole ou adresse mint Solana"
-            style={{ minWidth: 0, flex: "1 1 240px" }}
-            value={mint}
-            disabled={loading}
-           onChange={(e) => {
-  const value = e.target.value;
-  quoteContext.current++;
-  setData(null); setSellQuote(null); setEurQuote(null);
-  setSellQuoteLoading(false); setEurQuoteLoading(false);
-  setMint(value); setError("");
-  setTokenResults([]); setTokenSearchNotice(""); setTokenSearchError("");
-  tokenSearchRequest.current++; tokenSearchAbort.current?.abort(); clearTimeout(tokenSearchTimer.current);
-  setTokenSearchLoading(value.trim().length >= 2);
-  if (value.trim().length >= 2) tokenSearchTimer.current = setTimeout(() => searchToken(value), 300);
-}}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                analyze();
-              }
-            }}
-            placeholder="Nom, symbole ou adresse mint Solana"
-            spellCheck="false"
-            autoComplete="off"
-          />
-{tokenSearchLoading && (
-  <p role="status" style={{ flexBasis: "100%", order: 3 }}>Recherche des tokens Solana...</p>
-)}
-
-{tokenSearchNotice && <p role="status" style={{ color: "#ffd18b", flexBasis: "100%", order: 3 }}>{tokenSearchNotice} La couverture de recherche peut être partielle.</p>}
-{tokenSearchError && (
-  <p role="alert" style={{ color: "#ff7070", flexBasis: "100%", order: 3 }}>
-    {tokenSearchError}
-  </p>
-)}
-
-{tokenResults.length > 0 && (
-  <div style={{
-    flexBasis: "100%",
-    order: 3,
-    boxSizing: "border-box",
-    width: "100%",
-    maxHeight: "280px",
-    overflowY: "auto",
-    background: "#101a16",
-    border: "1px solid #32ff85",
-    borderRadius: "8px",
-    padding: "8px"
-  }}>
-    {tokenResults.map((token) => (
-      <button
-        key={token.mint}
-        type="button"
-        onClick={() => {
-          clearTimeout(tokenSearchTimer.current); tokenSearchAbort.current?.abort();
-          tokenSearchRequest.current++;
-          setTokenSearchLoading(false);
-          setError("");
-          setMint(token.mint);
-          setTokenResults([]);
-          setTokenSearchError("");
-        }}
-        style={{
-          display: "block",
-          width: "100%",
-          textAlign: "left",
-          padding: "10px",
-          marginBottom: "5px",
-          background: "#17251d",
-          color: "#ffffff",
-          border: "1px solid #344c3c",
-          borderRadius: "6px",
-          cursor: "pointer",
-          overflowWrap: "anywhere"
-        }}
-      >
-        <strong>{token.name} ({token.symbol})</strong>
-        <div style={{ fontSize: "11px", opacity: 0.8 }}>
-          {token.mint}
-        </div>
-        <div style={{ fontSize: "11px", color: "#ffcb66" }}>
-          {token.verificationStatus === "OFFICIAL_PROJECT_MINT"
-            ? "MINT DÉCLARÉ PAR PROFITX — NON AUDITÉ"
-            : "MINT NON VÉRIFIÉ"}
-        </div>
-      </button>
-    ))}
-  </div>
-)}
-          <button
-            style={{ order: 2, flexShrink: 0, minHeight: 60 }}
-            onClick={analyze}
-            disabled={
-              loading ||
-              !mint.trim()
-            }
-          >
-            {loading
-              ? "Analyse..."
-              : "Analyser"}
-          </button>
-
-        </div>
-
-        <div className="hint">
-          Les données observées sont affichées telles
-          quelles. Un zéro réel reste un zéro et n'est
-          jamais transformé en donnée manquante.
-        </div>
-
-      </section>
-
+      </details>
 
       {error && (
         <div className="error">

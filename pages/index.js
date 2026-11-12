@@ -1,3 +1,4 @@
+import QuoteFreshness from "../components/QuoteFreshness";
 import AnalyzerUsage from "../components/AnalyzerUsage";
 import { usageEventId } from "../utils/usage-client";
 import { securityWarningText } from "../utils/security-warning";
@@ -1680,12 +1681,14 @@ async function searchToken(query) {
                   {eurQuote.indicativeDifferenceEur != null && <div><span>Écart indicatif achat/revente</span><strong>{new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 4 }).format(eurQuote.indicativeDifferenceEur)}</strong></div>}
                   {eurQuote.priceImpactPct != null && <div><span>Impact prix estimé</span><strong>{Number(eurQuote.priceImpactPct).toLocaleString("fr-FR", { maximumFractionDigits: 4 })}%</strong></div>}
                   {eurQuote.reason && <div><span>Motif</span><strong>{eurQuote.reason}</strong></div>}
+                  {eurQuote.status === "ROUTE_QUOTED" && <QuoteFreshness quotedAt={eurQuote.quotedAt} />}
                   <p style={{ opacity: 0.8 }}>Taux EUR/USD de référence {eurQuote.fxDate || "non daté"}. USDC ≠ USD garanti. Frais réseau, slippage maximal et exécution non vérifiés. Aucune transaction envoyée.</p>
                 </div>
               )}
             </div>
             {sellQuote && (
               <div className="observed" aria-live="polite">
+                {sellQuote.status === "ROUTE_QUOTED" && <QuoteFreshness quotedAt={sellQuote.quotedAt} />}
                 <div><span>Quantité cotée</span><strong>{sellQuote.tokenAmount} token(s)</strong></div>
                 <div><span>Résultat Jupiter</span><strong>{sellQuote.status === "ROUTE_QUOTED" ? "Route cotée (indicative)" : "Cotation indisponible"}</strong></div>
                 {sellQuote.outputAmountRaw != null && (

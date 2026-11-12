@@ -1,3 +1,4 @@
+import { checkedFxReference } from "../../utils/quote-freshness";
 import { checkedQuote, quoteImpactPercent } from "../../utils/quote-validation";
 import { isSolanaMint } from "../../utils/watchlist";
 // PROFITX AI — indicative EUR-denominated round-trip quote. No wallet, transaction or signature.
@@ -21,8 +22,7 @@ export default async function handler(req, res) {
   try {
     // Frankfurter publishes ECB reference FX rates; USDC is assumed near USD, not guaranteed.
     const fx = await jsonFetch("https://api.frankfurter.dev/v1/latest?base=EUR&symbols=USD", {}, controller.signal);
-    const usdPerEur = Number(fx?.rates?.USD);
-    if (!(usdPerEur > 0.5 && usdPerEur < 2)) throw new Error("Taux EUR/USD indisponible.");
+    const { rate: usdPerEur, date: fxDate } = checkedFxReference(fx);
     const inputUsd = eur * usdPerEur;
     const usdcRaw = Math.round(inputUsd * 1e6);
     const headers = { Accept: "application/json" };
@@ -45,7 +45,7 @@ export default async function handler(req, res) {
     const returnedEur = returnedUsd / usdPerEur;
     return res.status(200).json({
       ok: true, status: "ROUTE_QUOTED", eurReference: eur,
-      tokenAmountRaw: tokenRaw, usdPerEur, fxDate: fx.date ?? null,
+      tokenAmountRaw: tokenRaw, usdPerEur, fxDate,
       indicativeSaleEur: Number(returnedEur.toFixed(4)),
       indicativeDifferenceEur: Number((eur - returnedEur).toFixed(4)),
       priceImpactPct: quoteImpactPercent(sell),

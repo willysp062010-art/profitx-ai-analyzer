@@ -13,7 +13,7 @@ The existing Solana web tools are the release scope. This is not a declaration o
 
 ## Validation evidence
 
-192 automated tests pass, including regression cases for the above fixes, zero vs unavailable values, contradictory market prices, storage failures, mint mismatches and stale results. The production build passes.
+196 automated tests pass, including regression cases for the above fixes, zero vs unavailable values, contradictory market prices, storage failures, mint mismatches and stale results. The production build passes.
 
 Desktop browser flows exercised:
 
@@ -35,3 +35,9 @@ Production API checks confirmed HTTP 422 with no score for the system-program ad
 - Watchlist is browser-local with export/import. Mobile validation is deferred by the user.
 
 These are explicit scope limits, not hidden successes or silent replacement of unavailable data with zero.
+
+## Indicative quote follow-up
+
+- Successful sell/EUR quote results show their own Paris timestamp. A 5-second UI timer marks readings at least 60 seconds old as historical and prompts a new request; it does not promise execution for newer readings.
+- EUR conversion requires a numeric USD reference rate and a valid provider date, at most seven calendar days old and not in the future. Invalid FX data returns QUOTE_UNAVAILABLE without calling Jupiter or inventing a conversion.
+- Production read-only checks obtained PFX-to-SOL and EUR round-trip quote responses. No wallet, taker, signature or transaction submission was used. Exact amounts are transient, not evidence of executable liquidation.

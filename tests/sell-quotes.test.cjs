@@ -7,7 +7,7 @@ const PFX="6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump";
 const SOL="So11111111111111111111111111111111111111112";
 const USDC="EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 function load(file,fetch){
- const util=["quote-validation","watchlist"].map(name=>fs.readFileSync(path.join(__dirname,`../utils/${name}.js`),"utf8").replace(/export (function|const) /g,"$1 ")).join("\n");
+ const util=["quote-validation","watchlist","quote-freshness"].map(name=>fs.readFileSync(path.join(__dirname,`../utils/${name}.js`),"utf8").replace(/export (function|const) /g,"$1 ")).join("\n");
  const api=fs.readFileSync(path.join(__dirname,`../pages/api/${file}.js`),"utf8").replace(/^import .*;$/gm,"").replace("export default async function handler(","async function handler(");
  const ctx={module:{exports:{}},process:{env:{JUPITER_API_KEY:"test-private-key"}},fetch,URL,AbortController,setTimeout,clearTimeout,Date};
  vm.runInNewContext(util+"\n"+api+"\nmodule.exports={handler,checkedQuote,quoteImpactPercent};",ctx);
@@ -38,7 +38,7 @@ test("EUR estimate validates both independent quote legs",async()=>{
  for(const mismatch of [false,true]){
  let calls=0;
  const {handler}=load("sell-eur",async url=>{
- calls++;if(calls===1)return {ok:true,json:async()=>({rates:{USD:1.1},date:"2026-11-11"})};
+ calls++;if(calls===1)return {ok:true,json:async()=>({rates:{USD:1.1},date:new Date().toISOString().slice(0,10)})};
  const r=quoted(url,calls===2?"500":"10000000");
  if(calls===3&&mismatch){const q=await r.json();return {...r,json:async()=>({...q,outputMint:SOL})};}return r;
  });
@@ -53,4 +53,11 @@ test("Jupiter V2 impact percentages and legacy ratios are normalized to the same
  assert.equal(quoteImpactPercent({priceImpact:0,priceImpactPct:"0.02"}),0);
  assert.equal(quoteImpactPercent({priceImpact:-0.1}),-0.1);
  for(const value of [true,[],"",Infinity,"bad"])assert.equal(quoteImpactPercent({priceImpact:value}),null);
+});
+
+test('EUR simulation never requests token routes with an undated or stale FX rate',async()=>{
+ for(const date of [null,'2000-01-01']) {
+  let calls=0;const {handler}=load('sell-eur',async()=>{calls++;return{ok:true,json:async()=>({rates:{USD:1.1},date})};});
+  const res=await call(handler,{mint:PFX,eur:'10'});assert.equal(calls,1);assert.equal(res.body.status,'QUOTE_UNAVAILABLE');assert.equal(res.body.indicativeSaleEur,undefined);
+ }
 });

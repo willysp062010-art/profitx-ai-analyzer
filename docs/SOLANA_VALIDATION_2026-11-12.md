@@ -13,7 +13,7 @@ The existing Solana web tools are the release scope. This is not a declaration o
 
 ## Validation evidence
 
-190 automated tests pass, including regression cases for the above fixes, zero vs unavailable values, contradictory market prices, storage failures, mint mismatches and stale results. The production build passes.
+192 automated tests pass, including regression cases for the above fixes, zero vs unavailable values, contradictory market prices, storage failures, mint mismatches and stale results. The production build passes.
 
 Desktop browser flows exercised:
 
@@ -23,7 +23,7 @@ Desktop browser flows exercised:
 - Analyzer -> Intelligence preserves the partial-analysis warning and measured-activity scope.
 - Compare PFX vs native wrapped SOL displays side-by-side results and the coverage limitations.
 
-After release, recheck the explicit non-mint rejection, PFX metadata fallback, unavailable-alert summary, holder-data availability, and the directory/Radar UI. Deployment state and final outcomes are reported in the conversation.
+Production API checks confirmed HTTP 422 with no score for the system-program address, unavailable holder data instead of a false zero for native wrapped SOL, and ten BONK directory matches. The Radar loaded token cards with explicit risk/coverage warnings. The final identity fallback response and alert feedback are also covered by regression tests; final deployment checks are reported in the conversation.
 
 ## Accepted external/product limits
 

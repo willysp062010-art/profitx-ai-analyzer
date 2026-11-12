@@ -12,8 +12,8 @@ const source = metadataSource + "\n" + internalSource + "\n" + dexSource + "\n" 
   .replace(/^import .*;$/gm, "")
   .replace('import { selectDexPair } from "../../utils/dex-market";', "")
   .replace("export default async function handler(", "async function handler(")
-  + "\nmodule.exports = { selectDexPair, dexMetrics, dexData, handler };";
-function load(fetchImpl = async () => { throw Error("Unexpected network request"); }) {
+  + "\nmodule.exports = { selectDexPair, dexMetrics, dexData, pumpMetrics, handler };";
+function load(fetchImpl = async () => { throw Error("Unexpected network request"); }, overrides = {}) {
   const ctx = { recordAnalysisUsage:async()=>{}, module: { exports: {} }, process: { env: {} }, fetch: fetchImpl,
     AbortController, setTimeout, clearTimeout, console, Buffer };
   for (const name of ["activity", "holders", "security", "token2022"]) {
@@ -23,6 +23,7 @@ function load(fetchImpl = async () => { throw Error("Unexpected network request"
     vm.runInNewContext(moduleSource + "\nmodule.exports = handler;", moduleCtx);
     ctx[name + "Handler"] = moduleCtx.module.exports;
   }
+  Object.assign(ctx, overrides);
   vm.runInNewContext(source, ctx);
   return ctx.module.exports;
 }
@@ -128,3 +129,15 @@ test("an RPC outage stays unavailable and is not misreported as a nonexistent to
  await handler({method:'GET',query:{mint:MINT},headers:{}},res);
  assert.equal(res.code,200);assert.equal(res.body.dataQuality.status,'UNAVAILABLE');assert.equal(res.body.metrics.security,null);
 });
+
+test('Analyzer API publishes decoded mint identity when DEX and Pump metadata are absent',async()=>{
+ const {handler}=load(async (url,options)=>{
+  if(url.includes('pump.fun'))return new Response('',{status:403});
+  if(url.includes('dexscreener.com'))return new Response(JSON.stringify({pairs:[]}));
+  if(options?.body && JSON.parse(options.body).method==='getAccountInfo') {const bytes=Buffer.alloc(82);bytes[45]=1;return new Response(JSON.stringify({result:{value:{owner:'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',data:[bytes.toString('base64'),'base64']}}}));}
+  return new Response(JSON.stringify({result:{value:{amount:'100',decimals:0,uiAmount:100}}}));
+ },{token2022Handler:async(req,res)=>res.status(200).json({ok:true,mint:req.query.mint,isToken2022:true,analysis:{metadata:{decoded:true,metadataMint:req.query.mint,name:'PROFITX',symbol:'PFX'}}})});
+ const res={setHeader(){},status(n){this.code=n;return this;},json(v){this.body=v;return this;}};await handler({method:'GET',query:{mint:MINT},headers:{}},res);
+ assert.equal(res.code,200);assert.equal(res.body.token.name,'PROFITX');assert.equal(res.body.token.symbol,'PFX');
+});
+test('Pump metric normalization does not depend on a different provider metadata scope',()=>{const result=load().pumpMetrics({},null,{});assert.equal(result.name,null);assert.equal(result.symbol,null);});

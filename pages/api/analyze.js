@@ -630,12 +630,10 @@ function pumpMetrics(
 
     name:
       coin?.name ??
-      metadataIdentity.name ??
       null,
 
     symbol:
       coin?.symbol ??
-      metadataIdentity.symbol ??
       null,
 
     imageUri:
@@ -1948,12 +1946,14 @@ export default async function handler(
       dMetrics?.name ??
       pMetrics?.name ??
       coin?.name ??
+      metadataIdentity.name ??
       null,
 
     symbol:
       dMetrics?.symbol ??
       pMetrics?.symbol ??
       coin?.symbol ??
+      metadataIdentity.symbol ??
       null,
 
     imageUri:

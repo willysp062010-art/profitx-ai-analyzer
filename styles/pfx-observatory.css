@@ -132,3 +132,14 @@ body { background-image:radial-gradient(ellipse at 90% 4%,#21193680,transparent 
   .pfxProjectDetails > summary { font-size:12px; gap:10px; }
 }
 @media(prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto !important; } }
+/* Carry the Solana hierarchy through the existing tool-specific headers. */
+#pfx-main-content .hero h1 span { color:var(--pfx-violet); }
+#pfx-main-content:not(.pfxAnalyzer) .hero h1 { font-size:clamp(36px,5.2vw,76px); }
+#pfx-main-content .pulseRing { border-color:#605277; }
+#pfx-main-content .pulseLine { background:#51455f; }
+#pfx-main-content .pulseCore { border-color:var(--pfx-violet); color:var(--pfx-violet); background:#151020; box-shadow:0 0 40px #9971e314; }
+@media(max-width:700px) {
+  #pfx-main-content:not(.pfxAnalyzer) .hero h1 { font-size:clamp(30px,8vw,42px); }
+  .pfxAnalyzerHero .search button { width:100%; }
+}
+#pfx-main-content .hero { background:transparent; box-shadow:none; border-radius:0; border-top:0; border-inline:0; }

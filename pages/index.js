@@ -941,7 +941,7 @@ async function searchToken(query) {
           jamais transformé en donnée manquante.
         </div>
 
-        <div className="pfxHeroFoot"><span>ANALYSE GRATUITE · SANS CONNEXION WALLET</span><a href="/repertoire-solana">Explorer le répertoire <span aria-hidden="true">↗</span></a></div>
+        <div className="pfxHeroFoot"><span>ANALYSE GRATUITE · SANS CONNEXION WALLET</span><a href="/repertoire-solana">Explorer le répertoire <span aria-hidden="true">→</span></a></div>
         </div>
         <ObservatoryMark />
       </section>

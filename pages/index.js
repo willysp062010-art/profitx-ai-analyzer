@@ -1,3 +1,5 @@
+import AnalyzerUsage from "../components/AnalyzerUsage";
+import { usageEventId } from "../utils/usage-client";
 import { securityWarningText } from "../utils/security-warning";
 import { useEffect, useRef, useState } from "react";
 import PfxPoolStatus from "../components/PfxPoolStatus";
@@ -618,6 +620,7 @@ async function searchToken(query) {
     setEurQuoteError("");
 
     try {
+      const usageId = usageEventId();
       const response =
         await fetch(
           "/api/analyze",
@@ -627,7 +630,8 @@ async function searchToken(query) {
               "Content-Type":
                 "application/json",
               Accept:
-                "application/json"
+                "application/json",
+              ...(usageId ? {"x-pfx-usage-event":usageId} : {})
             },
             body:
               JSON.stringify({
@@ -670,6 +674,7 @@ async function searchToken(query) {
         throw new Error(result.error || "La réponse ne correspond pas au mint demandé. Relancez l’analyse.");
       }
       setData(result);
+      window.dispatchEvent(new Event("pfx-usage-updated"));
 
     } catch (e) {
       console.error(
@@ -1068,6 +1073,7 @@ async function searchToken(query) {
       </section>
 
 
+      <AnalyzerUsage />
       <section className="hero">
 
         <div className="eyebrow">

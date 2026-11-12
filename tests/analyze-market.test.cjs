@@ -13,7 +13,7 @@ const source = internalSource + "\n" + dexSource + "\n" + qualitySource + "\n" +
   .replace("export default async function handler(", "async function handler(")
   + "\nmodule.exports = { selectDexPair, dexMetrics, dexData, handler };";
 function load(fetchImpl = async () => { throw Error("Unexpected network request"); }) {
-  const ctx = { module: { exports: {} }, process: { env: {} }, fetch: fetchImpl,
+  const ctx = { recordAnalysisUsage:async()=>{}, module: { exports: {} }, process: { env: {} }, fetch: fetchImpl,
     AbortController, setTimeout, clearTimeout, console, Buffer };
   for (const name of ["activity", "holders", "security", "token2022"]) {
     const moduleCtx = { ...ctx, module: { exports: {} } };

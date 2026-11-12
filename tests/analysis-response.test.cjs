@@ -2,7 +2,7 @@ const test=require('node:test');const assert=require('node:assert/strict');const
 const compare=fs.readFileSync(path.join(__dirname,'../pages/compare.js'),'utf8');
 function comparison({mismatch=false,loading=false}={}){
  const state={};let calls=0;
- const ctx={mintA:'mint-a',mintB:'mint-b',selectedA:null,selectedB:null,loading,isSolanaMint:()=>true,encodeURIComponent,
+ const ctx={mintA:'mint-a',mintB:'mint-b',selectedA:null,selectedB:null,loading,isSolanaMint:()=>true,encodeURIComponent,AbortController,setTimeout,clearTimeout,
  setError:v=>state.error=v,setResultA:v=>state.a=v,setResultB:v=>state.b=v,setLoading:v=>state.loading=v,
  fetch:async url=>{calls++;return {ok:true,json:async()=>({ok:true,mint:mismatch?'other':decodeURIComponent(url.split('=')[1])})};}};
  vm.runInNewContext(compare.slice(compare.indexOf('  function clearComparison()'),compare.indexOf('  const hasResults =')),ctx);return {ctx,state,calls:()=>calls};
@@ -31,4 +31,20 @@ test('Analyzer never displays a successful HTTP response for another mint or a f
 });
 test('Analyzer displays the validated requested mint',async()=>{
  const state=await rootResponse({ok:true,mint:'requested'});assert.equal(state.Data.mint,'requested');assert.equal(state.Error,'');
+});
+
+test('comparison timeout cancels both requests without displaying partial results',async()=>{
+ const h=comparison();let timeout;let cleared=false;const signals=[];
+ h.ctx.setTimeout=fn=>{timeout=fn;return 123;};h.ctx.clearTimeout=id=>{assert.equal(id,123);cleared=true;};
+ h.ctx.fetch=async(url,{signal})=>{signals.push(signal);return new Promise((resolve,reject)=>signal.addEventListener('abort',()=>reject(new Error('aborted'))));};
+ const run=h.ctx.compareTokens();timeout();await run;
+ assert.equal(signals.length,2);assert.ok(signals.every(s=>s.aborted));assert.equal(h.state.loading,false);
+ assert.equal(h.state.a,null);assert.equal(h.state.b,null);assert.match(h.state.error,/délai de réponse/);assert.equal(cleared,true);
+});
+test('a failed comparison cancels the other request and preserves the actual error',async()=>{
+ const h=comparison();let otherSignal;
+ h.ctx.fetch=async(url,{signal})=>{if(url.includes('mint-a'))return {ok:false,json:async()=>({error:'Service indisponible'})};
+ otherSignal=signal;return new Promise((resolve,reject)=>signal.addEventListener('abort',()=>reject(new Error('aborted'))));};
+ await h.ctx.compareTokens();assert.equal(otherSignal.aborted,true);assert.equal(h.state.error,'Service indisponible');
+ assert.equal(h.state.loading,false);assert.equal(h.state.a,null);assert.equal(h.state.b,null);
 });

@@ -584,11 +584,12 @@ export default function ComparePage() {
     setResultA(null); setResultB(null); setError("");
   }
 
-  async function analyzeMint(mint) {
+  async function analyzeMint(mint, signal) {
     const response = await fetch(
       `/api/analyze?mint=${encodeURIComponent(
         mint.trim()
-      )}`
+      )}`,
+      { signal }
     );
 
     let data = null;
@@ -642,22 +643,27 @@ export default function ComparePage() {
     }
 
     setLoading(true);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 45000);
 
     try {
       const [aResult, bResult] =
         await Promise.all([
-          analyzeMint(a),
-          analyzeMint(b),
+          analyzeMint(a, controller.signal),
+          analyzeMint(b, controller.signal),
         ]);
 
       setResultA(aResult);
       setResultB(bResult);
     } catch (err) {
       setError(
-        err?.message ||
-          "La comparaison a échoué."
+        controller.signal.aborted
+          ? "Le délai de réponse est dépassé. Relancez la comparaison dans quelques instants."
+          : err?.message || "La comparaison a échoué."
       );
     } finally {
+      clearTimeout(timeout);
+      controller.abort();
       setLoading(false);
     }
   }

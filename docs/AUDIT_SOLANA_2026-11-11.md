@@ -98,3 +98,7 @@ La compilation de production et la suite de régression doivent passer avant fus
 - Compare : modifier ou sélectionner un token efface l’ancienne comparaison et ses messages. Les doubles lancements sont ignorés pendant un traitement ; chaque réponse Analyzer doit porter le mint exact demandé avant affichage.
 - Analyzer : une réponse HTTP réussie ne suffit plus ; ok doit être vrai et le mint doit correspondre à celui demandé. Les résultats incohérents restent en erreur explicite.
 - 164 tests passent et la compilation réussit ; les réponses de mauvais mint et les réinitialisations sont couvertes par des tests isolés.
+
+- Compare : les couvertures globale (six contrôles équipondérés) et structurelle (quatre critères pondérés) sont désormais distinguées et leur méthode explicitée. Le test réel PFX/BONK a confirmé la présence des résultats avant vérification de leur effacement.
+
+- Analyzer : le statut technique VALID est traduit en « MARCHÉ DÉTECTÉ », comme dans Compare. La détection d’une paire ne doit pas être interprétée comme une validation de sécurité du token.

@@ -180,7 +180,7 @@ const ROWS = [
   },
   {
     key: "confidence",
-    label: "Couverture des contrôles",
+    label: "Couverture globale (6 contrôles)",
     format: (v) =>
       isNumber(v)
         ? `${formatNumber(v, 0)} %`
@@ -969,6 +969,7 @@ export default function ComparePage() {
 
               <section className="reading">
                 <h2>Périmètre des données comparées</h2>
+                <p>La couverture globale compte six contrôles disponibles, à poids égaux : liquidité, activité de marché, maturité, distribution, sécurité et standard du token. La couverture structurelle pondère quatre critères : liquidité (30 %), distribution (30 %), sécurité (25 %) et maturité (15 %). Ces pourcentages peuvent donc différer ; aucun ne mesure une probabilité de sécurité.</p>
                 <h3>{tokenName(resultA, "Token A")}</h3>
                 <AnalysisQualityNotice quality={resultA.dataQuality} />
                 <MarketDataNotice market={resultA.market} />
@@ -1028,7 +1029,7 @@ export default function ComparePage() {
                   </h3>
 
                   <div className="confidenceLine">
-                    Couverture des contrôles :{" "}
+                    Couverture globale des contrôles :{" "}
                     <strong>
                       {confidenceLabel(
                         resultA?.diagnostic
@@ -1072,7 +1073,7 @@ export default function ComparePage() {
                   </h3>
 
                   <div className="confidenceLine">
-                    Couverture des contrôles :{" "}
+                    Couverture globale des contrôles :{" "}
                     <strong>
                       {confidenceLabel(
                         resultB?.diagnostic

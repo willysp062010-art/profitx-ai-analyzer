@@ -6,7 +6,7 @@ export default function AnalysisQualityNotice({ quality }) {
     color: "#d8e5dd", fontSize: 14, lineHeight: 1.6, overflowWrap: "anywhere" }}>
     <strong style={{ color: partial ? "#ffd18b" : "#80ddb0" }}>{quality.label}</strong>
     {quality.scoreStatus === "PROVISIONAL" && <p>Score indicatif : les limites ci-dessous empêchent une conclusion globale sur la solidité du token.</p>}
-    <p>Couverture des critères structurels : {quality.structuralCoverage} %.</p>
+    <p>Couverture des critères structurels (pondérée) : {quality.structuralCoverage} %.</p>
     {quality.issues?.length > 0 && <ul>{quality.issues.map(issue => <li key={issue}>{issue}</li>)}</ul>}
     <p style={{ marginBottom: 0 }}>{quality.note}</p>
   </div>;

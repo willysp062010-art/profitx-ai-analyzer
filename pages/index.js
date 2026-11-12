@@ -78,7 +78,7 @@ function shortAddress(value, start = 8, end = 8) {
 function statusLabel(status) {
   switch (status) {
     case "VALID":
-      return "VALIDE";
+      return "MARCHÉ DÉTECTÉ";
 
     case "PARTIAL_DATA":
       return "DONNÉES PARTIELLES";

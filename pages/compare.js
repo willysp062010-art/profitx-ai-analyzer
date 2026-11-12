@@ -690,75 +690,7 @@ export default function ComparePage() {
         <div className="backgroundGlow glowTwo" />
 
         <div className="container">
-          <header className="topbar">
-            <button
-              className="brand"
-              type="button"
-              onClick={() => router.push("/")}
-            >
-              <span className="brandMark">
-                PFX
-              </span>
 
-              <span>
-                <strong>PROFITX</strong>
-                <small>
-                  INTELLIGENCE LAYER
-                </small>
-              </span>
-            </button>
-
-           <nav className="mainNav">
-  <button
-    type="button"
-    onClick={() => router.push("/")}
-  >
-    ANALYZER
-  </button>
-
-  <button
-    type="button"
-    onClick={() => router.push("/radar")}
-  >
-    RADAR
-  </button>
-
-  <button
-    type="button"
-    className="active"
-    onClick={() => router.push("/compare")}
-  >
-    COMPARE
-  </button>
-<button
-  type="button"
-  onClick={() => router.push("/intelligence")}
->
-  INTELLIGENCE
-</button>
-  <button
-    type="button"
-    onClick={() => router.push("/watchlist")}
-  >
-    WATCHLIST
-  </button>
-
-  <button
-    type="button"
-    onClick={() => router.push("/alerts")}
-  >
-    ALERTS
-  </button>
-
-  <button
-    type="button"
-    className="getPfx"
-    onClick={() => router.push("/obtenir-pfx")}
-  >
-    OBTENIR PFX
-  </button>
-</nav>
-          </header>
 
           <section className="hero">
             <div className="eyebrow">

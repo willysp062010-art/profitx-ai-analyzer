@@ -241,16 +241,7 @@ export default function Watchlist() {
     <>
       <Head><title>PFX Watchlist — PROFITX AI</title></Head>
       <main className="shell">
-        <header className="topbar">
-          <div className="brand">
-            <span className="logo">P</span>
-            PROFITX AI
-          </div>
 
-          <div className="tag">
-            PFX WATCHLIST
-          </div>
-        </header>
 
         <section className="hero">
           <div className="eyebrow">

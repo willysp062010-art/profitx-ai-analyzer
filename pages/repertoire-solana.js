@@ -68,11 +68,7 @@ export default function RepertoireSolana(){
   return <main style={styles.page}>
     <Head><title>Répertoire Solana | PROFITX AI</title><meta name="description" content="Recherche parmi les tokens Solana observés par PROFITX AI. Couverture partielle et données non auditées."/></Head>
     <div style={styles.shell}>
-      <nav style={{display:"flex",gap:20,flexWrap:"wrap",marginBottom:32}}>
-        <Link href="/" style={styles.link}>ANALYZER</Link>
-        <Link href="/radar" style={styles.link}>RADAR LIVE</Link>
-        <Link href="/repertoire-solana" style={styles.link}>RÉPERTOIRE SOLANA</Link>
-      </nav>
+
       <div style={{color:"#42f9a1",fontWeight:800,letterSpacing:3}}>PROFITX AI — SOLANA INTELLIGENCE</div>
       <h1 style={{fontSize:"clamp(28px,5vw,46px)",marginBottom:8}}>Répertoire des tokens observés</h1>
       <p style={styles.muted}>Explorez les tokens indexés depuis notre système de détection, y compris les anciennes créations enregistrées.</p>

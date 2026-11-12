@@ -806,77 +806,7 @@ async function searchToken(query) {
   return (
     <main className="shell">
 
-      <header className="topbar">
 
-        <a
-          href="/"
-          className="brand"
-          style={{
-            textDecoration: "none",
-            color: "inherit"
-          }}
-        >
-          <span className="logo">
-            P
-          </span>
-          PROFITX AI
-        </a>
-
-        <nav
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "flex-end",
-            flexWrap: "wrap",
-            gap: "8px"
-          }}
-        >
-          {[
-           ["ANALYZER", "/"],
-["RADAR", "/radar"],
-["COMPARE", "/compare"],
-["INTELLIGENCE", "/intelligence"],
-["WATCHLIST", "/watchlist"],
-["ALERTS", "/alerts"]
-          ].map(([label, href]) => (
-            <a
-              key={label}
-              href={href}
-              style={{
-                padding: "10px 14px",
-                border: "1px solid #00ff88",
-                borderRadius: "9px",
-                background: "rgba(0,255,136,0.08)",
-                color: "#00ff88",
-                textDecoration: "none",
-                fontWeight: 800,
-                fontSize: "12px",
-                letterSpacing: "0.7px"
-              }}
-            >
-              {label}
-            </a>
-          ))}
-
-          <a
-            href="/obtenir-pfx"
-            style={{
-              padding: "10px 14px",
-              border: "1px solid #00ff88",
-              borderRadius: "9px",
-              background: "#00ff88",
-              color: "#00150c",
-              textDecoration: "none",
-              fontWeight: 900,
-              fontSize: "12px",
-              letterSpacing: "0.7px"
-            }}
-          >
-            OBTENIR PFX
-          </a>
-        </nav>
-
-      </header>
 
 
       <section className="panel">

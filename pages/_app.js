@@ -1,5 +1,6 @@
 import "../styles/globals.css";
 import Head from "next/head";
+import SiteNavigation from "../components/SiteNavigation";
 
 const PFX_BACKGROUNDS = [
   "/pfx-token-officiel.png",
@@ -44,6 +45,7 @@ export default function App({ Component, pageProps }) {
       </Head>
       <PfxBackground />
       <div className="pfxSiteContent">
+        <SiteNavigation />
         <Component {...pageProps} />
       </div>
     </>

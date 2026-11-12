@@ -676,39 +676,7 @@ export default function Radar() {
       <main className="radarPage">
         <div className="radarShell">
           {watchlistMessage && <p role="status" style={{ color: "#d8e5dd" }}>{watchlistMessage}</p>}
-          <header className="radarHeader">
-            <div className="brandBlock">
-              <div className="brandMark">PFX</div>
-              <div>
-                <div className="brandName">PROFITX AI</div>
-                <div className="brandSub">SOLANA INTELLIGENCE</div>
-              </div>
-            </div>
 
-            <nav className="navActions">
-              {[
-                ["/", "ANALYZER"],
-                ["/radar", "RADAR"],
-                ["/repertoire-solana", "RÉPERTOIRE SOLANA"],
-                ["/compare", "COMPARE"],
-                ["/intelligence", "INTELLIGENCE"],
-                ["/watchlist", "WATCHLIST"],
-                ["/alerts", "ALERTS"],
-                ["/obtenir-pfx", "OBTENIR PFX"],
-              ].map(([path, label]) => (
-                <button
-                  key={path}
-                  type="button"
-                  className={`navButton ${
-                    path === "/radar" ? "activeNav" : ""
-                  }`}
-                  onClick={() => router.push(path)}
-                >
-                  {label}
-                </button>
-              ))}
-            </nav>
-          </header>
 
           <section className="hero">
             <div className="heroCopy">

@@ -43,24 +43,7 @@ export default function ObtenirPFX() {
       </Head>
 
       <main className="page">
-        <header className="topbar">
-          <a href="/" className="brand">
-            <span className="logo">P</span>
-            <span>PROFITX AI</span>
-          </a>
 
-          <nav className="nav">
-            <a href="/">ANALYZER</a>
-            <a href="/radar">RADAR</a>
-            <a href="/compare">COMPARE</a>
-            <a href="/intelligence">INTELLIGENCE</a>
-            <a href="/watchlist">WATCHLIST</a>
-            <a href="/alerts">ALERTS</a>
-            <a href="/obtenir-pfx" className="activeNav">
-              OBTENIR PFX
-            </a>
-          </nav>
-        </header>
 
         <section className="hero">
           <div className="eyebrow">

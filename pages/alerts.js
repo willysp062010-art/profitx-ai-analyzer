@@ -902,74 +902,7 @@ export default function Alerts() {
 
       <main className="page">
         <div className="shell">
-          <header className="header">
-            <div className="brand">
-              <div className="brandMark">
-                PFX
-              </div>
 
-              <div>
-                <strong>
-                  PROFITX AI
-                </strong>
-
-                <span>
-                  ALERT INTELLIGENCE
-                </span>
-              </div>
-            </div>
-
-            <nav className="nav">
-  <button
-    type="button"
-    onClick={() => router.push("/")}
-  >
-    ANALYZER
-  </button>
-
-  <button
-    type="button"
-    onClick={() => router.push("/radar")}
-  >
-    RADAR
-  </button>
-
-  <button
-    type="button"
-    onClick={() => router.push("/compare")}
-  >
-    COMPARE
-  </button>
-
-  <button
-    type="button"
-    onClick={() => router.push("/intelligence")}
-  >
-    INTELLIGENCE
-  </button>
-
-  <button
-    type="button"
-    onClick={() => router.push("/watchlist")}
-  >
-    WATCHLIST
-  </button>
-
-  <button
-    type="button"
-    className="activeNav"
-  >
-    ALERTS
-  </button>
-
-  <button
-    type="button"
-    onClick={() => router.push("/obtenir-pfx")}
-  >
-    OBTENIR PFX
-  </button>
-</nav>
-          </header>
             <section className="hero">
             <div className="heroText">
               <div className="eyebrow">

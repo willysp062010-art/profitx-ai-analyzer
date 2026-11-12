@@ -1,3 +1,4 @@
+import { recordAnalysisUsage } from "../../utils/usage-server";
 import activityHandler from "./activity";
 import holdersHandler from "./holders";
 import securityHandler from "./security";
@@ -2303,6 +2304,8 @@ export default async function handler(
         null
     }
   };
+
+  await recordAnalysisUsage(req);
 
   return json(
     res,

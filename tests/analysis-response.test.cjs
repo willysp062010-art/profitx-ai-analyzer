@@ -21,7 +21,7 @@ test('editing a comparison clears both old results and their message',()=>{
 });
 const analyzer=fs.readFileSync(path.join(__dirname,'../pages/index.js'),'utf8');
 async function rootResponse(payload){
- const state={};const ctx={loading:false,mint:'requested',isSolanaMint:()=>true,clearTimeout,tokenSearchTimer:{current:null},tokenSearchAbort:{current:null},quoteContext:{current:0},tokenSearchRequest:{current:0},
+ const state={};const ctx={usageEventId:()=>null,window:{dispatchEvent(){}},Event:class{},loading:false,mint:'requested',isSolanaMint:()=>true,clearTimeout,tokenSearchTimer:{current:null},tokenSearchAbort:{current:null},quoteContext:{current:0},tokenSearchRequest:{current:0},
  console:{error(){}},fetch:async()=>({ok:true,text:async()=>JSON.stringify(payload)})};
  for(const key of ['SellQuoteLoading','EurQuoteLoading','TokenResults','TokenSearchLoading','WatchlistNotice','Loading','Error','Data','SellQuote','SellQuoteError','EurQuote','EurQuoteError'])ctx['set'+key]=v=>state[key]=v;
  vm.runInNewContext(analyzer.slice(analyzer.indexOf('  async function analyze()'),analyzer.indexOf('  const score =',analyzer.indexOf('  async function analyze()'))),ctx);await ctx.analyze();return state;

@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const vm = require("node:vm");
 const path = require("node:path");
 const ctx = { module: { exports: {} } };
-vm.runInNewContext(fs.readFileSync(path.join(__dirname, "../utils/watchlist.js"), "utf8").replace(/export (const|function) /g, "$1 ") + "\nmodule.exports={isSolanaMint,readWatchlist,writeWatchlist,mergeWatchlist,parseWatchlistImport,makeWatchlistBackup};", ctx);
+vm.runInNewContext(fs.readFileSync(path.join(__dirname, "../utils/watchlist.js"), "utf8").replace(/export (const|function) /g, "$1 ") + "\nmodule.exports={isSolanaMint,readWatchlist,writeWatchlist,mergeWatchlist,parseWatchlistImport,makeWatchlistBackup,watchlistIdentityLabel};", ctx);
 const { isSolanaMint, readWatchlist, writeWatchlist, mergeWatchlist, parseWatchlistImport, makeWatchlistBackup } = ctx.module.exports;
 const PFX = "6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump";
 const BONK = "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263";
@@ -46,4 +46,13 @@ test("export allowlists fields even for older stored entries", () => {
  assert.equal(backup.version,1);
  assert.equal(backup.items[0].tokenAddress,PFX);
  assert.equal(JSON.stringify(backup).includes("private"),false);
+});
+
+test("token labels keep exact official mint attribution and distinguish symbols",()=>{
+ const label=ctx.module.exports.watchlistIdentityLabel;
+ assert.equal(label({chainId:"solana",tokenAddress:PFX}),"PROFITX (PFX)");
+ assert.equal(label({chainId:"solana",tokenAddress:BONK,name:"Bonk",symbol:"$BONK"}),"Bonk · $BONK");
+ assert.equal(label({chainId:"solana",tokenAddress:BONK}),"Identité non récupérée");
+ assert.equal(label({chainId:"ethereum",tokenAddress:PFX}),"Identité non récupérée");
+ assert.equal(label({name:"Other PFX",symbol:"PFX",tokenAddress:BONK,chainId:"solana"}),"Other PFX · $PFX");
 });

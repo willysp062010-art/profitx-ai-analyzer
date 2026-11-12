@@ -56,3 +56,10 @@ export function makeWatchlistBackup(items) {
     Object.fromEntries(["id", "chainId", "tokenAddress", "addedAt", "name", "symbol"]
       .filter(key => item[key] !== undefined).map(key => [key, item[key]]))) };
 }
+
+export function watchlistIdentityLabel(item = {}) {
+  if (item.chainId === "solana" && item.tokenAddress === "6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump") return "PROFITX (PFX)";
+  const name = typeof item.name === "string" ? item.name.trim().slice(0,100) : "";
+  const symbol = typeof item.symbol === "string" ? item.symbol.trim().replace(/^\$+/, "").slice(0,40) : "";
+  return name ? (symbol ? `${name} · $${symbol}` : name) : symbol ? `$${symbol}` : "Identité non récupérée";
+}

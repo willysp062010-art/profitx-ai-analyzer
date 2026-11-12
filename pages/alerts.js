@@ -1,3 +1,4 @@
+import { watchlistIdentityLabel } from "../utils/watchlist";
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
@@ -1123,9 +1124,7 @@ export default function Alerts() {
                               item.chainId ||
                               "Réseau"}{" "}
                             —{" "}
-                            {shortAddress(
-                              item.tokenAddress
-                            )}
+                            {watchlistIdentityLabel(item)} · {shortAddress(item.tokenAddress)}
                           </option>
                         );
                       }
@@ -1388,6 +1387,7 @@ export default function Alerts() {
                               alert.chainId}
                           </span>
 
+                          <p style={{overflowWrap:"anywhere",color:"#65efad"}}>{watchlistIdentityLabel(watchlist.find(item => item.chainId === alert.chainId && item.tokenAddress === alert.tokenAddress) || {chainId:alert.chainId,tokenAddress:alert.tokenAddress})}</p>
                           <h3>
                             {metricInfo.label}
                           </h3>

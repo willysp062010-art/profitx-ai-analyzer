@@ -79,3 +79,10 @@ La compilation de production et la suite de régression doivent passer avant fus
 - Accès direct aux alertes avec préselection du mint. Retrait annulable, fusion avec l’état du stockage actuel et absence de duplication lors d’une restauration.
 - Une Watchlist inaccessible n’est plus présentée comme simplement vide.
 - 151 tests passent ; compilation de production réussie. Les cas de concurrence de retrait/restauration et d’identification sont couverts par les nouveaux tests.
+
+## Suite du 12 novembre
+
+- Le compte rendu enregistré du contrôle automatique confirme le cycle du 12 novembre à 05:33:29 heure de Paris : HTTP 200 en 957 ms ; 3 alertes vérifiées, 0 erreur, 0 indisponibilité, aucun nouveau déclenchement. Le contrôle du 13 reste programmé.
+- Les identités disponibles de la Watchlist sont maintenant affichées dans le sélecteur et les cartes des alertes. Le mint abrégé reste visible pour distinguer les homonymes. Une identité absente est explicitement signalée.
+- Le libellé du mint PFX déclaré dépend du réseau Solana et de l’adresse exacte ; un homonyme ne reçoit pas ce libellé automatiquement. Le symbole est clairement distingué du nom.
+- 152 tests passent et la compilation de production réussit.

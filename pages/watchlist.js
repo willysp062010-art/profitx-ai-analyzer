@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
-import { WATCHLIST_KEY, isSolanaMint, readWatchlist, writeWatchlist, mergeWatchlist, parseWatchlistImport, makeWatchlistBackup } from "../utils/watchlist";
+import { WATCHLIST_KEY, isSolanaMint, readWatchlist, writeWatchlist, mergeWatchlist, parseWatchlistImport, makeWatchlistBackup, watchlistIdentityLabel } from "../utils/watchlist";
 
 const NETWORKS = [
   {
@@ -461,8 +461,8 @@ export default function Watchlist() {
                             item.chainId}
                         </span>
 
-                        <strong style={{display:"block",marginTop:10,overflowWrap:"anywhere"}}>{item.tokenAddress === officialMint ? "PROFITX (PFX)" : item.name || "Nom non renseigné"}{item.tokenAddress !== officialMint && item.symbol ? " · " + item.symbol : ""}</strong>
-                        {item.tokenAddress === officialMint && <span className="hint">Mint déclaré par PROFITX AI · non audité</span>}
+                        <strong style={{display:"block",marginTop:10,overflowWrap:"anywhere"}}>{watchlistIdentityLabel(item)}</strong>
+                        {item.tokenAddress === officialMint && <span className="hint" style={{display:"block"}}>Mint déclaré par PROFITX AI · non audité</span>}
                         <strong className="address">
                           {shortAddress(
                             item.tokenAddress

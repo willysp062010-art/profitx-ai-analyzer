@@ -580,6 +580,10 @@ export default function ComparePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  function clearComparison() {
+    setResultA(null); setResultB(null); setError("");
+  }
+
   async function analyzeMint(mint) {
     const response = await fetch(
       `/api/analyze?mint=${encodeURIComponent(
@@ -597,7 +601,7 @@ export default function ComparePage() {
       );
     }
 
-    if (!response.ok || data?.ok !== true) {
+    if (!response.ok || data?.ok !== true || data?.mint !== mint.trim()) {
       throw new Error(
         data?.error ||
           "Impossible d'analyser ce token."
@@ -609,6 +613,7 @@ export default function ComparePage() {
 
   async function compareTokens(event) {
     event?.preventDefault();
+    if (loading) return;
 
     const a = selectedA?.mint || mintA.trim();
     const b = selectedB?.mint || mintB.trim();
@@ -777,12 +782,12 @@ export default function ComparePage() {
             onSubmit={compareTokens}
           >
             <TokenPicker id="mintA" label="TOKEN A" value={mintA} selected={selectedA}
-              disabled={loading} onChange={(value) => { setMintA(value); setSelectedA(null); }}
-              onSelect={(token) => { setMintA(token.symbol || token.name || token.mint); setSelectedA(token); }} />
+              disabled={loading} onChange={(value) => { clearComparison(); setMintA(value); setSelectedA(null); }}
+              onSelect={(token) => { clearComparison(); setMintA(token.symbol || token.name || token.mint); setSelectedA(token); }} />
             <div className="versus">VS</div>
             <TokenPicker id="mintB" label="TOKEN B" value={mintB} selected={selectedB}
-              disabled={loading} onChange={(value) => { setMintB(value); setSelectedB(null); }}
-              onSelect={(token) => { setMintB(token.symbol || token.name || token.mint); setSelectedB(token); }} />
+              disabled={loading} onChange={(value) => { clearComparison(); setMintB(value); setSelectedB(null); }}
+              onSelect={(token) => { clearComparison(); setMintB(token.symbol || token.name || token.mint); setSelectedB(token); }} />
 
             <button
               className="compareButton"

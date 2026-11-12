@@ -598,6 +598,7 @@ async function searchToken(query) {
   }
 }
   async function analyze() {
+    if (loading) return;
     const cleanMint = mint.trim();
     if (!isSolanaMint(cleanMint)) { setError("Sélectionnez un token dans les résultats ou collez une adresse mint Solana valide."); return; }
     clearTimeout(tokenSearchTimer.current); tokenSearchAbort.current?.abort();
@@ -665,6 +666,9 @@ async function searchToken(query) {
         );
       }
 
+      if (result.ok !== true || result.mint !== cleanMint) {
+        throw new Error(result.error || "La réponse ne correspond pas au mint demandé. Relancez l’analyse.");
+      }
       setData(result);
 
     } catch (e) {

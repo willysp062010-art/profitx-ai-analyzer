@@ -92,3 +92,9 @@ La compilation de production et la suite de régression doivent passer avant fus
 - Lecture commune des Watchlists : vérification du mint décodé, réseau pris en charge, taille maximale et absence de doublons. Les identifiants des anciennes entrées sont reconstruits en mémoire depuis le réseau et le mint, sans réécriture à la lecture. Les Alertes utilisent cette même lecture. Une liste incohérente reste intacte dans le stockage.
 - Valeurs du pool Raydium et du répertoire : les booléens, listes, objets, chaînes vides, valeurs négatives ou non finies ne sont plus convertis en mesures. Les zéros numériques valides restent des zéros ; les autres valeurs restent indisponibles.
 - 158 tests passent ; compilation de production réussie. Les sauvegardes incohérentes et données amont mal formées ont été vérifiées avec des tests isolés.
+
+### Cohérence des résultats après saisie
+
+- Compare : modifier ou sélectionner un token efface l’ancienne comparaison et ses messages. Les doubles lancements sont ignorés pendant un traitement ; chaque réponse Analyzer doit porter le mint exact demandé avant affichage.
+- Analyzer : une réponse HTTP réussie ne suffit plus ; ok doit être vrai et le mint doit correspondre à celui demandé. Les résultats incohérents restent en erreur explicite.
+- 164 tests passent et la compilation réussit ; les réponses de mauvais mint et les réinitialisations sont couvertes par des tests isolés.

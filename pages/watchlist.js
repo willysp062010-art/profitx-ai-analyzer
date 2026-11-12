@@ -291,7 +291,7 @@ export default function Watchlist() {
               ))}
             </select>
 
-            <input
+            <input autoCapitalize="none" autoCorrect="off" maxLength={80}
               aria-label="Adresse mint Solana à suivre"
               value={tokenAddress}
               onChange={(event) =>
@@ -354,7 +354,7 @@ export default function Watchlist() {
           </div>
 
           <label className="hint" htmlFor="watchlist-filter">Filtrer vos tokens par nom, symbole ou mint</label>
-          <input id="watchlist-filter" value={filter} onChange={event => setFilter(event.target.value)} placeholder="Rechercher dans ma Watchlist" style={{width:"100%",boxSizing:"border-box",padding:14,margin:"12px 0",background:"#07120d",border:"1px solid #347c58",borderRadius:10,color:"white",fontSize:16}} />
+          <input autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="off" maxLength={80} id="watchlist-filter" value={filter} onChange={event => setFilter(event.target.value)} placeholder="Rechercher dans ma Watchlist" style={{width:"100%",boxSizing:"border-box",padding:14,margin:"12px 0",background:"#07120d",border:"1px solid #347c58",borderRadius:10,color:"white",fontSize:16}} />
           <p className="hint">{visibleItems.length} affiché(s) sur {items.length} enregistré(s). Les noms déclarés ne constituent pas une vérification du token.</p>
           {!loaded ? (
             <div className="empty">

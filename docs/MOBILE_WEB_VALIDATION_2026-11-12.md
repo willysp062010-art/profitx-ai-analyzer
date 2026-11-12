@@ -35,3 +35,7 @@ The 196 existing automated tests and the production build pass. Screenshots were
 ## Remaining device checks
 
 Physical Android Chrome and iPhone Safari, touch gestures, on-screen keyboard behavior, safe-area insets and orientation changes have not been exercised on hardware. These remain a separate acceptance check; the layout measurements above do not claim that coverage.
+
+## Mobile keyboard follow-up
+
+Address/name search fields disable automatic capitalization, autocorrection and spell checking. Text entry is bounded at 80 characters (directory search retains its existing 64-character limit); dedicated mint fields still rely on full validation and are not truncated to a different 44-character address. Decimal input fields keep their decimal keyboard hints and accept at most 40 characters, avoiding unbounded pasted-number parsing. File and checkbox inputs are unchanged. These browser attributes are not a substitute for physical keyboard/device validation.

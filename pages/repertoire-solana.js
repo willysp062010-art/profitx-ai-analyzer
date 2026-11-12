@@ -80,7 +80,7 @@ export default function RepertoireSolana(){
         ⚠ Couverture partielle : ce répertoire ne contient pas encore tous les tokens Solana. Être répertorié ne signifie ni vérifié, ni sûr, ni recommandé à l'achat.
       </div>
       <div style={{marginTop:24}}>
-        <input aria-label="Rechercher un token" style={styles.input} value={q} onChange={e=>setQ(e.target.value)} placeholder="Nom, symbole ou adresse mint Solana..." maxLength={64}/>
+        <input autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="off" aria-label="Rechercher un token" style={styles.input} value={q} onChange={e=>setQ(e.target.value)} placeholder="Nom, symbole ou adresse mint Solana..." maxLength={64}/>
       </div>
       <div style={{marginTop:16,display:"flex",gap:12,flexWrap:"wrap"}}>
         <button type="button" style={styles.btn} onClick={()=>{snapshotRef.current="";setIdentifiedOnly(!identifiedOnly);setPage(1);}}>

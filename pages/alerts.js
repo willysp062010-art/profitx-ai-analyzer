@@ -1112,7 +1112,7 @@ export default function Alerts() {
                     VALEUR CIBLE
                   </label>
 
-                  <input
+                  <input autoCapitalize="none" autoCorrect="off" spellCheck={false} maxLength={40}
                     id="alert-target"
                     type="text"
                     inputMode="decimal"

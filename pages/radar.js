@@ -856,7 +856,7 @@ export default function Radar() {
           <section className="controls">
             <div className="searchBox">
               <label htmlFor="radar-search">RECHERCHER</label>
-              <input
+              <input autoCapitalize="none" autoCorrect="off" spellCheck={false} maxLength={80}
                 id="radar-search"
                 type="search"
                 value={search}

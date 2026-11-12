@@ -512,7 +512,7 @@ function TokenPicker({ id, label, value, onChange, selected, onSelect, disabled 
   return (
     <div className="inputBlock" style={{ position: "relative", minWidth: 0 }}>
       <label htmlFor={id} style={{ display: "block", marginBottom: 8, color: "#2bfa88", fontSize: 12, fontWeight: 800 }}>{label}</label>
-      <input
+      <input autoCapitalize="none" autoCorrect="off" maxLength={80}
         style={{ width: "100%", minWidth: 0, boxSizing: "border-box", display: "block", background: "#07120d", border: "1px solid #23e780", borderRadius: 10, padding: "16px", color: "#fff", fontSize: 16 }}
         id={id}
         value={value}

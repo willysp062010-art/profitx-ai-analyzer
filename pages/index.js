@@ -1026,7 +1026,7 @@ async function searchToken(query) {
 
         <div className="search" style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "flex-start" }}>
 
-          <input
+          <input autoCapitalize="none" autoCorrect="off" maxLength={80}
             aria-label="Nom, symbole ou adresse mint Solana"
             style={{ minWidth: 0, flex: "1 1 240px" }}
             value={mint}
@@ -1644,7 +1644,7 @@ async function searchToken(query) {
             </p>
             <div className="pfxQuoteControls" style={{ marginTop: "16px", display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
               <label htmlFor="sell-quote-amount">Quantité de tokens à vendre (simulation)</label>
-              <input
+              <input autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="off" maxLength={40}
                 id="sell-quote-amount"
                 aria-label="Quantité de tokens à coter"
                 disabled={sellQuoteLoading}

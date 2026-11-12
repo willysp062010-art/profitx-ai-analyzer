@@ -261,7 +261,7 @@ export default function IntelligencePage() {
           </label>
 
           <div className="searchRow">
-            <input
+            <input autoCapitalize="none" autoCorrect="off" autoComplete="off" maxLength={80}
               id="mint"
               value={mint}
               disabled={loading}

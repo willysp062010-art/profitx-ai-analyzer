@@ -15,7 +15,7 @@ export async function runInternalModule(handler, mint, timeoutMs = 15000) {
       new Promise((_, reject) => { timer = setTimeout(() => reject(Error("timeout")), timeoutMs); }),
     ]);
     if (response.statusCode >= 400 || !payload || typeof payload !== "object" || Array.isArray(payload)) {
-      return { ok: false, error: "Module interne indisponible." };
+      return { ok: false, statusCode: response.statusCode, error: "Module interne indisponible." };
     }
     return payload;
   } catch {

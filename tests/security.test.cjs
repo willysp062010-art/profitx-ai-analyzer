@@ -133,3 +133,16 @@ test("explicit SOLANA_RPC_URL takes precedence over Helius", async () => {
   assert.equal(res.statusCode, 200);
   assert.equal(usedUrl, "https://rpc.example.test");
 });
+
+test('token accounts and uninitialized accounts cannot receive a mint safety score',async()=>{
+ const padded=Buffer.alloc(165);mintBytes().copy(padded);
+ const extendedAccount=Buffer.alloc(170);mintBytes().copy(extendedAccount);extendedAccount[165]=2;
+ const uninitialized=mintBytes();uninitialized[45]=0;
+ for(const [owner,bytes] of [['TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',padded],[OWNER,padded],[OWNER,extendedAccount],[OWNER,uninitialized]]) {
+  const {handler}=load(rpc({owner,data:[bytes.toString('base64'),'base64']},supply));const res=response();await handler({method:'GET',query:{mint:MINT}},res);assert.equal(res.statusCode,422);assert.equal(res.body.security,undefined);
+ }
+});
+test('extended Token-2022 mint retains its base authority checks when account type is Mint',async()=>{
+ const bytes=Buffer.alloc(170);mintBytes().copy(bytes);bytes[165]=1;
+ const {handler}=load(rpc({owner:OWNER,data:[bytes.toString('base64'),'base64']},supply));const res=response();await handler({method:'GET',query:{mint:MINT}},res);assert.equal(res.statusCode,200);assert.equal(res.body.security.mintAuthorityRevoked,true);
+});

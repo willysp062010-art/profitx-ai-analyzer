@@ -1,0 +1,7 @@
+const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const vm=require('node:vm');
+const ctx={};vm.runInNewContext(fs.readFileSync(require('node:path').join(__dirname,'../utils/alert-check-summary.js'),'utf8').replace('export function','function'),ctx);
+const summarize=ctx.summarizeAlertCheck,alerts=[{id:'a',enabled:true},{id:'b',enabled:true}];
+test('all unavailable conditions cannot produce a reassuring negative result',()=>{const s=summarize([{id:'a',status:'no_market_data'},{id:'b',status:'metric_unavailable'}],alerts);assert.equal(s.warning,true);assert.match(s.message,/2 condition/);});
+test('partial and missing results remain explicitly inconclusive',()=>{const s=summarize([{id:'a',status:'triggered',currentValue:10}],alerts);assert.equal(s.warning,true);assert.match(s.message,/1 alerte/);assert.match(s.message,/1 condition/);});
+test('real zero values can prove an evaluated condition was not met',()=>{const s=summarize([{id:'a',status:'watching',currentValue:0}],[alerts[0]]);assert.equal(s.warning,false);assert.match(s.message,/toutes les alertes actives/);});
+test('paused rules and malformed values are never described as verified active conditions',()=>{assert.equal(summarize([],[{id:'a',enabled:false}]).warning,true);for(const value of [null,'0',NaN])assert.equal(summarize([{id:'a',status:'watching',currentValue:value}],[alerts[0]]).warning,true);});

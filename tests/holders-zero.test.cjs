@@ -1,0 +1,4 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const source=fs.readFileSync(require('node:path').join(__dirname,'../pages/api/holders.js'),'utf8').replace('export default async function','async function');const ctx={process:{env:{}},Buffer};vm.runInNewContext(source,ctx);
+test('unverified zero holder reports are rejected even when mint supply is zero',()=>{for(const supply of [0n,100n])for(const topHolders of [[],[{address:'sample',pct:100}]])assert.equal(ctx.rugCheckDistribution({totalHolders:0,topHolders},supply),null);});
+test('invalid holder counts cannot support a distribution score',()=>{for(const totalHolders of [-1,0.5,Number.MAX_SAFE_INTEGER+1])assert.equal(ctx.rugCheckDistribution({totalHolders,topHolders:[]},0n),null);});

@@ -1,3 +1,4 @@
+import { summarizeAlertCheck } from "../utils/alert-check-summary";
 import { watchlistIdentityLabel, readWatchlist } from "../utils/watchlist";
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
@@ -861,22 +862,9 @@ export default function Alerts() {
           new Date().toISOString()
       );
 
-      const triggeredCount =
-        data?.summary?.triggered || 0;
-
-      if (triggeredCount > 0) {
-        setSuccess(
-          `${triggeredCount} alerte${
-            triggeredCount > 1 ? "s" : ""
-          } déclenchée${
-            triggeredCount > 1 ? "s" : ""
-          }.`
-        );
-      } else {
-        setSuccess(
-          "Vérification terminée. Aucune condition d'alerte n'est déclenchée."
-        );
-      }
+      const summary = summarizeAlertCheck(data.results, alerts);
+      if (summary.warning) setEngineError(summary.message);
+      else setSuccess(summary.message);
     } catch (checkError) {
       setEngineError(
         checkError?.message ||

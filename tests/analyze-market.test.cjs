@@ -7,7 +7,8 @@ const qualitySource = fs.readFileSync(path.join(__dirname, "../utils/analysis-qu
   .replace(/export function /g, "function ");
 const dexSource = fs.readFileSync(path.join(__dirname, "../utils/dex-market.js"), "utf8").replace(/export function /g, "function ");
 const internalSource = fs.readFileSync(path.join(__dirname, "../utils/internal-module.js"), "utf8").replace("export async function", "async function");
-const source = internalSource + "\n" + dexSource + "\n" + qualitySource + "\n" + fs.readFileSync(path.join(__dirname, "../pages/api/analyze.js"), "utf8")
+const metadataSource = fs.readFileSync(path.join(__dirname, "../utils/mint-metadata-identity.js"), "utf8").replace("export function", "function");
+const source = metadataSource + "\n" + internalSource + "\n" + dexSource + "\n" + qualitySource + "\n" + fs.readFileSync(path.join(__dirname, "../pages/api/analyze.js"), "utf8")
   .replace(/^import .*;$/gm, "")
   .replace('import { selectDexPair } from "../../utils/dex-market";', "")
   .replace("export default async function handler(", "async function handler(")
@@ -87,7 +88,11 @@ test("missing buy/sell counts remain unknown, not zero", () => {
 
 test("full analyzer response withholds conflicting prices across all public aliases", async () => {
   const pairs = [pair("outlier", 0.014, 2e6), pair("a", 0.000014), pair("b", 0.0000141)];
-  const { handler } = load(async url => {
+  const { handler } = load(async (url, options) => {
+    if (options?.body && JSON.parse(options.body).method === "getAccountInfo") {
+      const bytes = Buffer.alloc(82); bytes[44] = 5; bytes[45] = 1;
+      return new Response(JSON.stringify({result:{value:{owner:"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",data:[bytes.toString("base64"),"base64"]}}}));
+    }
     if (url.includes("dexscreener.com")) return new Response(JSON.stringify({ pairs }));
     if (url.includes("pump.fun")) return new Response("", { status: 403 });
     return new Response(JSON.stringify({ result: { value: { amount: "100000000", decimals: 5, uiAmountString: "1000" } } }));
@@ -102,9 +107,24 @@ test("full analyzer response withholds conflicting prices across all public alia
   }
   assert.equal(res.body.market.priceStatus, "CONFLICTING_POOL_PRICES");
   assert.equal(res.body.dataQuality.status, "CONFLICTING");
-  assert.equal(res.body.dataQuality.scoreStatus, "UNAVAILABLE");
+  assert.equal(res.body.dataQuality.scoreStatus, "PROVISIONAL");
   assert.equal(res.body.diagnostic.analysisStatus, "CONFLICTING");
   assert.equal(res.body.market.volumeSource, "selected_pair");
   assert.equal(res.body.market.transactionsSource, "selected_pair");
   assert.ok(res.body.diagnostic.warnings.some(w => w.includes("Prix divergents")));
+});
+
+test("analyzer refuses a known missing account or an address owned by a non-token program", async () => {
+  for (const [account, status] of [[null,404],[{owner:'11111111111111111111111111111111',data:[Buffer.alloc(82).toString('base64'),'base64']},422]]) {
+    const {handler}=load(async url=>url.includes('pump.fun')?new Response('',{status:403}):url.includes('dexscreener.com')?new Response(JSON.stringify({pairs:[]})):new Response(JSON.stringify({result:{value:account}})));
+    const res={setHeader(){},status(n){this.code=n;return this;},json(v){this.body=v;return this;}};
+    await handler({method:'GET',query:{mint:MINT},headers:{}},res);
+    assert.equal(res.code,status);assert.equal(res.body.ok,false);assert.equal(res.body.observed,undefined);
+  }
+});
+test("an RPC outage stays unavailable and is not misreported as a nonexistent token",async()=>{
+ const {handler}=load(async()=>{throw Error('provider unavailable');});
+ const res={setHeader(){},status(n){this.code=n;return this;},json(v){this.body=v;return this;}};
+ await handler({method:'GET',query:{mint:MINT},headers:{}},res);
+ assert.equal(res.code,200);assert.equal(res.body.dataQuality.status,'UNAVAILABLE');assert.equal(res.body.metrics.security,null);
 });

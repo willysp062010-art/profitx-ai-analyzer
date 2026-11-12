@@ -2067,9 +2067,9 @@ async function searchToken(query) {
                     : `${fmtDecimal(observed.realSolReservesOnchain, 4)} SOL`}
                 </strong>
                 <small style={{ display: "block", marginTop: 5, opacity: 0.8 }}>
-                  Compte appartenant au programme Pump.fun, adresse
-                  fournie par son API et données lues via Solana RPC.
-                  Association au mint non vérifiée par PDA ; aucune garantie de revente.
+                  {observed.onchainCurveStatus === "ACCOUNT_READ" && observed.realSolReservesOnchain != null
+                    ? "Compte appartenant au programme Pump.fun, adresse fournie par son API et données lues via Solana RPC. Association au mint non vérifiée par PDA ; aucune garantie de revente."
+                    : "Aucune lecture de réserve sur un compte Solana confirmée pour cette analyse."}
                   {observed.onchainCurveStatus === "PUMPFUN_API_BLOCKED"
                     ? " Pump.fun refuse l’accès aux données depuis notre serveur (HTTP 403)."
                     : observed.onchainCurveStatus === "CURVE_ADDRESS_UNAVAILABLE"
@@ -2554,7 +2554,7 @@ async function searchToken(query) {
                 }}
               >
                 <span>
-                  Points solides
+                  Indicateurs favorables — contrôles disponibles
                 </span>
 
                 <div

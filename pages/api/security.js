@@ -224,7 +224,7 @@ function decodeClassicMint(
 
   if (
     !bytes ||
-    bytes.length < 82
+    bytes.length !== 82
   ) {
     return null;
   }
@@ -303,27 +303,11 @@ function decodeClassicMint(
    TOKEN-2022 BASE MINT
 ========================================================= */
 
-function decodeToken2022Mint(
-  bytes
-) {
-  /*
-   * Token-2022 begins with the same
-   * base Mint structure.
-   *
-   * Extensions may follow after
-   * the first 82 bytes.
-   */
-
-  if (
-    !bytes ||
-    bytes.length < 82
-  ) {
-    return null;
-  }
-
-  return decodeClassicMint(
-    bytes
-  );
+function decodeToken2022Mint(bytes) {
+  if (!bytes || bytes.length < 82) return null;
+  // Extended mints are padded to the token-account boundary, followed by AccountType::Mint.
+  if (bytes.length !== 82 && (bytes.length < 166 || bytes[165] !== 1 || bytes.slice(82,165).some(value => value !== 0))) return null;
+  return decodeClassicMint(bytes.slice(0,82));
 }
 
 /* =========================================================
@@ -881,7 +865,7 @@ export default async function handler(
         );
     }
 
-    if (!decodedMint) {
+    if (!decodedMint || !decodedMint.isInitialized) {
       return json(
         res,
         422,

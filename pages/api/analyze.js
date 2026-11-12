@@ -1,3 +1,4 @@
+import { mintMetadataIdentity } from "../../utils/mint-metadata-identity";
 import { recordAnalysisUsage } from "../../utils/usage-server";
 import activityHandler from "./activity";
 import holdersHandler from "./holders";
@@ -629,10 +630,12 @@ function pumpMetrics(
 
     name:
       coin?.name ??
+      metadataIdentity.name ??
       null,
 
     symbol:
       coin?.symbol ??
+      metadataIdentity.symbol ??
       null,
 
     imageUri:
@@ -1540,6 +1543,13 @@ export default async function handler(
       )
     ]);
 
+  // A readable Solana address is not necessarily a token mint.
+  // Preserve explicit security-module rejection without treating an RPC outage as proof of nonexistence.
+  if (securityResult?.ok === false && [404, 422].includes(securityResult.statusCode)) {
+    return res.status(securityResult.statusCode).json({ ok: false, mint,
+      error: securityResult.statusCode === 404 ? "Mint introuvable sur Solana." : "Cette adresse ne correspond pas à un mint Solana décodable pris en charge. Aucun score calculé." });
+  }
+
   const activity =
     normalizeActivity(
       activityResult
@@ -1932,6 +1942,7 @@ export default async function handler(
   const coin =
     pump?.coin;
 
+  const metadataIdentity = mintMetadataIdentity(token2022, mint);
   const token = {
     name:
       dMetrics?.name ??

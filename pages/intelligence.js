@@ -569,7 +569,7 @@ export default function IntelligencePage() {
             <div className="twoColumns">
               <article className="listCard positive">
                 <div className="sectionTag">
-                  POINTS SOLIDES
+                  INDICATEURS FAVORABLES — CONTRÔLES DISPONIBLES
                 </div>
 
                 <h3>

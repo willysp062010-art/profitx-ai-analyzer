@@ -1362,11 +1362,9 @@ function rugCheckDistribution(
     return null;
   }
 
-  if (
-    supply > 0n &&
-    totalHolders === 0 &&
-    top.length === 0
-  ) {
+  // A third-party zero is not a verified account census, including native WSOL
+  // whose reported mint supply is zero. Require RPC evidence instead.
+  if (totalHolders !== null && (!Number.isSafeInteger(totalHolders) || totalHolders <= 0)) {
     return null;
   }
 

@@ -1642,7 +1642,7 @@ async function searchToken(query) {
               revendre aujourd'hui. Une simulation de swap actualisée reste
               nécessaire pour évaluer l'exécution, les frais et le slippage.
             </p>
-            <div style={{ marginTop: "16px", display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
+            <div className="pfxQuoteControls" style={{ marginTop: "16px", display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
               <label htmlFor="sell-quote-amount">Quantité de tokens à vendre (simulation)</label>
               <input
                 id="sell-quote-amount"
@@ -1651,7 +1651,7 @@ async function searchToken(query) {
                 inputMode="decimal"
                 value={sellQuoteAmount}
                 onChange={(event) => { setSellQuoteAmount(event.target.value); setSellQuote(null); setSellQuoteError(""); }}
-                style={{ maxWidth: "180px", padding: "8px", color: "#111" }}
+                style={{ maxWidth: "180px", padding: "12px", color: "#f4f7f5", background: "#080e0b", border: "1px solid #294138", borderRadius: "9px" }}
               />
               <button type="button" disabled={sellQuoteLoading} onClick={testSellQuote}>
                 {sellQuoteLoading ? "Cotation en cours..." : "Tester une cotation de vente vers SOL"}
@@ -1665,7 +1665,7 @@ async function searchToken(query) {
             <div style={{ marginTop: "18px" }}>
               <strong>Simulation indicative par montant en euros</strong>
               <p style={{ opacity: 0.8 }}>Montant de référence : estimation des tokens achetables, puis cotation de leur revente. Ce n'est pas une garantie de récupérer ce montant.</p>
-              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+              <div className="pfxQuoteControls" style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
                 {[10, 100, 1000].map((eur) => (
                   <button key={eur} type="button" disabled={eurQuoteLoading} onClick={() => testEurQuote(eur)}>
                     {eurQuoteLoading ? "Calcul..." : `Simuler ${eur.toLocaleString("fr-FR")} €`}
@@ -1674,7 +1674,7 @@ async function searchToken(query) {
               </div>
               {eurQuoteError && <p role="alert">{eurQuoteError}</p>}
               {eurQuote && (
-                <div className="observed" aria-live="polite" style={{ marginTop: "12px" }}>
+                <div className="observed pfxQuoteResult" aria-live="polite" style={{ marginTop: "12px" }}>
                   <div><span>Montant de référence</span><strong>{eurQuote.eurReference} €</strong></div>
                   <div><span>Résultat</span><strong>{eurQuote.status === "ROUTE_QUOTED" ? "Deux routes cotées" : "Cotation indisponible"}</strong></div>
                   {eurQuote.indicativeSaleEur != null && <div><span>Revente indicative</span><strong>{new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 4 }).format(eurQuote.indicativeSaleEur)}</strong></div>}
@@ -1687,7 +1687,7 @@ async function searchToken(query) {
               )}
             </div>
             {sellQuote && (
-              <div className="observed" aria-live="polite">
+              <div className="observed pfxQuoteResult" aria-live="polite">
                 {sellQuote.status === "ROUTE_QUOTED" && <QuoteFreshness quotedAt={sellQuote.quotedAt} />}
                 <div><span>Quantité cotée</span><strong>{sellQuote.tokenAmount} token(s)</strong></div>
                 <div><span>Résultat Jupiter</span><strong>{sellQuote.status === "ROUTE_QUOTED" ? "Route cotée (indicative)" : "Cotation indisponible"}</strong></div>

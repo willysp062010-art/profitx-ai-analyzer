@@ -1,12 +1,12 @@
 /* PROFITX Observatory — graphite / silver / PFX green / Solana spectrum.
    Color accents describe hierarchy, never replace the meaning of risk statuses. */
-:root { --pfx-ink:#080a10; --pfx-surface:#10131d; --pfx-line:#2b3040; --pfx-text:#eceef5; --pfx-muted:#a7aec0; --pfx-green:#50f5a0; --pfx-violet:#b99bff; --pfx-cyan:#59ded2; --pfx-font:"Avenir Next","Segoe UI",Arial,sans-serif; --pfx-mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace; }
+:root { --pfx-ink:#03050c; --pfx-surface:#090e1b; --pfx-line:#25334e; --pfx-text:#e7edf5; --pfx-muted:#a7aec0; --pfx-green:#00ff88; --pfx-violet:#b45cff; --pfx-cyan:#00e5ff; --pfx-magenta:#ef39ff; --pfx-blue:#258bff; --pfx-font:"Avenir Next","Segoe UI",Arial,sans-serif; --pfx-mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace; }
 html,body { background:var(--pfx-ink); color:var(--pfx-text); font-family:var(--pfx-font); }
-body { background-image:radial-gradient(ellipse at 90% 4%,#21193680,transparent 44%); }
-.pfxObservatoryBackground { pointer-events:none; position:fixed; inset:0; z-index:0; background-image:linear-gradient(90deg,transparent calc(100% - 1px),#c0a4ff09 1px); background-size:96px 100%; mask-image:linear-gradient(#000,transparent 85%); }
+body { background-image:radial-gradient(ellipse at 90% 4%,#24074799,transparent 44%); }
+.pfxObservatoryBackground { pointer-events:none; position:fixed; inset:0; z-index:0; background-image:linear-gradient(90deg,transparent calc(100% - 1px),#00cfff0b 1px); background-size:96px 100%; mask-image:linear-gradient(#000,transparent 85%); }
 .pfxSiteContent { position:relative; z-index:1; }
 .pfxNavigation { background:#080a10f5; border-bottom:1px solid var(--pfx-line); backdrop-filter:blur(18px); }
-.pfxNavigation::before { content:""; display:block; height:3px; background:linear-gradient(90deg,var(--pfx-green),var(--pfx-cyan) 36%,#8765df 72%,var(--pfx-violet)); }
+.pfxNavigation::before { content:""; display:block; height:3px; background:linear-gradient(90deg,var(--pfx-green),var(--pfx-cyan) 36%,var(--pfx-magenta) 72%,var(--pfx-violet)); }
 .pfxNavigationInner { width:min(1440px,calc(100% - 64px)); padding:17px 0; gap:30px; }
 .pfxNavigationBrand { gap:12px; letter-spacing:1.1px; }
 .pfxNavigationBrand img { width:44px; height:44px; object-fit:contain; border-radius:50%; }
@@ -15,8 +15,8 @@ body { background-image:radial-gradient(ellipse at 90% 4%,#21193680,transparent 
 .pfxBrandText small { display:block; font:9px/1.9 var(--pfx-mono); letter-spacing:1.4px; color:var(--pfx-muted); }
 .pfxNavigationLinks { gap:5px; }
 .pfxNavigationLinks a { position:relative; border:0; border-radius:0; background:transparent; color:#b4b9c8; padding:11px 10px 13px; font-size:11px; text-transform:none; font-weight:600; letter-spacing:.1px; }
-.pfxNavigationLinks a:hover { color:var(--pfx-text); background:#b99bff0a; }
-.pfxNavigationLinks a[aria-current="page"] { background:#b99bff0d; color:var(--pfx-text); box-shadow:inset 0 -2px var(--pfx-violet); }
+.pfxNavigationLinks a:hover { color:var(--pfx-text); background:#b45cff12; }
+.pfxNavigationLinks a[aria-current="page"] { background:#9145ff18; color:var(--pfx-text); box-shadow:inset 0 -2px var(--pfx-violet); }
 .pfxToolNumber { display:block; color:#88829e; font:9px/1.4 var(--pfx-mono); letter-spacing:1px; margin-bottom:5px; }
 .pfxNavigationLinks a[aria-current="page"] .pfxToolNumber { color:var(--pfx-violet); }
 #pfx-main-content { background:transparent !important; color:var(--pfx-text); font-family:var(--pfx-font) !important; }
@@ -32,7 +32,7 @@ body { background-image:radial-gradient(ellipse at 90% 4%,#21193680,transparent 
 :where(a,button,input,select,textarea,summary):focus-visible { outline:3px solid var(--pfx-cyan); outline-offset:4px; }
 #pfx-main-content :is(.secondaryButton,.copyButton,.navButton,.backButton,.pfxQuoteControls button) { background:#171925; color:#d7c9f7; border-color:#514366; border-radius:7px; box-shadow:none; }
 #pfx-main-content :is(.primaryButton,.compareButton,.analyzeButton,.search button) { background:var(--pfx-green); color:#071b12; border-color:transparent; border-radius:7px; box-shadow:none; }
-#pfx-main-content :is(.primaryButton,.compareButton,.analyzeButton,.search button):hover:not(:disabled) { background:#87ffc1; }
+#pfx-main-content :is(.primaryButton,.compareButton,.analyzeButton,.search button):hover:not(:disabled) { background:#55ffb0; }
 #pfx-main-content :is(.observed,.pairGrid,.meta) span { color:var(--pfx-muted); }
 #pfx-main-content :is(.observed,.pairGrid,.meta) strong { font-variant-numeric:tabular-nums; }
 #pfx-main-content .metric { border-top:2px solid #73628d; }
@@ -143,3 +143,19 @@ body { background-image:radial-gradient(ellipse at 90% 4%,#21193680,transparent 
   .pfxAnalyzerHero .search button { width:100%; }
 }
 #pfx-main-content .hero { background:transparent; box-shadow:none; border-radius:0; border-top:0; border-inline:0; }
+
+/* Canonical PFX electric palette, approved reference: docs/PFX_BRAND_REFERENCE.md. */
+body { background-image:radial-gradient(ellipse at 92% 5%,#7800ff26,transparent 43%),radial-gradient(ellipse at 12% 32%,#008cff0d,transparent 42%); }
+.pfxNavigation::before { background:linear-gradient(90deg,var(--pfx-green),var(--pfx-cyan) 30%,var(--pfx-blue) 50%,var(--pfx-violet) 72%,var(--pfx-magenta)); }
+.pfxNavigationLinks a[aria-current="page"] { box-shadow:inset 0 -2px var(--pfx-cyan); }
+#pfx-main-content .hero h1 span { color:#cb7bff; }
+#pfx-main-content .pfxAnalyzerHero h1 .pfxHeadlineAccent { background:linear-gradient(100deg,#00e5ff 3%,#b36aff 55%,#f35fff 100%); background-clip:text; -webkit-background-clip:text; color:transparent; }
+#pfx-main-content .pfxAnalyzerHero h1 { color:#e7edf5; }
+.pfxMarkInstrument::before { content:""; position:absolute; inset:12%; border-radius:50%; box-shadow:-22px 0 65px #00cfff29,22px 0 65px #b500ff38; }
+.pfxMarkOrbits { color:#3b3870; filter:drop-shadow(0 0 4px #8000ff55); }
+.pfxMarkLabel { color:#c385ff; }
+.pfxMarkTag { color:#b9d8f0; }
+.pfxSpectrum i:nth-child(3) { background:var(--pfx-magenta); }
+#pfx-main-content :is(.primaryButton,.compareButton,.analyzeButton,.search button) { box-shadow:0 0 24px #00ff8817; }
+#pfx-main-content .pfxUsagePanel { border-color:#254259 !important; }
+#pfx-main-content .pfxDirectoryStats { background:linear-gradient(115deg,#1b0934,#071c2b 70%); border-color:#7651b0; }

@@ -1,6 +1,6 @@
 # PROFITX Observatory visual identity
 
-The Analyzer uses a graphite / silver base with PFX green reserved for primary actions, Solana violet for navigation and hierarchy, and turquoise for observed counters. Risk colors retain their semantic meaning.
+The canonical palette is defined in `PFX_BRAND_REFERENCE.md`, based on the image explicitly supplied by the user on 12 November 2026. Use deep black, metallic silver, vivid electric cyan/blue, saturated violet/magenta and neon PFX green. Do not replace these with a muted pastel or turquoise/lavender palette. Risk colors retain their semantic meaning.
 
 The Analyzer opens with its search and a static composition around the existing official logo. The rings are brand decoration, not a score or live measurement. Repeated animated logo bubbles are removed. The project/token information remains available in a labeled disclosure below the real usage counters, rather than preceding the analysis task.
 

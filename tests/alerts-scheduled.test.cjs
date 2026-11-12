@@ -6,9 +6,9 @@ const path = require("node:path");
 const source = fs.readFileSync(path.join(__dirname, "../pages/api/alerts-scheduled.js"), "utf8")
   .replace('import monitorHandler from "./alerts-monitor";', "")
   .replace("export default async function handler(", "async function handler(")
-  + "\nmodule.exports={handler};";
+  + "\nmodule.exports={handler,recordRun};";
 function load(env, monitorHandler, log = () => {}) {
- const context={module:{exports:{}},process:{env},monitorHandler,console:{info:log}};
+ const context={module:{exports:{}},process:{env},monitorHandler,console:{info:log,warn:log},AbortController,setTimeout,clearTimeout};
  vm.runInNewContext(source,context);
  return context.module.exports.handler;
 }
@@ -92,4 +92,23 @@ test("scheduler logs aggregate counts without client identifiers or per-rule dat
  assert.equal(logs[0][1].summary.errors,0);
  assert.doesNotMatch(JSON.stringify(logs),/private|clientId/);
  assert.equal(r.json,json);
+});
+
+test('scheduler persists aggregate evidence before sending the response',async()=>{
+ const order=[];let row;
+ const context={module:{exports:{}},process:{env:{CRON_SECRET:'cron',PFX_ALERTS_MONITOR_SECRET:'monitor',SUPABASE_URL:'https://db.example',SUPABASE_SERVICE_ROLE_KEY:'server-only'}},
+ AbortController,setTimeout,clearTimeout,console:{info(){},warn(){}},
+ fetch:async(url,options)=>{order.push('persist');row=JSON.parse(options.body);assert.equal(url,'https://db.example/rest/v1/pfx_alert_cron_runs');return {ok:true};},
+ monitorHandler:async(req,r)=>r.status(200).json({ok:true,summary:{checked:0,errors:0,clientId:'private'},results:[{mint:'private'}]})};
+ vm.runInNewContext(source,context);const r=res();r.json=function(data){order.push('response');this.data=data;return this;};
+ await context.module.exports.handler({method:'GET',headers:{authorization:'Bearer cron'}},r);
+ assert.deepEqual(order,['persist','response']);assert.equal(row.outcome,'completed');assert.equal(row.summary.checked,0);
+ assert.doesNotMatch(JSON.stringify(row),/private|server-only|clientId|mint/);
+});
+test('failed evidence storage preserves the monitor response and reports the gap',async()=>{
+ let warned=0;const context={module:{exports:{}},process:{env:{CRON_SECRET:'cron',PFX_ALERTS_MONITOR_SECRET:'monitor',SUPABASE_URL:'https://db.example',SUPABASE_SERVICE_ROLE_KEY:'server-only'}},
+ AbortController,setTimeout,clearTimeout,console:{info(){},warn(){warned++;}},fetch:async()=>({ok:false}),
+ monitorHandler:async(req,r)=>r.status(503).json({ok:false})};
+ vm.runInNewContext(source,context);const r=res();await context.module.exports.handler({method:'GET',headers:{authorization:'Bearer cron'}},r);
+ assert.equal(r.statusCode,503);assert.equal(r.data.ok,false);assert.equal(warned,1);
 });

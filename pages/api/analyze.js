@@ -1106,11 +1106,9 @@ function token2022Score(
     return null;
   }
 
-  if (
-    token2022.isToken2022 !== true
-  ) {
-    return 100;
-  }
+  if (token2022.isToken2022 === false) return 100;
+  // Unknown detection or a parser that is not scoring-ready is not a favorable score.
+  if (token2022.isToken2022 !== true || token2022.analysis?.scoringReady !== true || token2022.analysis?.analysisComplete !== true) return null;
 
   const findings =
     Array.isArray(

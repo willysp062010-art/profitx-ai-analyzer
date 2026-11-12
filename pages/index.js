@@ -2287,6 +2287,17 @@ async function searchToken(query) {
 
               </div>
 
+              {token2022.isToken2022 === true && <div style={{ marginTop: 20 }}>
+                <h3>Points à examiner sur les extensions</h3>
+                <p style={{ lineHeight: 1.7 }}>Ces constats décrivent les propriétés détectées. Ils ne prouvent ni une fraude ni la possibilité de revendre le token. Les programmes de transfert personnalisés nécessitent un examen complémentaire.</p>
+                {Array.isArray(token2022.findings) && token2022.findings.length > 0
+                  ? <ul style={{ paddingLeft: 20, lineHeight: 1.7 }}>{token2022.findings.map((finding, index) => <li key={`${finding.code || "finding"}:${index}`} style={{ color: finding.severity === "HIGH" ? "#ffbf57" : "inherit", marginBottom: 10 }}>
+                      <strong>{finding.severity === "HIGH" ? "Vigilance élevée" : finding.severity === "MEDIUM" ? "À examiner" : "Information"} : </strong>{finding.message || "Propriété détectée sans description disponible."}
+                    </li>)}</ul>
+                  : <p>Aucun constat détaillé disponible. Cette absence ne confirme pas l’absence de risque.</p>}
+              </div>}
+
+
             </div>
 
           )}

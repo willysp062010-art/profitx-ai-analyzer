@@ -900,7 +900,7 @@ export default function Alerts() {
         />
       </Head>
 
-      <main className="page">
+      <main id="pfx-main-content" tabIndex={-1} className="page">
         <div className="shell">
 
             <section className="hero">

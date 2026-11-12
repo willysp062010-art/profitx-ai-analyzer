@@ -240,7 +240,7 @@ export default function Watchlist() {
   return (
     <>
       <Head><title>PFX Watchlist — PROFITX AI</title></Head>
-      <main className="shell">
+      <main id="pfx-main-content" tabIndex={-1} className="shell">
 
 
         <section className="hero">
@@ -258,63 +258,7 @@ export default function Watchlist() {
             ProfitX.
           </p>
 
-         <div className="navigation">
-  <button
-    type="button"
-    className="secondaryButton"
-    onClick={() => router.push("/")}
-  >
-    ANALYZER
-  </button>
 
-  <button
-    type="button"
-    className="secondaryButton"
-    onClick={() => router.push("/radar")}
-  >
-    RADAR
-  </button>
-
-  <button
-    type="button"
-    className="secondaryButton"
-    onClick={() => router.push("/compare")}
-  >
-    COMPARE
-  </button>
-
-  <button
-    type="button"
-    className="secondaryButton"
-    onClick={() => router.push("/intelligence")}
-  >
-    INTELLIGENCE
-  </button>
-
-  <button
-    type="button"
-    className="secondaryButton"
-    onClick={() => router.push("/watchlist")}
-  >
-    WATCHLIST
-  </button>
-
-  <button
-    type="button"
-    className="secondaryButton"
-    onClick={() => router.push("/alerts")}
-  >
-    ALERTS
-  </button>
-
-  <button
-    type="button"
-    className="secondaryButton"
-    onClick={() => router.push("/obtenir-pfx")}
-  >
-    OBTENIR PFX
-  </button>
-</div>
         </section>
 
         <section className="panel">

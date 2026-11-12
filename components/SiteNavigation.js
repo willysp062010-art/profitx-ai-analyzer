@@ -16,6 +16,7 @@ export default function SiteNavigation() {
   const { pathname } = useRouter();
   return (
     <header className="pfxNavigation">
+      <a className="pfxSkipLink" href="#pfx-main-content">Aller au contenu</a>
       <div className="pfxNavigationInner">
         <Link href="/" className="pfxNavigationBrand" aria-label="PROFITX AI — accueil Analyzer">
           <span aria-hidden="true">P</span> PROFITX AI

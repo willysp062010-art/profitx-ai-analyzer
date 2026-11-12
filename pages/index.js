@@ -804,7 +804,7 @@ async function searchToken(query) {
 
 
   return (
-    <main className="shell">
+    <main id="pfx-main-content" tabIndex={-1} className="shell">
 
 
 

@@ -685,7 +685,7 @@ export default function ComparePage() {
         />
       </Head>
 
-      <main className="page">
+      <main id="pfx-main-content" tabIndex={-1} className="page">
         <div className="backgroundGlow glowOne" />
         <div className="backgroundGlow glowTwo" />
 

@@ -42,7 +42,7 @@ export default function ObtenirPFX() {
         />
       </Head>
 
-      <main className="page">
+      <main id="pfx-main-content" tabIndex={-1} className="page">
 
 
         <section className="hero">

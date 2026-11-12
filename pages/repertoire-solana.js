@@ -65,7 +65,7 @@ export default function RepertoireSolana(){
     btn:{background:"#123626",color:"#e7f5ed",border:"1px solid #347c58",padding:"10px 16px",borderRadius:8,cursor:"pointer"},
     muted:{color:"#9cb4a5"}
   };
-  return <main style={styles.page}>
+  return <main id="pfx-main-content" tabIndex={-1} style={styles.page}>
     <Head><title>Répertoire Solana | PROFITX AI</title><meta name="description" content="Recherche parmi les tokens Solana observés par PROFITX AI. Couverture partielle et données non auditées."/></Head>
     <div style={styles.shell}>
 

@@ -673,7 +673,7 @@ export default function Radar() {
         <meta name="robots" content="index,follow" />
       </Head>
 
-      <main id="pfx-main-content" tabIndex={-1} className="radarPage">
+      <main data-tool="radar" id="pfx-main-content" tabIndex={-1} className="radarPage">
         <div className="radarShell">
           {watchlistMessage && <p role="status" style={{ color: "#d8e5dd" }}>{watchlistMessage}</p>}
 

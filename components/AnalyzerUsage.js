@@ -28,7 +28,7 @@ export default function AnalyzerUsage() {
   return <section aria-label="Utilisation de l’Analyzer" style={{margin:"24px 0",padding:22,border:"1px solid #2b8b5b",borderRadius:16,background:"#0a1d14",color:"#e7f5ed"}}>
     <h2 style={{margin:"0 0 8px",fontSize:24}}>L’Analyzer en chiffres</h2>
     <p style={{margin:"0 0 18px",color:"#a9c9b8"}}>Activité observée sur cette page</p>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:18}}>
+    <div className="pfxUsageGrid">
       {[["visits","Visites comptabilisées"],["analyses","Analyses réalisées"],["todayVisits","Visites aujourd’hui"],["todayAnalyses","Analyses aujourd’hui"]].map(([key,label])=><div key={key}><strong style={{display:"block",fontSize:34,color:"#40f99b"}}>{value(key)}</strong><span>{label}</span></div>)}
     </div>
     <p role="status" style={{fontSize:13,color:"#a9c9b8",marginBottom:0}}>{error?"Statistiques temporairement indisponibles.":stats?"Comptage depuis le "+new Date(stats.since).toLocaleDateString("fr-FR",{timeZone:"Europe/Paris"})+" · Aujourd’hui : heure de Paris · Actualisation toutes les 30 s.":"Chargement des statistiques…"}</p>

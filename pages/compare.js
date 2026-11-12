@@ -877,6 +877,7 @@ export default function ComparePage() {
                               : ""
                           }`}
                         >
+                          <span className="mobileValueLabel">Token A</span>
                           {row.format(valueA)}
                         </div>
 
@@ -891,6 +892,7 @@ export default function ComparePage() {
                               : ""
                           }`}
                         >
+                          <span className="mobileValueLabel">Token B</span>
                           {row.format(valueB)}
                         </div>
                       </div>
@@ -1521,6 +1523,8 @@ export default function ComparePage() {
           border-top: 1px solid #172019;
         }
 
+        .mobileValueLabel { display: none; }
+
         .metricRow:first-child {
           border-top: 0;
         }
@@ -1762,6 +1766,19 @@ export default function ComparePage() {
           .diagnostics {
             grid-template-columns: 1fr;
           }
+        }
+        @media (max-width: 600px) {
+          .resultsPanel { overflow-x: visible; }
+          .tokenCards, .metricsTable { min-width: 0; }
+          .tokenCards { grid-template-columns: minmax(0,1fr); }
+          .compareCenter { min-height: 44px; }
+          .metricRow { grid-template-columns: repeat(2,minmax(0,1fr)); padding: 12px 0; }
+          .metricLabel { grid-column: 1 / -1; grid-row: 1; min-height: 32px; font-size: 14px; }
+          .metricValue { grid-row: 2; flex-direction: column; gap: 8px; padding: 12px 8px; font-size: 16px; }
+          .metricValue:first-child { grid-column: 1; }
+          .metricValue:last-child { grid-column: 2; }
+          .mobileValueLabel { display: block; color: #95afa1; font-size: 12px; font-weight: 600; }
+          .tokenName { white-space: normal; overflow-wrap: anywhere; }
         }
       `}</style>
     </>

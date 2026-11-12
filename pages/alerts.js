@@ -888,7 +888,7 @@ export default function Alerts() {
         />
       </Head>
 
-      <main id="pfx-main-content" tabIndex={-1} className="page">
+      <main data-tool="alerts" id="pfx-main-content" tabIndex={-1} className="page">
         <div className="shell">
 
             <section className="hero">

@@ -221,7 +221,7 @@ export default function IntelligencePage() {
         />
       </Head>
 
-      <main id="pfx-main-content" tabIndex={-1} className="page">
+      <main data-tool="intelligence" id="pfx-main-content" tabIndex={-1} className="page">
 
 
         <section className="hero">

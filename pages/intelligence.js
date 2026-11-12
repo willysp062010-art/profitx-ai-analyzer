@@ -109,12 +109,15 @@ export default function IntelligencePage() {
     setAnalyzer(null);
     setResult(null);
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 45000);
     try {
       const analyzerResponse =
         await fetch(
           `/api/analyze?mint=${encodeURIComponent(
             cleanMint
-          )}`
+          )}`,
+          { signal: controller.signal }
         );
 
       const analyzerData =
@@ -137,6 +140,7 @@ export default function IntelligencePage() {
         await fetch(
           "/api/intelligence",
           {
+            signal: controller.signal,
             method: "POST",
             headers: {
               "Content-Type":
@@ -167,10 +171,12 @@ export default function IntelligencePage() {
       );
     } catch (err) {
       setError(
-        err?.message ||
-          "Une erreur est survenue pendant l'analyse."
+        controller.signal.aborted
+          ? "Le délai de réponse est dépassé. Relancez l’analyse dans quelques instants."
+          : err?.message || "Une erreur est survenue pendant l'analyse."
       );
     } finally {
+      clearTimeout(timeout);
       setLoading(false);
     }
   }

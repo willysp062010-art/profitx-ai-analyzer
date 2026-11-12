@@ -4,14 +4,16 @@ export default function AnalyzerUsage() {
   const [stats,setStats]=useState(null);
   const [error,setError]=useState(false);
   const visit=useRef(null);
+  const revision=useRef(0);
   useEffect(()=>{
     let active=true; const controller=new AbortController();
     async function refresh() {
+      const request=++revision.current;
       try {
         const response=await fetch("/api/usage",{cache:"no-store",signal:controller.signal});const data=await response.json();
         if (!response.ok || !data.ok) throw Error("Unavailable");
-        if(active){setStats(data);setError(false);}
-      } catch { if(active)setError(true); }
+        if(active && request===revision.current){setStats(data);setError(false);}
+      } catch { if(active && request===revision.current)setError(true); }
     }
     if(!visit.current) {
       visit.current=usageEventId();

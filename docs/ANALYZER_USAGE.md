@@ -18,4 +18,4 @@ VERCEL_ENV=production, origine et hôte officiels obligatoires pour les écritur
 
 ## Validation
 
-172 tests passent : contrats d’API, origine, production/preview, robots, limites de débit, UUID/type, zéro authentique, agrégats mal formés, panne de mesure et exclusion des analyses internes. Le comptage atomique et la déduplication SQL doivent être vérifiés en transaction annulée avant activation. La lecture privée des tables doit rester inaccessible aux rôles publics.
+174 tests passent : contrats d’API, origine, production/preview, robots, limites de débit, UUID/type, zéro authentique, agrégats mal formés, panne de mesure et exclusion des analyses internes. Le comptage atomique et la déduplication SQL doivent être vérifiés en transaction annulée avant activation. La lecture privée des tables doit rester inaccessible aux rôles publics.

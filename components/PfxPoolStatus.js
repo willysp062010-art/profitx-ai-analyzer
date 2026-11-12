@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
+import { nonNegativeObservation } from "../utils/observed-number";
 
 function formatted(value, digits = 2) {
-  if (value === null || value === undefined || !Number.isFinite(Number(value))) return "N/D";
-  return Number(value).toLocaleString("fr-FR", { maximumFractionDigits: digits });
+  const observed = nonNegativeObservation(value);
+  if (observed === null) return "N/D";
+  return observed.toLocaleString("fr-FR", { maximumFractionDigits: digits });
 }
 export default function PfxPoolStatus({ analysisContext = false, analysisVolume24hUsd = null }) {
   const [pool, setPool] = useState(null);

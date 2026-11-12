@@ -1,12 +1,12 @@
+import { nonNegativeObservation } from "../utils/observed-number";
 import {useEffect,useRef,useState} from "react";
 import Head from "next/head";
 import Link from "next/link";
 import PfxPoolStatus from "../components/PfxPoolStatus";
 
 const money=(value)=>{
-  if(value===null||value===undefined||value==="")return "N/D";
-  const n=Number(value);
-  return Number.isFinite(n)?n.toLocaleString("fr-FR",{maximumFractionDigits:2})+" $":"N/D";
+  const n=nonNegativeObservation(value);
+  return n===null?"N/D":n.toLocaleString("fr-FR",{maximumFractionDigits:2})+" $";
 };
 const date=(value)=>value?new Date(value).toLocaleString("fr-FR"):"N/D";
 

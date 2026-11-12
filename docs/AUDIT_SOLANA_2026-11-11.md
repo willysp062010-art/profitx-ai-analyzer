@@ -86,3 +86,9 @@ La compilation de production et la suite de régression doivent passer avant fus
 - Les identités disponibles de la Watchlist sont maintenant affichées dans le sélecteur et les cartes des alertes. Le mint abrégé reste visible pour distinguer les homonymes. Une identité absente est explicitement signalée.
 - Le libellé du mint PFX déclaré dépend du réseau Solana et de l’adresse exacte ; un homonyme ne reçoit pas ce libellé automatiquement. Le symbole est clairement distingué du nom.
 - 152 tests passent et la compilation de production réussit.
+
+### Contrôle complémentaire des données et sauvegardes
+
+- Lecture commune des Watchlists : vérification du mint décodé, réseau pris en charge, taille maximale et absence de doublons. Les identifiants des anciennes entrées sont reconstruits en mémoire depuis le réseau et le mint, sans réécriture à la lecture. Les Alertes utilisent cette même lecture. Une liste incohérente reste intacte dans le stockage.
+- Valeurs du pool Raydium et du répertoire : les booléens, listes, objets, chaînes vides, valeurs négatives ou non finies ne sont plus convertis en mesures. Les zéros numériques valides restent des zéros ; les autres valeurs restent indisponibles.
+- 158 tests passent ; compilation de production réussie. Les sauvegardes incohérentes et données amont mal formées ont été vérifiées avec des tests isolés.

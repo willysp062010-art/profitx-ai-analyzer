@@ -15,10 +15,17 @@ export function readWatchlist(storage) {
   const raw = storage.getItem(WATCHLIST_KEY);
   if (!raw) return [];
   const items = JSON.parse(raw);
-  if (!Array.isArray(items) || items.some(item => !item || typeof item !== "object" || typeof item.tokenAddress !== "string" || typeof item.chainId !== "string")) {
+  if (!Array.isArray(items) || items.length > MAX_WATCHLIST_ITEMS || items.some(item => !item || typeof item !== "object" || item.chainId !== "solana" || !isSolanaMint(item.tokenAddress))) {
     throw Error("La Watchlist enregistrée est illisible. Son contenu n'a pas été remplacé.");
   }
-  return items;
+  const identities = new Set();
+  return items.map(item => {
+    const id = `${item.chainId}:${item.tokenAddress}`;
+    if (identities.has(id)) throw Error("La Watchlist contient des doublons incohérents. Aucune donnée n’a été remplacée.");
+    identities.add(id);
+    // Recover legacy identifiers in memory; never rewrite storage during a read.
+    return {...item, id};
+  });
 }
 
 export function mergeWatchlist(current, incoming) {

@@ -1,4 +1,4 @@
-import { watchlistIdentityLabel } from "../utils/watchlist";
+import { watchlistIdentityLabel, readWatchlist } from "../utils/watchlist";
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
@@ -369,7 +369,7 @@ export default function Alerts() {
     async function initializeAlerts() {
       let storedWatchlist, storedAlerts, currentClientId;
       try {
-        storedWatchlist = loadStorage(WATCHLIST_STORAGE_KEY);
+        storedWatchlist = readWatchlist(window.localStorage);
         storedAlerts = loadStorage(ALERTS_STORAGE_KEY);
         currentClientId = createClientId();
         if (!currentClientId) throw Error("Identifiant non sauvegardé");

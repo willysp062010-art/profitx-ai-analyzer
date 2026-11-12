@@ -1,12 +1,8 @@
+import { nonNegativeObservation as value } from "../../utils/observed-number";
 const POOL_ID = "8xezT7zFCg3adVTyME72qiA42upJdy8SATFyhZJcX9jb";
 const PFX_MINT = "6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump";
 const WSOL_MINT = "So11111111111111111111111111111111111111112";
 const RAYDIUM_API = "https://api-v3.raydium.io/pools/info/ids?ids=" + POOL_ID;
-function value(input) {
-  const n = Number(input);
-  return input !== null && input !== undefined && input !== "" &&
-    Number.isFinite(n) && n >= 0 ? n : null;
-}
 export default async function handler(req, res) {
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");

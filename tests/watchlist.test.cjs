@@ -56,3 +56,18 @@ test("token labels keep exact official mint attribution and distinguish symbols"
  assert.equal(label({chainId:"ethereum",tokenAddress:PFX}),"Identité non récupérée");
  assert.equal(label({name:"Other PFX",symbol:"PFX",tokenAddress:BONK,chainId:"solana"}),"Other PFX · $PFX");
 });
+
+test("legacy missing or colliding identifiers are recovered from exact mint identities without a write",()=>{
+ const original=[{chainId:"solana",tokenAddress:PFX,name:"Saved name"},{chainId:"solana",tokenAddress:BONK,id:"same-old-id"}];let writes=0;
+ const result=readWatchlist({getItem:()=>JSON.stringify(original),setItem:()=>writes++});
+ assert.equal(result[0].id,`solana:${PFX}`);assert.equal(result[1].id,`solana:${BONK}`);
+ assert.equal(result[0].name,"Saved name");assert.equal(writes,0);assert.equal(original[0].id,undefined);
+});
+test("invalid, duplicate or unsupported saved entries are reported without replacing storage",()=>{
+ let writes=0;
+ const valid={chainId:"solana",tokenAddress:PFX};
+ for(const rows of [[{...valid,tokenAddress:"bad"}],[valid,valid],[{...valid,chainId:"ethereum"}],Array(1001).fill(valid)]){
+  assert.throws(()=>readWatchlist({getItem:()=>JSON.stringify(rows),setItem:()=>writes++}));
+ }
+ assert.equal(writes,0);
+});

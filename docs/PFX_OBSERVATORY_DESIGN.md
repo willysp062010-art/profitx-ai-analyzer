@@ -11,3 +11,9 @@ Visual reference research included indexed GMGN documentation screenshots and Bi
 ## Rendered checks
 
 The production browser was checked at 1363 CSS px (1348 client/scroll width), and all eight tool routes at 340 CSS px (337 client/scroll width). Every route kept all eight navigation links with minimum height 44 px and no horizontal document overflow. The phone-width check uses native browser zoom, not physical iOS/Android hardware. The project disclosure opens to reveal the existing official mint and links. Desktop and narrow screenshots were inspected. A final refinement makes the narrow search action full width and carries violet through the tool-specific hero headings.
+
+## Site-wide typefaces
+
+At the user's request, every tool uses Sora for headings and Manrope for body copy, labels, navigation and controls. Large numbers retain tabular alignment. The old system-font-only stack is replaced by real variable fonts served by this application, with system fallbacks and `font-display: swap`. French accents are retained. Explicit monospace address blocks may remain for exact mint comparison; these are technical values rather than headings. The logo artwork itself is preserved.
+
+Font sources: Google Fonts repository `ofl/sora/Sora[wght].ttf` and `ofl/manrope/Manrope[wght].ttf`, converted to WOFF without glyph subsetting. The corresponding SIL Open Font Licenses are retained alongside the files in `public/fonts/`. No runtime request to Google Fonts is needed.

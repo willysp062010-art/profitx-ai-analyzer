@@ -1,6 +1,8 @@
+@font-face { font-family:"PFX Manrope"; src:url("/fonts/manrope-variable.woff") format("woff"); font-style:normal; font-weight:200 800; font-display:swap; }
+@font-face { font-family:"PFX Sora"; src:url("/fonts/sora-variable.woff") format("woff"); font-style:normal; font-weight:100 800; font-display:swap; }
 /* PROFITX Observatory — graphite / silver / PFX green / Solana spectrum.
    Color accents describe hierarchy, never replace the meaning of risk statuses. */
-:root { --pfx-ink:#03050c; --pfx-surface:#090e1b; --pfx-line:#25334e; --pfx-text:#e7edf5; --pfx-muted:#a7aec0; --pfx-green:#00ff88; --pfx-violet:#b45cff; --pfx-cyan:#00e5ff; --pfx-magenta:#ef39ff; --pfx-blue:#258bff; --pfx-font:"Avenir Next","Segoe UI",Arial,sans-serif; --pfx-mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace; }
+:root { --pfx-ink:#03050c; --pfx-surface:#090e1b; --pfx-line:#25334e; --pfx-text:#e7edf5; --pfx-muted:#a7aec0; --pfx-green:#00ff88; --pfx-violet:#b45cff; --pfx-cyan:#00e5ff; --pfx-magenta:#ef39ff; --pfx-blue:#258bff; --pfx-font:"PFX Manrope","Segoe UI",sans-serif; --pfx-heading:"PFX Sora","Segoe UI",sans-serif; --pfx-mono:var(--pfx-font); }
 html,body { background:var(--pfx-ink); color:var(--pfx-text); font-family:var(--pfx-font); }
 body { background-image:radial-gradient(ellipse at 90% 4%,#24074799,transparent 44%); }
 .pfxObservatoryBackground { pointer-events:none; position:fixed; inset:0; z-index:0; background-image:linear-gradient(90deg,transparent calc(100% - 1px),#00cfff0b 1px); background-size:96px 100%; mask-image:linear-gradient(#000,transparent 85%); }
@@ -159,3 +161,26 @@ body { background-image:radial-gradient(ellipse at 92% 5%,#7800ff26,transparent 
 #pfx-main-content :is(.primaryButton,.compareButton,.analyzeButton,.search button) { box-shadow:0 0 24px #00ff8817; }
 #pfx-main-content .pfxUsagePanel { border-color:#254259 !important; }
 #pfx-main-content .pfxDirectoryStats { background:linear-gradient(115deg,#1b0934,#071c2b 70%); border-color:#7651b0; }
+
+/* Site-wide typography: Sora for titles / Manrope for reading and controls. */
+body { font-weight:400; -webkit-font-smoothing:antialiased; }
+.pfxNavigationBrand .pfxBrandText { font-family:var(--pfx-heading); font-weight:600; letter-spacing:.5px; }
+.pfxBrandText small { font-family:var(--pfx-font); font-size:9px; letter-spacing:1.4px; }
+.pfxNavigationLinks a { font-family:var(--pfx-font); font-weight:650; font-size:12px; }
+#pfx-main-content :is(h1,h2,h3), #pfx-main-content :is(h1,h2,h3) span { font-family:var(--pfx-heading) !important; }
+#pfx-main-content h1 { font-weight:600; letter-spacing:-.045em; line-height:1.14; }
+#pfx-main-content h2 { font-weight:550; letter-spacing:-.025em; line-height:1.3; }
+#pfx-main-content h3 { font-weight:600; letter-spacing:-.02em; line-height:1.4; }
+#pfx-main-content :is(button,input,select,textarea) { font-family:var(--pfx-font) !important; }
+#pfx-main-content :is(.eyebrow,.sectionTag,.label) { font-family:var(--pfx-font); font-weight:650; letter-spacing:.14em; }
+#pfx-main-content p, #pfx-main-content li { font-weight:400; line-height:1.75; }
+#pfx-main-content .pfxAnalyzerHero h1 { font-size:clamp(40px,4.55vw,67px); line-height:1.17; letter-spacing:-.045em; }
+#pfx-main-content .pfxAnalyzerHero .intro { font-weight:400; line-height:1.85; }
+#pfx-main-content .brandLogoCard strong { font-family:var(--pfx-heading); font-size:17px; font-weight:600; letter-spacing:.02em; line-height:1.5; }
+#pfx-main-content :is(.score,.metric strong,.pfxDirectoryStatsGrid strong,.pfxUsageGrid strong) { font-family:var(--pfx-font); font-variant-numeric:tabular-nums; letter-spacing:-.04em; }
+.pfxMarkLabel,.pfxMarkFooter,.pfxMarkTag,.pfxMethodStrip span { font-family:var(--pfx-font); font-weight:600; }
+@media(max-width:700px) {
+  #pfx-main-content .pfxAnalyzerHero h1 { font-size:clamp(30px,8vw,43px); letter-spacing:-.045em; line-height:1.2; }
+  .pfxNavigationLinks a { font-size:11.5px; }
+  #pfx-main-content :is(input,select,textarea) { font-size:16px !important; }
+}

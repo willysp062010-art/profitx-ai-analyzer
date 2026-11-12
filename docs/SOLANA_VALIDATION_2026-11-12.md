@@ -32,7 +32,7 @@ Production API checks confirmed HTTP 422 with no score for the system-program ad
 - Token-2022 extensions are not fully integrated into the security score; that limitation is shown with the result.
 - Revente/execution is not guaranteed by historical transactions or indicative swap quotes.
 - Alerts run by daily batches and manual checks, not continuously. Email notifications are not enabled.
-- Watchlist is browser-local with export/import. Mobile validation is deferred by the user.
+- Watchlist is browser-local with export/import. A responsive web pass now covers desktop-browser layouts at phone widths; physical iOS/Android device validation remains outstanding.
 
 These are explicit scope limits, not hidden successes or silent replacement of unavailable data with zero.
 

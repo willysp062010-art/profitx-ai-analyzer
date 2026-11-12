@@ -16,6 +16,8 @@ export default function RepertoireSolana(){
   const [q,setQ]=useState("");
   const [term,setTerm]=useState("");
   const [page,setPage]=useState(1);
+  const [refreshVersion,setRefreshVersion]=useState(0);
+  const [listUpdatedAt,setListUpdatedAt]=useState(null);
   const [identifiedOnly,setIdentifiedOnly]=useState(false);
   const [external,setExternal]=useState({loading:false,results:[],error:"",notice:""});
   const [state,setState]=useState({loading:true,tokens:[],count:null,hasMore:false,error:""});
@@ -34,10 +36,10 @@ export default function RepertoireSolana(){
         if(!response.ok||!data.ok)throw Error(data.error||"Recherche indisponible");
         return data;
       })
-      .then(data=>{if(ctl.signal.aborted)return;snapshotRef.current=data.snapshot||"";setState({loading:false,tokens:data.tokens,count:data.count,hasMore:data.hasMore,indexingPending:data.identityIndexingPending||0,error:""});})
+      .then(data=>{if(ctl.signal.aborted)return;snapshotRef.current=data.snapshot||"";setListUpdatedAt(new Date().toISOString());setState({loading:false,tokens:data.tokens,count:data.count,hasMore:data.hasMore,indexingPending:data.identityIndexingPending||0,error:""});})
       .catch(err=>{if(!ctl.signal.aborted&&err.name!=="AbortError")setState(old=>({...old,loading:false,error:err.message}));});
     return ()=>ctl.abort();
-  },[term,page,identifiedOnly]);
+  },[term,page,identifiedOnly,refreshVersion]);
   useEffect(()=>{
     if(term.length<2){setExternal({loading:false,results:[],error:""});return;}
     const ctrl=new AbortController();
@@ -80,12 +82,17 @@ export default function RepertoireSolana(){
       <div style={{marginTop:24}}>
         <input aria-label="Rechercher un token" style={styles.input} value={q} onChange={e=>setQ(e.target.value)} placeholder="Nom, symbole ou adresse mint Solana..." maxLength={64}/>
       </div>
-      <div style={{marginTop:16}}>
+      <div style={{marginTop:16,display:"flex",gap:12,flexWrap:"wrap"}}>
         <button type="button" style={styles.btn} onClick={()=>{snapshotRef.current="";setIdentifiedOnly(!identifiedOnly);setPage(1);}}>
           {identifiedOnly?"Afficher tous les tokens":"Afficher seulement les tokens identifiés"}
         </button>
+        <button type="button" style={styles.btn} disabled={searching} onClick={()=>{snapshotRef.current="";setPage(1);setRefreshVersion(n=>n+1);}}>
+          {searching?"Chargement des tokens…":state.error?"Réessayer le chargement":"Actualiser les tokens"}
+        </button>
+        {q&&<button type="button" style={styles.btn} onClick={()=>setQ("")}>Effacer la recherche</button>}
       </div>
-      <p style={styles.muted}>{searching?"Recherche en cours...":state.error?"Erreur : "+state.error:state.count===null?"Résultats disponibles":state.count.toLocaleString("fr-FR")+" tokens trouvés"} · Page {page}</p>
+      <p role="status" aria-live="polite" style={styles.muted}>{searching?"Recherche en cours...":state.error?"Erreur : "+state.error:state.count===null?"Résultats disponibles":state.count.toLocaleString("fr-FR")+" tokens dans cette sélection"} · Page {page}</p>
+      <p style={styles.muted}>La liste reste stable pendant la pagination. « Actualiser les tokens » charge les derniers résultats et revient à la page 1 en conservant votre recherche et votre filtre.{listUpdatedAt&&!state.error&&!searching&&" Liste chargée à " + new Date(listUpdatedAt).toLocaleTimeString("fr-FR",{timeZone:"Europe/Paris"}) + " (Paris)."}</p>
       {<section style={{...styles.card,borderColor:"#42f9a1"}}>
         <div style={{color:"#42f9a1",fontWeight:800}}>PROFITX AI / ANALYZER — MINT PFX DÉCLARÉ</div>
         <h2>PROFITX — PFX</h2>
@@ -135,9 +142,9 @@ export default function RepertoireSolana(){
         {!external.loading&&!external.error&&external.results.length===0&&<p style={styles.muted}>Aucun marché correspondant trouvé dans les sources externes disponibles.</p>}
       </section>}
       <div style={{display:"flex",gap:12,marginTop:24,alignItems:"center",flexWrap:"wrap"}}>
-        <button style={styles.btn} disabled={page===1||searching} onClick={()=>setPage(n=>Math.max(1,n-1))}>← Précédent</button>
+        <button style={styles.btn} disabled={page===1||searching||Boolean(state.error)} onClick={()=>setPage(n=>Math.max(1,n-1))}>← Précédent</button>
         <span>Page {page}</span>
-        <button style={styles.btn} disabled={!state.hasMore||searching} onClick={()=>setPage(n=>n+1)}>Suivant →</button>
+        <button style={styles.btn} disabled={!state.hasMore||searching||Boolean(state.error)} onClick={()=>setPage(n=>n+1)}>Suivant →</button>
       </div>
     </div>
   </main>;

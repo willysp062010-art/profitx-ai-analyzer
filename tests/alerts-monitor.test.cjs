@@ -133,3 +133,35 @@ test("conflicting pool prices cannot create an automatic threshold crossing",()=
  const result=buildEvaluation({metric:"priceUsd",condition:"above",targetValue:1,lastConditionMet:false},market,new Date().toISOString());
  assert.equal(result.triggeredNow,false); assert.equal(result.conditionObserved,false);
 });
+
+const HEALTH_ENV = {SUPABASE_URL:"https://example.test",SUPABASE_SERVICE_ROLE_KEY:"private",
+ PFX_ALERTS_MONITOR_SECRET:"monitor",CRON_SECRET:"cron"};
+function cronRow(overrides = {}) {
+ return {started_at:new Date(Date.now()-2000).toISOString(),completed_at:new Date(Date.now()-1000).toISOString(),
+  http_status:200,outcome:"completed",summary:{errors:0,checked:3,clientId:"private-rule"},...overrides};
+}
+test("health confirms a recent durable execution using read-only access and exposes no rule data",async()=>{
+ let calls=0;
+ const row=cronRow();
+ const r=await invoke(load(HEALTH_ENV,async(url,options)=>{
+  calls++;assert.match(url,/pfx_alert_cron_runs/);assert.equal(options.method,undefined);
+  return {ok:true,json:async()=>[row]};
+ }),"GET");
+ assert.equal(calls,1);assert.equal(r.body.lastExecutionVerified,true);
+ assert.equal(r.body.lastExecutionStatus,"completed");assert.equal(r.body.lastExecutionAt,row.completed_at);
+ assert.doesNotMatch(JSON.stringify(r.body),/private-rule|checked|clientId|summary/);
+});
+test("health never hides a failed latest run behind an older success",async()=>{
+ const r=await invoke(load(HEALTH_ENV,async()=>({ok:true,json:async()=>[cronRow({outcome:"failed",http_status:500})]})),"GET");
+ assert.equal(r.body.lastExecutionVerified,false);assert.equal(r.body.lastExecutionStatus,"failed");
+});
+test("stale, incomplete, future and unavailable scheduler evidence cannot claim current success",async()=>{
+ const old=new Date(Date.now()-48*60*60*1000).toISOString();
+ for(const row of [cronRow({started_at:old,completed_at:old}),cronRow({summary:{}}),
+  cronRow({summary:{errors:1}}),cronRow({completed_at:new Date(Date.now()+60000).toISOString()}),null]) {
+  const r=await invoke(load(HEALTH_ENV,async()=>({ok:true,json:async()=>row?[row]:[]})),"GET");
+  assert.equal(r.body.lastExecutionVerified,false);
+ }
+ const r=await invoke(load(HEALTH_ENV,async()=>{throw Error("unavailable")}),"GET");
+ assert.equal(r.body.lastExecutionStatus,"unknown");
+});

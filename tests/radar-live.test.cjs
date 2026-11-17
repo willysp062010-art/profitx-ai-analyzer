@@ -54,7 +54,7 @@ test("DEX metadata for a different base token cannot identify a quote-side mint"
   assert.equal(result.byMint.has(mint), false);
 });
 
-test("Radar checks concentration and creator history before enrichment saves finish", async () => {
+test("Radar checks concentration and creator history in parallel with metadata lookups", async () => {
   let completeEnrichment;
   const enrichment = new Promise((resolve) => { completeEnrichment = resolve; });
   const events = [];
@@ -106,4 +106,39 @@ test("Radar checks concentration and creator history before enrichment saves fin
   assert.equal(token.securityChecked, true);
   assert.equal(token.top1AccountPercent, 20);
   assert.equal(token.creatorSeenTokenCount, 2);
+});
+
+async function paginatedRadar(size) {
+ const calls=[];
+ const handler=vm.runInNewContext(source+"\nhandler;",{
+  process:{env:{SUPABASE_URL:"https://db.test",SUPABASE_SERVICE_ROLE_KEY:"private"}},
+  URLSearchParams,AbortSignal,console,
+  fetch:async(url,options)=>{calls.push({url,options});return new Response(JSON.stringify(
+   Array.from({length:size},(_,id)=>({id,mint,name:"Known",symbol:"KN"}))));}
+ });
+ const res={setHeader(){},status(n){this.statusCode=n;return this;},json(body){this.body=body;return this;}};
+ await handler({method:"GET",query:{}},res);return {res,calls};
+}
+test("Radar lookahead paginates without full-index counts or database writes",async()=>{
+ for(const [size,more] of [[0,false],[99,false],[100,false],[101,true]]) {
+  const {res,calls}=await paginatedRadar(size);
+  assert.equal(res.statusCode,200);assert.equal(res.body.count,Math.min(size,100));
+  assert.equal(res.body.hasMore,more);assert.equal(res.body.totalIndexed,null);
+  const databaseCalls=calls.filter(call=>call.url.startsWith("https://db.test"));
+  assert.equal(databaseCalls.length,1);
+  assert.equal(new URL(databaseCalls[0].url).searchParams.get("limit"),"101");
+  assert.equal(databaseCalls[0].options.headers.Prefer,undefined);
+  assert.ok(databaseCalls.every(call=>!call.options.method||call.options.method==="GET"));
+ }
+});
+test("optional provider signals inherit the shared deadline",()=>{
+ const {boundedSignal}=vm.runInNewContext(source+"\n({boundedSignal});",{AbortSignal});
+ const controller=new AbortController();const signal=boundedSignal(5000,controller.signal);
+ assert.equal(signal.aborted,false);controller.abort();assert.equal(signal.aborted,true);
+});
+
+test("transient DAS metadata is attributed to Helius instead of claiming database persistence",()=>{
+ const {resolveTokenIdentity}=identityHelpers();
+ const result=resolveTokenIdentity({name:null,liveMetadata:{name:"Read-only identity",symbol:"READ"}});
+ assert.equal(result.name,"Read-only identity");assert.equal(result.nameSource,"helius_das");
 });

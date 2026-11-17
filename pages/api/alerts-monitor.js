@@ -711,6 +711,34 @@ function isAuthorized(req) {
   );
 }
 
+// Read durable scheduler evidence without evaluating or changing any alert.
+// Publish only execution time/status; rule data and aggregate counts stay private.
+async function readScheduledExecution() {
+  const unknown = { lastExecutionVerified: false, lastExecutionAt: null,
+    lastExecutionStatus: "unknown" };
+  if (!SUPABASE_URL || !SUPABASE_KEY) return unknown;
+  try {
+    const response = await fetchWithTimeout(
+      `${SUPABASE_URL.replace(/\/$/, "")}/rest/v1/pfx_alert_cron_runs` +
+      "?select=started_at,completed_at,http_status,outcome,summary&order=started_at.desc&limit=1",
+      { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`,
+        Accept: "application/json" } }, 2000);
+    if (!response.ok) return unknown;
+    const rows = await response.json();
+    const row = Array.isArray(rows) ? rows[0] : null;
+    const started = Date.parse(row?.started_at);
+    const completed = Date.parse(row?.completed_at);
+    if (!Number.isFinite(started) || !Number.isFinite(completed) || completed < started ||
+        completed > Date.now() || !["completed", "failed"].includes(row?.outcome)) return unknown;
+    const succeeded = row.outcome === "completed" && row.http_status >= 200 &&
+      row.http_status < 300 && row.summary?.errors === 0;
+    const fresh = Date.now() - completed <= 36 * 60 * 60 * 1000;
+    return { lastExecutionVerified: succeeded && fresh,
+      lastExecutionAt: new Date(completed).toISOString(),
+      lastExecutionStatus: !succeeded ? "failed" : fresh ? "completed" : "stale" };
+  } catch { return unknown; }
+}
+
 export default async function handler(
   req,
   res
@@ -726,6 +754,8 @@ export default async function handler(
    */
   if (req.method === "GET") {
     const schedulingConfigured = Boolean(process.env.CRON_SECRET && SUPABASE_URL && SUPABASE_KEY && MONITOR_SECRET);
+    const execution = schedulingConfigured ? await readScheduledExecution() :
+      { lastExecutionVerified: false, lastExecutionAt: null, lastExecutionStatus: "unknown" };
     return send(res, 200, {
       ok: true,
       service:
@@ -735,7 +765,7 @@ export default async function handler(
       automaticMonitoring: schedulingConfigured,
       scheduled: schedulingConfigured,
       monitoringMode: schedulingConfigured ? "daily_schedule_configured" : "private_manual",
-      lastExecutionVerified: false,
+      ...execution,
       emailNotifications: EMAIL_NOTIFICATIONS_ENABLED,
       configured: Boolean(
         SUPABASE_URL &&

@@ -1,15 +1,14 @@
 
 const LIVE_ENRICH_LIMIT = 15;
-const LIVE_RETRY_MS = 10 * 60 * 1000;
+// A slow optional provider must not consume the entire serverless window.
+function boundedSignal(timeout, parent) {
+  const local = AbortSignal.timeout(timeout);
+  return parent ? AbortSignal.any([local, parent]) : local;
+}
 
 function validMint(value) {
   return typeof value === "string" &&
     /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value);
-}
-
-function metadataFor(row) {
-  return row.metadata && typeof row.metadata === "object" &&
-    !Array.isArray(row.metadata) ? row.metadata : {};
 }
 
 function tokenText(value) {
@@ -25,7 +24,7 @@ function mintMetadata(info, mint, owner) {
 }
 
 function resolveTokenIdentity(row, chain = {}, market = {}) {
-  const sources = [[row, "indexed_metadata"], [chain, "solana_mint_metadata"], [market, "dexscreener_pair"]];
+  const sources = [[row, "indexed_metadata"], [row.liveMetadata, "helius_das"], [chain, "solana_mint_metadata"], [market, "dexscreener_pair"]];
   const field = key => {
     for (const [data, source] of sources) {
       const value = tokenText(data?.[key]);
@@ -38,151 +37,35 @@ function resolveTokenIdentity(row, chain = {}, market = {}) {
     nameStatus: name.value ? "available" : "missing", nameSource: name.source, symbolSource: symbol.source };
 }
 
-async function enrichOnRead(rows, supabaseUrl, supabaseKey) {
+// Interactive reads enrich only the displayed rows. Historical backfill and
+// persistence belong to /api/radar-enrich, not every visitor's page load.
+async function enrichOnRead(rows, _supabaseUrl, _supabaseKey, signal) {
   const heliusKey = process.env.HELIUS_API_KEY;
   if (!heliusKey) return;
-
-  const now = Date.now();
-  function eligible(row) {
-    if (!validMint(row.mint) ||
-        !["pending", "metadata_missing"].includes(row.analysis_status)) {
-      return false;
-    }
-    if (tokenText(row.name) && tokenText(row.symbol)) return false;
-    const metadata = metadataFor(row);
-    const attempts = Number(metadata.enrichment_attempts) || 0;
-    const checked = Date.parse(metadata.enrichment_checked_at);
-    return attempts < 8 && (
-      !Number.isFinite(checked) || now - checked >= LIVE_RETRY_MS
-    );
-  }
-
-  // Keep the same Helius budget (15 assets) but give the historical
-  // backlog a fair share on every 5-minute scheduled read.
-  let historical = [];
-  try {
-    const params = new URLSearchParams({
-      select: "id,mint,name,symbol,metadata,analysis_status",
-      chain_id: "eq.solana",
-      analysis_status: "eq.pending",
-      order: "detected_at.asc,id.asc",
-      limit: "60"
-    });
-    const response = await fetch(
-      supabaseUrl + "/rest/v1/pfx_radar_tokens?" + params,
-      {
-        headers: {
-          apikey: supabaseKey,
-          Authorization: "Bearer " + supabaseKey,
-          Accept: "application/json"
-        },
-        signal: AbortSignal.timeout(5000)
-      }
-    );
-    if (!response.ok) throw new Error("Historical candidate lookup HTTP " + response.status);
-    const data = await response.json();
-    if (Array.isArray(data)) historical = data;
-  } catch (error) {
-    console.warn("PFX historical enrichment query:", error.message);
-  }
-
-  const selected = new Map();
-  function addEligible(items, maxToAdd) {
-    let added = 0;
-    for (const row of items) {
-      if (added >= maxToAdd || selected.size >= LIVE_ENRICH_LIMIT) break;
-      if (!eligible(row) || selected.has(row.mint)) continue;
-      selected.set(row.mint, row);
-      added++;
-    }
-  }
-  addEligible(rows, 7);
-  addEligible(historical, 8);
-  addEligible(rows, LIVE_ENRICH_LIMIT);
-  addEligible(historical, LIVE_ENRICH_LIMIT);
-  const candidates = [...selected.values()];
+  const candidates = rows.filter(row => validMint(row.mint) &&
+    (!tokenText(row.name) || !tokenText(row.symbol))).slice(0, LIVE_ENRICH_LIMIT);
   if (!candidates.length) return;
-
-  let assets;
   try {
     const response = await fetch(
-      "https://mainnet.helius-rpc.com/?api-key=" + encodeURIComponent(heliusKey),
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: "pfx-live-metadata",
-          method: "getAssetBatch",
-          params: {
-            ids: candidates.map((row) => row.mint),
-            options: { showFungible: true }
-          }
-        }),
-        signal: AbortSignal.timeout(6000)
-      }
-    );
+      "https://mainnet.helius-rpc.com/?api-key=" + encodeURIComponent(heliusKey), {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: "pfx-live-metadata",
+          method: "getAssetBatch", params: { ids: candidates.map(row => row.mint),
+            options: { showFungible: true } } }),
+        signal: boundedSignal(6000, signal)
+      });
     if (!response.ok) throw new Error("Helius HTTP " + response.status);
     const data = await response.json();
-    if (data.error || !Array.isArray(data.result)) {
-      throw new Error(data.error?.message || "Invalid Helius response");
+    if (data.error || !Array.isArray(data.result)) throw new Error("Invalid Helius response");
+    const assets = new Map(data.result.filter(asset => validMint(asset?.id)).map(asset => [asset.id, asset]));
+    for (const row of candidates) {
+      const metadata = assets.get(row.mint)?.content?.metadata;
+      row.liveMetadata = { name: tokenText(metadata?.name), symbol: tokenText(metadata?.symbol) };
     }
-    assets = new Map(
-      data.result.filter((asset) => validMint(asset?.id))
-        .map((asset) => [asset.id, asset])
-    );
   } catch (error) {
     console.warn("PFX live enrichment lookup:", error.message);
-    return;
   }
-
-  await Promise.allSettled(candidates.map(async (row) => {
-    const asset = assets.get(row.mint);
-    const name = tokenText(asset?.content?.metadata?.name) || tokenText(row.name);
-    const symbol = tokenText(asset?.content?.metadata?.symbol) ||
-      tokenText(row.symbol);
-    const complete = Boolean(name && symbol);
-    const previousMetadata = metadataFor(row);
-    const values = {
-      metadata: {
-        ...previousMetadata,
-        enrichment_checked_at: new Date().toISOString(),
-        enrichment_attempts:
-          (Number(previousMetadata.enrichment_attempts) || 0) + 1,
-        enrichment_source: "helius_das",
-        enrichment_result: complete ? "success" : "metadata_missing"
-      },
-      analysis_status: complete ? "enriched" : "metadata_missing"
-    };
-    if (name) values.name = name;
-    if (symbol) values.symbol = symbol;
-
-    try {
-      const response = await fetch(
-        supabaseUrl + "/rest/v1/pfx_radar_tokens?id=eq." +
-          encodeURIComponent(row.id),
-        {
-          method: "PATCH",
-          headers: {
-            apikey: supabaseKey,
-            Authorization: "Bearer " + supabaseKey,
-            "Content-Type": "application/json",
-            Prefer: "return=minimal"
-          },
-          body: JSON.stringify(values),
-          signal: AbortSignal.timeout(5000)
-        }
-      );
-      if (!response.ok) throw new Error("Supabase HTTP " + response.status);
-      if (name) row.name = name;
-      if (symbol) row.symbol = symbol;
-      row.analysis_status = values.analysis_status;
-    } catch (error) {
-      console.warn("PFX live enrichment save:", error.message);
-    }
-  }));
 }
-
 
 
 /**
@@ -190,7 +73,7 @@ async function enrichOnRead(rows, supabaseUrl, supabaseKey) {
  * Newly created Pump.fun bonding-curve tokens may have no indexed DEX pair;
  * those values must remain unknown rather than treating virtual liquidity as real.
  */
-async function fetchMarketPairs(rows) {
+async function fetchMarketPairs(rows, signal) {
   const addresses = [...new Set(rows.map((row) => row.mint).filter(validMint))];
   const groups = [];
   for (let i = 0; i < addresses.length; i += 30) {
@@ -201,7 +84,7 @@ async function fetchMarketPairs(rows) {
       group.map(encodeURIComponent).join(",");
     const response = await fetch(endpoint, {
       headers: { Accept: "application/json" },
-      signal: AbortSignal.timeout(5500)
+      signal: boundedSignal(5500, signal)
     });
     if (!response.ok) throw new Error("DexScreener HTTP " + response.status);
     const pairs = await response.json();
@@ -238,16 +121,15 @@ function finiteNonNegative(value) {
   return Number.isFinite(number) && number >= 0 ? number : null;
 }
 
-async function enrichMarketRows(rows, supabaseUrl, supabaseKey) {
+async function enrichMarketRows(rows, _supabaseUrl, _supabaseKey, signal) {
   let data;
   try {
-    data = await fetchMarketPairs(rows);
+    data = await fetchMarketPairs(rows, signal);
   } catch (error) {
     console.warn("PFX Radar market lookup:", error.message);
     return new Map();
   }
   const market = new Map();
-  const changes = [];
   for (const row of rows) {
     const pair = data.byMint.get(row.mint);
     if (!pair) continue;
@@ -270,35 +152,8 @@ async function enrichMarketRows(rows, supabaseUrl, supabaseKey) {
       realLiquidity: liquidityUsd !== null
     };
     market.set(row.mint, values);
-    const update = {};
-    if (liquidityUsd !== null && Number(row.liquidity_usd) !== liquidityUsd) update.liquidity_usd = liquidityUsd;
-    if (volume24h !== null && Number(row.volume_24h_usd) !== volume24h) update.volume_24h_usd = volume24h;
-    if (marketCap !== null && Number(row.market_cap_usd) !== marketCap) update.market_cap_usd = marketCap;
-    if (Object.keys(update).length && row.id !== undefined) changes.push({ id: row.id, update });
   }
-  // Persist only verifiable values; never overwrite previous values with null.
-  // A bounded write set avoids amplifying bursty Radar traffic.
-  await Promise.allSettled(changes.slice(0, 12).map(async ({ id, update }) => {
-    try {
-      const response = await fetch(
-        supabaseUrl + "/rest/v1/pfx_radar_tokens?id=eq." + encodeURIComponent(id),
-        {
-          method: "PATCH",
-          headers: {
-            apikey: supabaseKey,
-            Authorization: "Bearer " + supabaseKey,
-            "Content-Type": "application/json",
-            Prefer: "return=minimal"
-          },
-          body: JSON.stringify(update),
-          signal: AbortSignal.timeout(5000)
-        }
-      );
-      if (!response.ok) throw new Error("Supabase HTTP " + response.status);
-    } catch (error) {
-      console.warn("PFX Radar market persist:", error.message);
-    }
-  }));
+  // Never write market snapshots from a public GET request.
   return market;
 }
 
@@ -317,7 +172,7 @@ const TOKEN_2022_PROGRAM_ID = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
  * Read-only Solana RPC check, not an audit.
  * Only return conclusions when the RPC returns a parsed SPL mint account.
  */
-async function fetchOnchainAuthorities(rows) {
+async function fetchOnchainAuthorities(rows, signal) {
   const apiKey = process.env.HELIUS_API_KEY;
   if (!apiKey) return new Map();
   const addresses = [...new Set(rows.map((row) => row.mint).filter(validMint))]
@@ -335,7 +190,7 @@ async function fetchOnchainAuthorities(rows) {
         method: "getMultipleAccounts",
         params: [addresses, { encoding: "jsonParsed", commitment: "confirmed" }]
       }),
-      signal: AbortSignal.timeout(7000)
+      signal: boundedSignal(7000, signal)
     }
   );
   if (!response.ok) throw new Error("Solana RPC HTTP " + response.status);
@@ -377,7 +232,7 @@ async function fetchOnchainAuthorities(rows) {
 }
 
 
-async function fetchConcentration(rows, checks) {
+async function fetchConcentration(rows, checks, signal) {
   const key = process.env.HELIUS_API_KEY;
   if (!key) return new Map();
   const eligible = rows.filter((row) => {
@@ -404,7 +259,7 @@ async function fetchConcentration(rows, checks) {
         method: "getTokenLargestAccounts",
         params: [row.mint, { commitment: "confirmed" }]
       }),
-      signal: AbortSignal.timeout(5500)
+      signal: boundedSignal(5500, signal)
     });
     if (!response.ok) throw new Error("Largest accounts HTTP " + response.status);
     const payload = await response.json();
@@ -428,7 +283,7 @@ async function fetchConcentration(rows, checks) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({jsonrpc:"2.0",id:"pfx-owner",method:"getAccountInfo",
             params:[largestAddress,{encoding:"jsonParsed",commitment:"confirmed"}]}),
-          signal: AbortSignal.timeout(4500)
+          signal: boundedSignal(4500, signal)
         });
         if (!ownerResponse.ok) throw Error("RPC HTTP " + ownerResponse.status);
         const ownerBody = await ownerResponse.json();
@@ -464,7 +319,7 @@ async function fetchConcentration(rows, checks) {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ jsonrpc: "2.0", id: "pfx-authority-type", method: "getMultipleAccounts",
           params: [owners, { encoding: "base64", commitment: "confirmed" }] }),
-        signal: AbortSignal.timeout(5500)
+        signal: boundedSignal(5500, signal)
       });
       if (!response.ok) throw Error("Authority lookup HTTP " + response.status);
       const payload = await response.json();
@@ -490,7 +345,7 @@ async function fetchConcentration(rows, checks) {
   return result;
 }
 
-async function fetchCreatorHistory(rows, url, key) {
+async function fetchCreatorHistory(rows, url, key, signal) {
   const creators = [...new Set(rows.map(row => row.creator_address).filter(validMint))].slice(0,8);
   const checks = await Promise.allSettled(creators.map(async address => {
     const params = new URLSearchParams({
@@ -499,7 +354,7 @@ async function fetchCreatorHistory(rows, url, key) {
     const response = await fetch(url + "/rest/v1/pfx_radar_tokens?" + params, {
       method:"HEAD",
       headers:{apikey:key, Authorization:"Bearer " + key, Prefer:"count=exact"},
-      signal:AbortSignal.timeout(5000)
+      signal:boundedSignal(5000, signal)
     });
     if (!response.ok) throw Error("Creator history HTTP " + response.status);
     const count = Number((response.headers.get("content-range") || "").split("/")[1]);
@@ -551,7 +406,7 @@ export default async function handler(req, res) {
     }
     const params = new URLSearchParams({
       select:
-        "id,mint,name,symbol,metadata,source,launch_platform,creator_address," +
+        "id,mint,name,symbol,source,launch_platform,creator_address," +
         "detected_at,created_onchain_at," +
         "liquidity_usd,volume_24h_usd,market_cap_usd," +
         "security_score,utility_score," +
@@ -560,7 +415,7 @@ export default async function handler(req, res) {
       ...(snapshotDate ? { detected_at: "lte." + snapshotDate.toISOString() } : {}),
       order: "detected_at.desc,id.desc",
       offset: String(page * pageLimit),
-      limit: String(pageLimit)
+      limit: String(pageLimit + 1)
     });
 
     const response = await fetch(
@@ -569,8 +424,7 @@ export default async function handler(req, res) {
         headers: {
           apikey: key,
           Authorization: `Bearer ${key}`,
-          Accept: "application/json",
-          Prefer: "count=exact"
+          Accept: "application/json"
         },
         signal: AbortSignal.timeout(8000)
       }
@@ -580,15 +434,15 @@ export default async function handler(req, res) {
       throw new Error(`Supabase HTTP ${response.status}`);
     }
 
-    const countHeader = response.headers.get("content-range") || "";
-    const totalIndexedValue = Number(countHeader.split("/")[1]);
-    const totalIndexed = countHeader.includes("/") &&
-      Number.isSafeInteger(totalIndexedValue) && totalIndexedValue >= 0
-      ? totalIndexedValue : null;
-    const rows = await response.json();
-    if (!Array.isArray(rows)) throw new Error("Invalid Supabase response");
+    // Look ahead by one row instead of scanning the entire index for a count.
+    const fetchedRows = await response.json();
+    if (!Array.isArray(fetchedRows)) throw new Error("Invalid Supabase response");
+    const hasMore = fetchedRows.length > pageLimit;
+    const rows = fetchedRows.slice(0, pageLimit);
+    const totalIndexed = null;
+    const signal = AbortSignal.timeout(10000);
 
-    const onchainPromise = fetchOnchainAuthorities(rows).catch((error) => {
+    const onchainPromise = fetchOnchainAuthorities(rows, signal).catch((error) => {
       console.warn("PFX Radar onchain checks:", error.message);
       return new Map();
     });
@@ -596,11 +450,11 @@ export default async function handler(req, res) {
     // history needs to wait for metadata or market persistence.
     const [, marketResult, chainResult, concentrationResult, creatorsResult] =
       await Promise.allSettled([
-        enrichOnRead(rows, url, key),
-        enrichMarketRows(rows, url, key),
+        enrichOnRead(rows, url, key, signal),
+        enrichMarketRows(rows, url, key, signal),
         onchainPromise,
-        onchainPromise.then((checks) => fetchConcentration(rows, checks)),
-        fetchCreatorHistory(rows, url, key)
+        onchainPromise.then((checks) => fetchConcentration(rows, checks, signal)),
+        fetchCreatorHistory(rows, url, key, signal)
       ]);
     const onchainChecks = chainResult.value || new Map();
     const liveMarkets = marketResult.status === "fulfilled" ? marketResult.value : new Map();
@@ -668,9 +522,7 @@ export default async function handler(req, res) {
       snapshot: snapshotDate ? snapshotDate.toISOString() : (rows[0]?.detected_at || null),
       pageLimit,
       page,
-      hasMore: totalIndexed !== null
-        ? (page + 1) * pageLimit < totalIndexed
-        : rows.length === pageLimit,
+      hasMore,
       updatedAt: new Date().toISOString(),
       tokens
     });

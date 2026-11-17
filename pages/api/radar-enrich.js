@@ -60,7 +60,7 @@ async function supabaseRequest(url, key, path, options = {}) {
   return body ? JSON.parse(body) : null;
 }
 
-async function getPendingTokens(url, key, now) {
+async function getPendingTokens(url, key, now, batchSize = BATCH_SIZE) {
   async function getCandidates(status, direction, limit) {
     const params = new URLSearchParams({
       select: "id,mint,metadata,name,symbol,analysis_status,detected_at",
@@ -86,10 +86,11 @@ async function getPendingTokens(url, key, now) {
       count++;
     }
   }
-  pick(oldest, 18);
-  pick(newest, 18);
-  pick(retries, 4);
-  if (selected.size < BATCH_SIZE) pick([...(oldest || []), ...(newest || []), ...(retries || [])], BATCH_SIZE - selected.size);
+  const share = Math.floor(batchSize * 0.45);
+  pick(oldest, share);
+  pick(newest, share);
+  pick(retries, batchSize - 2 * share);
+  if (selected.size < batchSize) pick([...(oldest || []), ...(newest || []), ...(retries || [])], batchSize - selected.size);
   return [...selected.values()];
 }
 
@@ -194,6 +195,7 @@ export default async function handler(req, res) {
   const heliusKey = process.env.HELIUS_API_KEY;
   const manualSecret = process.env.RADAR_ENRICH_SECRET;
   const cronSecret = process.env.CRON_SECRET;
+  const jobSecret = process.env.RADAR_ENRICH_JOB_SECRET;
 
   if (!supabaseUrl || !supabaseKey || !heliusKey) {
     return res.status(503).json({
@@ -213,7 +215,10 @@ export default async function handler(req, res) {
     Boolean(cronSecret) &&
     secureEqual(authorization, `Bearer ${cronSecret}`);
 
-  if (!authorizedManual && !authorizedCron) {
+  const authorizedJob = req.method === "POST" && Boolean(jobSecret) &&
+    secureEqual(authorization, `Bearer ${jobSecret}`);
+
+  if (!authorizedManual && !authorizedCron && !authorizedJob) {
     return res.status(401).json({
       error: "Unauthorized"
     });
@@ -221,7 +226,7 @@ export default async function handler(req, res) {
 
   try {
     const now = Date.now();
-    const tokens = await getPendingTokens(supabaseUrl, supabaseKey, now);
+    const tokens = await getPendingTokens(supabaseUrl, supabaseKey, now, authorizedJob ? 15 : BATCH_SIZE);
 
     if (!tokens.length) {
       return res.status(200).json({

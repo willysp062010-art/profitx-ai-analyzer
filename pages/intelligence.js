@@ -8,7 +8,7 @@ import { useRouter } from "next/router";
 const DEFAULT_MINT =
   "6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump";
 const PFX_OFFICIAL_LOGO =
-  "/pfx-token-officiel.png";
+  "/pfx-logo-spectrum.webp";
 function isPfxToken(mint) {
   return String(mint || "").trim() === DEFAULT_MINT;
 }
@@ -256,7 +256,7 @@ export default function IntelligencePage() {
   <div className="brandEvolutionTitle"><span>PROFITX AI</span><strong>Analyse des tokens Solana</strong></div>
   <div className="brandLogos">
     <div className="brandLogoCard current">
-      <img src="/profitx-logo-02-analyzer.png" alt="Logo officiel PROFITX AI Analyzer" />
+      <img src="/pfx-logo-spectrum.webp" alt="Logo officiel PROFITX AI Analyzer" />
       <strong>PROFITX AI ANALYZER</strong>
     </div>
   </div>

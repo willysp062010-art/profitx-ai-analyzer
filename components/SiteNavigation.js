@@ -4,7 +4,7 @@ import { useRouter } from "next/router";
 const TOOLS = [
   ["/", "Analyzer"],
   ["/radar", "Radar"],
-  ["/repertoire-solana", "Répertoire Solana"],
+  ["/repertoire-solana", "Répertoire"],
   ["/compare", "Compare"],
   ["/intelligence", "Intelligence"],
   ["/watchlist", "Watchlist"],
@@ -19,12 +19,12 @@ export default function SiteNavigation() {
       <a className="pfxSkipLink" href="#pfx-main-content">Aller au contenu</a>
       <div className="pfxNavigationInner">
         <Link href="/" className="pfxNavigationBrand" aria-label="PROFITX AI — accueil Analyzer">
-          <img src="/profitx-logo-02-analyzer.png" alt="" width="42" height="42" /> <span className="pfxBrandText">PROFITX <b>AI</b><small>OBSERVATOIRE SOLANA</small></span>
+          <img src="/pfx-logo-spectrum.webp" alt="" width="64" height="64" /> <span className="pfxBrandText">PROFITX <b>AI</b><small>OBSERVATOIRE SOLANA</small></span>
         </Link>
         <nav className="pfxNavigationLinks" aria-label="Outils PROFITX AI">
           {TOOLS.map(([href, label]) => (
             <Link key={href} href={href} aria-current={pathname === href ? "page" : undefined}>
-              <span className="pfxToolNumber" aria-hidden="true">{String(TOOLS.findIndex(item => item[0] === href) + 1).padStart(2, "0")}</span>{label}
+              {label}
             </Link>
           ))}
         </nav>

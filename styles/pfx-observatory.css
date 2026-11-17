@@ -1,8 +1,8 @@
-@font-face { font-family:"PFX Manrope"; src:url("/fonts/manrope-variable.woff") format("woff"); font-style:normal; font-weight:200 800; font-display:swap; }
-@font-face { font-family:"PFX Sora"; src:url("/fonts/sora-variable.woff") format("woff"); font-style:normal; font-weight:100 800; font-display:swap; }
+@font-face { font-family:"PFX DM Sans"; src:url("/fonts/dm-sans-variable.woff") format("woff"); font-style:normal; font-weight:100 1000; font-display:swap; }
+@font-face { font-family:"PFX Outfit"; src:url("/fonts/outfit-variable.woff") format("woff"); font-style:normal; font-weight:100 900; font-display:swap; }
 /* PROFITX Observatory — graphite / silver / PFX green / Solana spectrum.
    Color accents describe hierarchy, never replace the meaning of risk statuses. */
-:root { --pfx-ink:#03050c; --pfx-surface:#090e1b; --pfx-line:#25334e; --pfx-text:#e7edf5; --pfx-muted:#a7aec0; --pfx-green:#00ff88; --pfx-violet:#b45cff; --pfx-cyan:#00e5ff; --pfx-magenta:#ef39ff; --pfx-blue:#258bff; --pfx-font:"PFX Manrope","Segoe UI",sans-serif; --pfx-heading:"PFX Sora","Segoe UI",sans-serif; --pfx-mono:var(--pfx-font); }
+:root { --pfx-ink:#03050c; --pfx-surface:#090e1b; --pfx-line:#25334e; --pfx-text:#e7edf5; --pfx-muted:#a7aec0; --pfx-green:#00ff88; --pfx-violet:#b45cff; --pfx-cyan:#00e5ff; --pfx-magenta:#ef39ff; --pfx-blue:#258bff; --pfx-font:"PFX DM Sans","Segoe UI",sans-serif; --pfx-heading:"PFX Outfit","Segoe UI",sans-serif; --pfx-mono:var(--pfx-font); }
 html,body { background:var(--pfx-ink); color:var(--pfx-text); font-family:var(--pfx-font); }
 body { background-image:radial-gradient(ellipse at 90% 4%,#24074799,transparent 44%); }
 .pfxObservatoryBackground { pointer-events:none; position:fixed; inset:0; z-index:0; background-image:linear-gradient(90deg,transparent calc(100% - 1px),#00cfff0b 1px); background-size:96px 100%; mask-image:linear-gradient(#000,transparent 85%); }
@@ -184,3 +184,99 @@ body { font-weight:400; -webkit-font-smoothing:antialiased; }
   .pfxNavigationLinks a { font-size:11.5px; }
   #pfx-main-content :is(input,select,textarea) { font-size:16px !important; }
 }
+
+/* PFX Spectrum — rounded type, generous spacing, the approved multicolour mark. */
+:root { --pfx-line:#273044; --pfx-surface:#0b101d; --pfx-muted:#aeb8cd; }
+body { background-image:radial-gradient(ellipse at 94% 12%,#a431ff1a,transparent 42%),radial-gradient(ellipse at 8% 42%,#00bfff0c,transparent 45%); }
+.pfxObservatoryBackground { opacity:.4; background-size:140px 100%; }
+.pfxNavigation { background:#060912ee; border-bottom-color:#273044; }
+.pfxNavigation::before { height:2px; }
+.pfxNavigationInner { width:min(1440px,calc(100% - 64px)); padding:14px 0; gap:24px; }
+.pfxNavigationBrand { gap:12px; }
+.pfxNavigationBrand img { width:64px; height:64px; border-radius:0; filter:drop-shadow(0 0 14px #8e42ff22); }
+.pfxNavigationBrand .pfxBrandText { font-weight:500; font-size:21px; letter-spacing:.035em; }
+.pfxBrandText b { background:linear-gradient(110deg,#00e5ff,#d878ff); background-clip:text; -webkit-background-clip:text; color:transparent; font-weight:500; }
+.pfxBrandText small { font-size:9px; line-height:2; letter-spacing:.13em; font-weight:500; }
+.pfxNavigationLinks { gap:5px; align-items:center; }
+.pfxNavigationLinks a { display:flex; align-items:center; min-height:44px; padding:10px 13px; font-size:13px; font-weight:500; border:1px solid transparent; border-radius:12px; color:#b7c1d6; transition:background .15s,color .15s; }
+.pfxNavigationLinks a:hover { background:#ffffff08; color:#fff; border-color:#42506b; }
+.pfxNavigationLinks a[aria-current="page"] { background:linear-gradient(115deg,#00dfff12,#a953ff1e); color:#f4f5ff; border-color:#657ca077; box-shadow:none; }
+#pfx-main-content { font-size:15px; }
+#pfx-main-content :is(h1,h2,h3) { font-weight:500; }
+#pfx-main-content h1 { letter-spacing:-.045em; line-height:1.08; }
+#pfx-main-content h2 { font-size:clamp(23px,2.2vw,30px); letter-spacing:-.025em; }
+#pfx-main-content h3 { letter-spacing:-.015em; }
+#pfx-main-content :is(.eyebrow,.sectionTag,.label) { font-weight:500; letter-spacing:.15em; font-size:11px; }
+#pfx-main-content :is(.panel,.card,.tokenCard,.searchPanel,.compareForm,.resultsPanel,.reading,.diagnostics,.future,.methodology,.controls,.statusBar,.sourceSelector) { border-radius:20px; background:linear-gradient(145deg,#0d1422,#090e19); border-color:#2b354b; box-shadow:0 12px 38px #00000015; }
+#pfx-main-content .metric { border-radius:16px; background:#0b1220; border-color:#2b354b; border-top-color:#6875a5; }
+#pfx-main-content :is(.primaryButton,.compareButton,.analyzeButton,.search button) { border-radius:14px; font-weight:600; letter-spacing:0; background:linear-gradient(110deg,#00ff9d,#43e7b1); box-shadow:0 4px 24px #00ff8812; }
+#pfx-main-content :is(.secondaryButton,.copyButton,.navButton,.backButton,.pfxQuoteControls button) { border-radius:12px; background:#151c2d; border-color:#3c4a66; color:#e5dffb; font-weight:500; }
+#pfx-main-content :is(input:not([type="checkbox"]):not([type="file"]),select,textarea) { border-radius:14px; background:#080e19; border-color:#45516a; }
+#pfx-main-content :is(input,select,textarea):focus { border-color:#68dffc; box-shadow:0 0 0 3px #00e5ff0d; }
+#pfx-main-content .scoreCard { border-radius:24px; background:linear-gradient(125deg,#17132b,#0b1725); border-color:#67578a; }
+#pfx-main-content :is(.score,.metric strong,.pfxDirectoryStatsGrid strong,.pfxUsageGrid strong) { font-family:var(--pfx-heading); font-weight:450; }
+.pfxAnalyzer.shell { width:min(1360px,calc(100% - 80px)); }
+#pfx-main-content .pfxAnalyzerHero { padding:66px 0 56px; gap:64px; grid-template-columns:minmax(0,1.2fr) minmax(320px,.9fr); }
+#pfx-main-content .pfxAnalyzerHero h1 { font-size:clamp(43px,4.8vw,72px); font-weight:450; line-height:1.08; letter-spacing:-.045em; margin:24px 0; }
+#pfx-main-content .pfxAnalyzerHero h1 .pfxHeadlineAccent { background-image:linear-gradient(105deg,#3ee7ff,#ad8bff 58%,#ed7bff); }
+#pfx-main-content .pfxAnalyzerHero .intro { font-size:17px; line-height:1.85; max-width:590px; }
+.pfxAnalyzerHero .search { margin-top:30px; }
+.pfxAnalyzerHero .search input { padding:19px 20px; font-size:16px; }
+.pfxAnalyzerHero .search button { min-width:124px; padding-inline:24px; font-size:15px; }
+#pfx-main-content .pfxAnalyzerHero .hint { margin-top:15px; font-size:12px; color:#a3afc4; max-width:590px; }
+.pfxHeroFoot { margin-top:24px; gap:14px; }
+.pfxHeroFoot > span { font-size:10px; letter-spacing:.04em; font-weight:400; }
+.pfxHeroFoot a { font-size:14px; }
+.pfxObservatoryMark { max-width:470px; padding:0 14px; }
+.pfxMarkLabel { border:0; padding:0 18px; color:#bfc9e2; font-size:10px; letter-spacing:.16em; }
+.pfxMarkLabel > span:last-child { padding:5px 10px; border:1px solid #00e5ff38; border-radius:20px; background:#00e5ff08; }
+.pfxMarkInstrument { margin:12px 0 5px; isolation:isolate; }
+.pfxMarkInstrument::before { inset:15%; z-index:-1; background:radial-gradient(circle,#7436ff18,transparent 70%); box-shadow:-20px 0 80px #00cfff18,24px 0 80px #b500ff28; }
+.pfxMarkInstrument img { width:100%; height:auto; border-radius:0; filter:drop-shadow(0 14px 24px #00000055); }
+.pfxMarkFooter { border:0; padding:8px 18px; font-weight:400; font-size:11px; }
+.pfxMethodStrip { border:1px solid #2c3750; border-radius:20px; background:linear-gradient(110deg,#101b28aa,#101225aa); }
+.pfxMethodStrip > div,.pfxMethodStrip > div:first-child { padding:24px 28px; }
+.pfxMethodStrip span { font-size:10px; letter-spacing:.1em; color:#8ed5ef; font-weight:500; }
+.pfxMethodStrip strong { font-family:var(--pfx-heading); font-size:17px; font-weight:400; color:#e0e8f6; }
+#pfx-main-content .pfxUsagePanel { border-radius:20px !important; background:#0c1220 !important; margin:26px 0 !important; }
+#pfx-main-content .pfxUsagePanel h2 { font-family:var(--pfx-heading); font-size:24px !important; font-weight:450; }
+#pfx-main-content .pfxDirectoryStats { border-radius:20px; }
+.pfxProjectDetails > summary { padding:22px 4px; }
+@media(max-width:1200px) {
+  .pfxNavigationInner { gap:16px; }
+  .pfxNavigationLinks a { padding-inline:10px; font-size:12px; }
+  #pfx-main-content .pfxAnalyzerHero { gap:32px; }
+}
+@media(max-width:1000px) {
+  .pfxNavigationInner { width:calc(100% - 40px); }
+  .pfxNavigationBrand img { width:54px; height:54px; }
+  .pfxNavigationLinks { width:100%; }
+}
+@media(max-width:800px) {
+  .pfxAnalyzer.shell { width:calc(100% - 40px); }
+  #pfx-main-content .pfxAnalyzerHero { grid-template-columns:1fr; padding:38px 0; gap:36px; }
+  .pfxObservatoryMark { max-width:350px; justify-self:center; }
+  #pfx-main-content .pfxAnalyzerHero h1 { font-size:clamp(39px,7.3vw,58px); }
+  .pfxMethodStrip > div,.pfxMethodStrip > div:first-child { padding:21px; }
+}
+@media(max-width:700px) {
+  .pfxNavigationInner { width:calc(100% - 24px); padding:10px 0 12px; gap:10px; }
+  .pfxNavigationBrand img { width:50px; height:50px; }
+  .pfxNavigationBrand .pfxBrandText { font-size:19px; }
+  .pfxNavigationLinks { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:5px; }
+  .pfxNavigationLinks a { justify-content:center; padding:8px 4px; min-height:44px; border-radius:10px; font-size:11px; line-height:1.35; overflow-wrap:anywhere; }
+  .pfxAnalyzer.shell { width:calc(100% - 32px); }
+  #pfx-main-content .pfxAnalyzerHero { padding:36px 0 30px; gap:30px; }
+  #pfx-main-content .pfxAnalyzerHero h1 { font-size:clamp(35px,9.2vw,48px); font-weight:450; line-height:1.12; letter-spacing:-.04em; }
+  #pfx-main-content .pfxAnalyzerHero .intro { font-size:16px; }
+  .pfxAnalyzerHero .search input { padding:18px 16px; }
+  .pfxAnalyzerHero .search button { width:100%; min-height:54px; }
+  .pfxObservatoryMark { max-width:290px; padding:0; }
+  .pfxMarkFooter { padding:7px 10px; font-size:10px; }
+  .pfxMethodStrip { padding:0 18px; border-radius:18px; }
+  .pfxMethodStrip > div,.pfxMethodStrip > div:first-child { padding:18px 0; }
+  .pfxMethodStrip strong { font-size:16px; }
+  #pfx-main-content .pfxUsagePanel { padding:20px !important; }
+  .pfxHeroFoot { gap:10px; }
+}
+@media(prefers-reduced-motion:reduce) { .pfxNavigationLinks a { transition:none; } }

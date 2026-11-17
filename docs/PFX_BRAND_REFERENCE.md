@@ -30,3 +30,9 @@ Ces valeurs sont la traduction UI du visuel, pas une affirmation qu'il possède 
 - Garder le vrai logo officiel. Utiliser la référence ci-dessus pour les couleurs ; elle n'autorise pas à reprendre ses textes, ses plateformes ni des affirmations comme « liquidity locked » sans preuve.
 - Le noir et l'argent assurent la lisibilité. Les néons structurent l'identité, les accents et les actions, sans recolorer les avertissements de risque en signaux favorables.
 - Éviter les animations ou halos qui gênent la lecture et préserver le réglage de réduction des mouvements.
+
+## Logo multicolore demandé le 17 novembre 2026
+
+Le logo actuel du site est `public/pfx-logo-spectrum.webp` : la version PFX argentée avec globe bleu/cyan, éclairages violet/magenta et accents vert néon, sur fond transparent. C'est le dernier logo multicolore déjà produit pour Willy, réintégré à sa demande explicite. Ne plus substituer le logo argent/vert `profitx-logo-02-analyzer.png` dans l'en-tête ou la composition d'accueil.
+
+L'illustration déjà existante a seulement été optimisée pour le web (900 × 900, WebP, transparence conservée), sans recréer les lettres, le globe ou les couleurs. Elle ne contient pas les panneaux promotionnels de la référence de septembre.

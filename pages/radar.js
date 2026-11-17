@@ -28,7 +28,1121 @@ function money(value) {
   if (Math.abs(n) >= 1e6) return `${(n / 1e6).toFixed(2)} M$`;
   if (Math.abs(n) >= 1e3) return `${(n / 1e3).toFixed(1)} k$`;
   return `${n.toLocaleString("fr-FR", {
-    maximumFractionDig…12220 tokens truncated…liquidité DEX librement retirable. Les réserves réelles et virtuelles
+    maximumFractionDigits: 2,
+  })} $`;
+}
+
+function price(value) {
+  const n = num(value);
+  if (n === null) return "N/D";
+  return `${n.toLocaleString("fr-FR", {
+    maximumFractionDigits: n < 0.01 ? 12 : 6,
+  })} $`;
+}
+
+function integer(value) {
+  const n = num(value);
+  return n === null ? "N/D" : Math.round(n).toLocaleString("fr-FR");
+}
+
+function percent(value) {
+  const n = num(value);
+  return n === null ? "N/D" : `${n > 0 ? "+" : ""}${n.toFixed(2)} %`;
+}
+
+function ageSince(time) {
+  if (time === null) return "N/D";
+  const elapsed = Date.now() - time;
+  if (elapsed < 0) return "N/D";
+  const minutes = Math.floor(elapsed / 60000);
+  if (minutes < 1) return "< 1 min";
+  if (minutes < 60) return `${minutes} min`;
+  if (minutes < 1440) return `${Math.floor(minutes / 60)} h`;
+  return `${Math.floor(minutes / 1440)} j`;
+}
+
+function shortMint(mint) {
+  if (!mint) return "N/D";
+  return mint.length > 18
+    ? `${mint.slice(0, 8)}...${mint.slice(-8)}`
+    : mint;
+}
+
+function timestamp(value) {
+  if (!value) return null;
+  const n = num(value);
+  if (n !== null) {
+    const ms = n < 1e11 ? n * 1000 : n;
+    return Number.isFinite(ms) ? ms : null;
+  }
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeToken(token, index) {
+  const mint =
+    token?.mint ||
+    token?.address ||
+    token?.tokenAddress ||
+    token?.baseToken?.address ||
+    "";
+
+  const detectedAt =
+    token?.detectedAt ||
+    token?.detected_at ||
+    null;
+
+  const onchainCreationTime =
+    timestamp(token?.createdOnchainAt) ?? timestamp(token?.created_onchain_at);
+  const pairCreationTime = timestamp(token?.pairCreatedAt);
+
+  const liquidityObject =
+    token?.liquidity && typeof token.liquidity === "object"
+      ? token.liquidity.usd
+      : token?.liquidity;
+
+  const txBuys = num(token?.txns?.h24?.buys);
+  const txSells = num(token?.txns?.h24?.sells);
+
+  return {
+    id: mint || `token-${index}`,
+    mint,
+    name: token?.name && token.name !== "Token inconnu" ? token.name : token?.baseToken?.name || "Nom non récupéré",
+    symbol: token?.symbol || token?.baseToken?.symbol || "N/D",
+    priceUsd: num(token?.priceUsd) ?? num(token?.price),
+    marketCap:
+      num(token?.marketCap) ??
+      num(token?.marketCapUsd) ??
+      num(token?.fdv),
+    liquidity:
+      num(token?.liquidityUsd) ??
+      num(liquidityObject),
+    volume24h:
+      num(token?.volume24h) ??
+      num(token?.volume24hUsd) ??
+      num(token?.volume?.h24),
+    transactions24h:
+      num(token?.transactions24h) ??
+      num(token?.txns24h) ??
+      (txBuys !== null || txSells !== null
+        ? (txBuys || 0) + (txSells || 0)
+        : null),
+    buys24h: num(token?.buys24h) ?? txBuys,
+    sells24h: num(token?.sells24h) ?? txSells,
+    change24h:
+      num(token?.change24h) ??
+      num(token?.priceChange24h) ??
+      num(token?.priceChange?.h24),
+    score:
+      num(token?.score) ??
+      num(token?.radarScore) ??
+      num(token?.profitxScore),
+    securityScore:
+      num(token?.securityScore) ??
+      num(token?.security_score),
+    securityScoreSource: token?.securityScoreSource || "unspecified",
+    liquidityVerification: token?.liquidityVerification || "not_verified",
+    marketFetchedAt: token?.marketFetchedAt || null,
+    marketDexId: typeof token?.marketDexId === "string" ? token.marketDexId : null,
+    marketPairUrl: typeof token?.marketPairUrl === "string" &&
+      /^https:\/\/dexscreener\.com\/solana\/[a-zA-Z0-9]+(?:[/?#].*)?$/.test(token.marketPairUrl)
+      ? token.marketPairUrl : null,
+    securityChecked: token?.securityChecked === true,
+    mintAuthorityEnabled: token?.mintAuthorityEnabled === true ? true :
+      token?.mintAuthorityEnabled === false ? false : null,
+    freezeAuthorityEnabled: token?.freezeAuthorityEnabled === true ? true :
+      token?.freezeAuthorityEnabled === false ? false : null,
+    concentrationChecked: token?.concentrationChecked === true,
+    top1AccountPercent: num(token?.top1AccountPercent),
+    top10AccountsPercent: num(token?.top10AccountsPercent),
+    sellabilityEvidence: token?.sellabilityEvidence || "not_verified",
+    creatorAddress: token?.creatorAddress || null,
+    creatorSeenTokenCount: num(token?.creatorSeenTokenCount),
+    largestTokenAccountAddress: token?.largestTokenAccountAddress || null,
+    largestTokenAccountOwner: token?.largestTokenAccountOwner || null,
+    largestTokenAccountFrozen: token?.largestTokenAccountFrozen === true,
+    largestAuthorityAccountType: token?.largestAuthorityAccountType || null,
+    largestAuthorityKnownProtocol: token?.largestAuthorityKnownProtocol || null,
+    tokenProgram: token?.tokenProgram || null,
+    tokenExtensions: Array.isArray(token?.tokenExtensions)
+      ? token.tokenExtensions.filter((item) => typeof item === "string") : null,
+    utilityScore:
+      num(token?.utilityScore) ??
+      num(token?.utility_score),
+    speculationRiskScore:
+      num(token?.speculationRiskScore) ??
+      num(token?.speculation_risk_score),
+    detectedAt,
+    onchainCreationTime,
+    pairCreationTime,
+    status:
+      token?.status ||
+      token?.analysis_status ||
+      token?.marketState ||
+      "OBSERVÉ",
+    source: token?.source || "Solana",
+    officialPfx: mint === OFFICIAL_PFX_MINT,
+  };
+}
+
+/**
+ * Warning based only on observed metrics, never on inferred fraud.
+ * Missing liquidity is not zero liquidity and does not prove a scam.
+ */
+function riskWarningFor(token) {
+  if (token.largestTokenAccountFrozen === true) {
+    return { level: "critical", title: "COMPTE PRINCIPAL GELE", detail: "Le compte principal est gele sur Solana. Verification necessaire avant tout achat." };
+  }
+  const extensions = (token.tokenExtensions || []).map((name) =>
+    name.replace(/[^a-z]/gi, "").toLowerCase()
+  );
+  if (extensions.includes("nontransferable")) {
+    return {
+      level: "critical",
+      title: "⚠ TRANSFERTS IMPOSSIBLES — TOKEN NON TRANSFÉRABLE",
+      detail: "Le mint porte l’extension NonTransferable : les transferts classiques sont interdits. Vérifiez la possibilité de revente avant tout achat."
+    };
+  }
+  if (extensions.includes("permanentdelegate")) {
+    return {
+      level: "critical",
+      title: "⚠ ALERTE MAJEURE — DÉLÉGUÉ PERMANENT",
+      detail: "Le mint porte l’extension PermanentDelegate. Une autorité peut effectuer des transferts ou brûler des tokens sans accord du détenteur."
+    };
+  }
+  if (extensions.includes("transferhook") || extensions.includes("pausable")) {
+    return {
+      level: "critical",
+      title: "⚠ CONTRÔLE DES TRANSFERTS DÉTECTÉ",
+      detail: "Une extension TransferHook ou Pausable est présente. Des restrictions de transfert peuvent s’appliquer : vérifiez le programme avant tout achat."
+    };
+  }
+  if (token.securityChecked && token.freezeAuthorityEnabled === true) {
+    return {
+      level: "critical",
+      title: "⚠ ALERTE MAJEURE — GEL DES TOKENS POSSIBLE",
+      detail: "Une autorité de gel est active sur ce mint Solana. Des comptes de tokens peuvent être gelés. Ne pas investir sans vérification approfondie."
+    };
+  }
+  if (token.securityChecked && token.mintAuthorityEnabled === true) {
+    return {
+      level: "critical",
+      title: "⚠ ALERTE — CRÉATION DE TOKENS POSSIBLE",
+      detail: "Une autorité d'émission est toujours active. L'offre peut potentiellement augmenter. Vérifiez les risques de dilution avant tout achat."
+    };
+  }
+  const liquidity = num(token.liquidity);
+  const security = num(token.securityScore);
+  if (liquidity !== null && liquidity < 1000) {
+    return {
+      level: "critical",
+      title: "⚠ RISQUE ÉLEVÉ — LIQUIDITÉ TRÈS FAIBLE",
+      detail: "Moins de 1 000 $ de liquidité observée. Revendre peut être difficile ou entraîner une perte importante. Évitez tout achat sans analyse approfondie."
+    };
+  }
+  if (security !== null && security < 30) {
+    return {
+      level: "critical",
+      title: "⚠ ALERTE — SCORE DE SÉCURITÉ FAIBLE",
+      detail: "Un score de sécurité inférieur à 30/100 nécessite une vérification indépendante avant toute décision."
+    };
+  }
+  // These are TOKEN ACCOUNT balances, not separate owners.
+  // Bonding curves and liquidity pools may dominate concentration.
+  if (token.concentrationChecked && token.top1AccountPercent !== null && token.top1AccountPercent >= 80) {
+    return {
+      level: "unknown",
+      title: "⚠ CONCENTRATION À VÉRIFIER — COMPTE PRINCIPAL",
+      detail: "Le plus gros compte token contient " + token.top1AccountPercent.toFixed(1) +
+        " % de l'offre. Ce compte peut être un pool ou un compte technique : vérifiez son propriétaire avant tout achat."
+    };
+  }
+  if (token.concentrationChecked && token.top10AccountsPercent !== null && token.top10AccountsPercent >= 95) {
+    return {
+      level: "unknown",
+      title: "⚠ CONCENTRATION À VÉRIFIER — 10 COMPTES",
+      detail: "Les 10 plus gros comptes concentrent " + token.top10AccountsPercent.toFixed(1) +
+        " % de l'offre. Cette observation ne suffit pas à prouver une fraude."
+    };
+  }
+  if (liquidity === null) {
+    return {
+      level: "unknown",
+      title: "⚠ PRUDENCE — LIQUIDITÉ NON VÉRIFIÉE",
+      detail: "Aucune liquidité réelle confirmée pour ce token. Ne pas investir avant d'avoir vérifié les possibilités de revente, le contrat et la liquidité."
+    };
+  }
+  return null;
+}
+
+function scoreColor(value) {
+  const n = num(value);
+  if (n === null) return "neutral";
+  if (n >= 75) return "good";
+  if (n >= 50) return "medium";
+  return "bad";
+}
+
+export default function Radar() {
+  const router = useRouter();
+
+  const [source, setSource] = useState("live");
+  const [pumpTokens, setPumpTokens] = useState([]);
+  const [pumpLoading, setPumpLoading] = useState(false);
+  const [pumpError, setPumpError] = useState("");
+  const [pumpAccessRestricted, setPumpAccessRestricted] = useState(false);
+  const [pumpLoaded, setPumpLoaded] = useState(false);
+  const [pumpUpdatedAt, setPumpUpdatedAt] = useState(null);
+  async function loadPumpDiscovery() {
+    setPumpLoading(true);
+    setPumpError("");
+    setPumpAccessRestricted(false);
+    try {
+      const response = await fetch("/api/radar-discovery", { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok || data?.ok !== true || !Array.isArray(data?.tokens)) {
+        if (data?.status === "SOURCE_ACCESS_RESTRICTED") setPumpAccessRestricted(true);
+        throw new Error(data?.error || "Flux Pump.fun indisponible.");
+      }
+      setPumpTokens(data.tokens);
+      setPumpUpdatedAt(typeof data.updatedAt === "string" ? data.updatedAt : null);
+      setPumpLoaded(true);
+    } catch (error) {
+      setPumpError(error?.message || "Flux Pump.fun indisponible.");
+      setPumpLoaded(false);
+      setPumpTokens([]);
+      setPumpUpdatedAt(null);
+    } finally {
+      setPumpLoading(false);
+    }
+  }
+
+  const [tokens, setTokens] = useState([]);
+  const [totalIndexed, setTotalIndexed] = useState(null);
+  const [detected72h, setDetected72h] = useState(null);
+  const [detected72hError, setDetected72hError] = useState(false);
+  useEffect(() => {
+    let active = true;
+    // Load the expensive global count independently from interactive pagination.
+    fetch("/api/directory-stats")
+      .then(async response => {
+        const data = await response.json();
+        if (response.ok && data?.ok === true && Number.isSafeInteger(data.total) && data.total >= 0 && active) {
+          setTotalIndexed(data.total);
+        }
+      }).catch(() => {});
+    fetch("/api/radar-72h", { cache: "no-store" })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok || data?.ok !== true || !Number.isSafeInteger(data.count) || data.count < 0) {
+          throw new Error("Unavailable");
+        }
+        return data.count;
+      })
+      .then((count) => { if (active) setDetected72h(count); })
+      .catch(() => { if (active) setDetected72hError(true); });
+    return () => { active = false; };
+  }, []);
+
+  const [radarPage, setRadarPage] = useState(0);
+  const [hasMorePages, setHasMorePages] = useState(false);
+  const activeRadarRequest = useRef(0);
+  const radarSnapshot = useRef(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState("");
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [autoRefresh, setAutoRefresh] = useState(false);
+
+  const [search, setSearch] = useState("");
+  const [searchResult, setSearchResult] = useState(null);
+  const searchQuery = search.trim();
+  const activeSearchResult = searchResult?.query === searchQuery ? searchResult : null;
+  const [sortBy, setSortBy] = useState("recent");
+  const [minimumLiquidity, setMinimumLiquidity] = useState(0);
+  const [evidenceFilter, setEvidenceFilter] = useState("all");
+
+  const [watchlist, setWatchlist] = useState([]);
+  const [watchlistMessage, setWatchlistMessage] = useState("");
+  const [copiedMint, setCopiedMint] = useState("");
+
+  useEffect(() => {
+    try {
+      setWatchlist(readWatchlist(window.localStorage));
+    } catch {
+      setWatchlist([]);
+      setWatchlistMessage("La Watchlist locale est inaccessible. Son contenu n'a pas été remplacé.");
+    }
+  }, []);
+
+  const isInWatchlist = (mint) =>
+    watchlist.some(
+      (item) =>
+        item.chainId === "solana" &&
+        item.tokenAddress === mint
+    );
+
+  function addToWatchlist(token) {
+    if (!token?.mint || isInWatchlist(token.mint)) return;
+    try {
+      const updated = mergeWatchlist(readWatchlist(window.localStorage), [{ mint: token.mint, name: token.name, symbol: token.symbol }]);
+      writeWatchlist(window.localStorage, updated);
+      setWatchlist(updated);
+      setWatchlistMessage("Token enregistré dans la Watchlist de ce navigateur.");
+    } catch { setWatchlistMessage("Impossible d'enregistrer le token. La Watchlist n'a pas été modifiée."); }
+  }
+
+  const loadRadar = useCallback(
+    async (manual = false, resetSnapshot = false) => {
+      const requestId = ++activeRadarRequest.current;
+      const snapshot = source === "live" && radarPage === 0 && resetSnapshot
+        ? null
+        : radarSnapshot.current;
+      if (manual) setRefreshing(true);
+      else setLoading(true);
+
+      setError("");
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+
+      try {
+        const endpoint =
+          source === "live"
+            ? "/api/radar-live?page=" + radarPage +
+              (snapshot
+                ? "&snapshot=" + encodeURIComponent(snapshot)
+                : "")
+            : "/api/radar";
+
+        const response = await fetch(endpoint, {
+          method: "GET",
+          headers: { Accept: "application/json" },
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        const text = await response.text();
+        let result;
+
+        try {
+          result = text ? JSON.parse(text) : null;
+        } catch {
+          throw new Error(
+            `Réponse Radar invalide (${response.status}).`
+          );
+        }
+
+        if (!response.ok || result?.ok === false) {
+          throw new Error(
+            result?.error ||
+              result?.message ||
+              `Radar indisponible (${response.status}).`
+          );
+        }
+
+        const rawTokens = Array.isArray(result)
+          ? result
+          : Array.isArray(result?.tokens)
+          ? result.tokens
+          : Array.isArray(result?.data)
+          ? result.data
+          : [];
+
+        const normalized = rawTokens
+          .map(normalizeToken)
+          .filter((token) => token.mint);
+
+        const unique = Array.from(
+          new Map(normalized.map((token) => [token.mint, token])).values()
+        );
+
+        if (requestId !== activeRadarRequest.current) return;
+        setTokens(unique);
+        if (source === "live" && radarPage === 0 && !snapshot) {
+          radarSnapshot.current = typeof result?.snapshot === "string"
+            ? result.snapshot : null;
+        }
+        setHasMorePages(source === "live" && result?.hasMore === true);
+
+
+        const updated =
+          timestamp(result?.updatedAt) ??
+          timestamp(result?.timestamp) ??
+          Date.now();
+
+        setLastUpdated(new Date(updated));
+      } catch (err) {
+        if (requestId !== activeRadarRequest.current) return;
+        setError(
+          err?.name === "AbortError"
+            ? "Le Radar met trop de temps à répondre."
+            : err?.message || "Impossible de charger les données."
+        );
+      } finally {
+        clearTimeout(timeout);
+        if (requestId === activeRadarRequest.current) {
+          setLoading(false);
+          setRefreshing(false);
+        }
+      }
+    },
+    [source, radarPage]
+  );
+
+  useEffect(() => {
+    loadRadar(false);
+  }, [loadRadar]);
+
+  useEffect(() => {
+    // Historical pages are anchored to a snapshot. Refreshing them
+    // automatically wastes RPC calls and can change enrichment mid-review.
+    if (!autoRefresh || (source === "live" && radarPage > 0)) return;
+
+    const interval = setInterval(() => {
+      loadRadar(true, true);
+    }, REFRESH_INTERVAL);
+
+    return () => clearInterval(interval);
+  }, [autoRefresh, loadRadar, source, radarPage]);
+
+  // Search beyond the 100 latest detections; the official PFX mint is
+  // also pinned locally so the result is immediate and never depends on
+  // indexing by external market providers.
+  useEffect(() => {
+    setSearchResult(null);
+    if (searchQuery.length < 2) return;
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const response = await fetch(
+          "/api/search-token?q=" + encodeURIComponent(searchQuery),
+          { signal: controller.signal, cache: "no-store" }
+        );
+        const result = await response.json();
+        if (controller.signal.aborted) return;
+        if (!response.ok || result?.ok === false) {
+          throw new Error("Recherche Solana indisponible");
+        }
+        const found = Array.isArray(result?.results) ? result.results : [];
+        setSearchResult({
+          query: searchQuery,
+          candidates: found.map(normalizeToken).filter((token) => token.mint),
+        });
+      } catch {
+        if (controller.signal.aborted) return;
+        setSearchResult({
+          query: searchQuery,
+          error: "Recherche globale temporairement indisponible ; le Radar reste accessible.",
+        });
+      }
+    }, 300);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [searchQuery]);
+
+  // PFX is the declared project mint: pin it above results at all times,
+  // including before search and when the user enters an unrelated query.
+  const officialPfxMatch = true;
+
+  const pageCoverage = useMemo(() => ({
+    total: tokens.length,
+    namesMissing: tokens.filter(token => token.name === "Nom non récupéré").length,
+    marketObserved: tokens.filter((token) => token.liquidityVerification === "dexscreener_live_pair").length,
+    pairsFound: tokens.filter((token) => token.marketFetchedAt !== null).length,
+    historicalSales: tokens.filter((token) => token.sellabilityEvidence === "historical_sales_observed").length,
+    securityChecked: tokens.filter((token) => token.securityChecked === true).length,
+    concentrationChecked: tokens.filter((token) => token.concentrationChecked === true).length
+  }), [tokens]);
+
+  const displayedTokens = useMemo(() => {
+    const query = searchQuery.toLowerCase();
+
+    const pfxMatches = query.length > 0 && (
+      "pfx".includes(query) ||
+      "profitx".includes(query) ||
+      OFFICIAL_PFX_MINT.toLowerCase() === query
+    );
+    const candidates = [
+      ...(pfxMatches ? [normalizeToken(OFFICIAL_PFX_TOKEN, 0)] : []),
+      ...tokens,
+      ...(activeSearchResult?.candidates ?? []),
+    ];
+    // The locally declared mint must take priority over discovered copies.
+    const uniqueTokens = Array.from(
+      new Map(candidates.reverse().map((token) => [token.mint, token])).values()
+    );
+    const filtered = uniqueTokens.filter((token) => {
+      const matchesSearch =
+        !query ||
+        token.name.toLowerCase().includes(query) ||
+        token.symbol.toLowerCase().includes(query) ||
+        token.mint.toLowerCase().includes(query);
+
+      const matchesLiquidity =
+        minimumLiquidity === 0 ||
+        (token.liquidity !== null &&
+          token.liquidity >= minimumLiquidity);
+
+      const matchesEvidence = source !== "live" || evidenceFilter === "all" ||
+        (evidenceFilter === "market" && token.liquidityVerification === "dexscreener_live_pair") ||
+        (evidenceFilter === "sales" && token.sellabilityEvidence === "historical_sales_observed") ||
+        (evidenceFilter === "concentration" && token.concentrationChecked === true) ||
+        (evidenceFilter === "security" && token.securityChecked === true);
+      return matchesSearch && matchesLiquidity && matchesEvidence;
+    });
+
+    const getSortValue = (token) => {
+      switch (sortBy) {
+        case "recent":
+          return source === "live"
+            ? timestamp(token.detectedAt)
+            : token.pairCreationTime;
+        case "score":
+          return token.score;
+        case "liquidity":
+          return token.liquidity;
+        case "volume":
+          return token.volume24h;
+        case "marketCap":
+          return token.marketCap;
+        case "change":
+          return token.change24h;
+        default:
+          return null;
+      }
+    };
+
+    return [...filtered].sort((a, b) => {
+      if (pfxMatches && a.officialPfx !== b.officialPfx) {
+        return a.officialPfx ? -1 : 1;
+      }
+      const av = num(getSortValue(a));
+      const bv = num(getSortValue(b));
+
+      if (av === null && bv === null) return 0;
+      if (av === null) return 1;
+      if (bv === null) return -1;
+      return bv - av;
+    });
+  }, [tokens, activeSearchResult, searchQuery, sortBy, minimumLiquidity, evidenceFilter, source]);
+  const marketTokens = displayedTokens.filter(token => !(officialPfxMatch && token.mint === OFFICIAL_PFX_MINT));
+  const searchingTokens = searchQuery.length >= 2 && !activeSearchResult;
+
+  async function copyMint(mint) {
+    if (!mint) return;
+
+    try {
+      await navigator.clipboard.writeText(mint);
+      setCopiedMint(mint);
+      setTimeout(() => setCopiedMint(""), 1500);
+    } catch {
+      setCopiedMint("");
+      setWatchlistMessage("Copie automatique impossible. Sélectionnez et copiez le mint affiché.");
+    }
+  }
+
+  function changeRadarPage(nextPage) {
+    activeRadarRequest.current++;
+    setLoading(true);
+    setError("");
+    setTokens([]);
+    setHasMorePages(false);
+    setRadarPage(nextPage);
+  }
+
+  function changeSource(nextSource) {
+    if (nextSource === source) return;
+    activeRadarRequest.current++;
+    radarSnapshot.current = null;
+    setTokens([]);
+    setTotalIndexed(null);
+    setHasMorePages(false);
+    setRadarPage(0);
+    setSource(nextSource);
+    setSortBy(nextSource === "live" ? "recent" : "score");
+    setMinimumLiquidity(0);
+    setEvidenceFilter("all");
+    setSearch("");
+  }
+
+  return (
+    <>
+      <Head>
+        <title>PFX Radar V2 — PROFITX AI</title>
+        <meta
+          name="description"
+          content="PROFITX AI Radar V2 — détection de nouveaux tokens Solana et surveillance du marché."
+        />
+        <meta name="robots" content="index,follow" />
+      </Head>
+
+      <main data-tool="radar" id="pfx-main-content" tabIndex={-1} className="radarPage">
+        <div className="radarShell">
+          {watchlistMessage && <p role="status" style={{ color: "#d8e5dd" }}>{watchlistMessage}</p>}
+
+
+          <section className="hero">
+            <div className="heroCopy">
+              <div className="eyebrow">
+                PROFITX INTELLIGENCE MODULE
+              </div>
+              <h1>
+                PFX <span>RADAR</span>
+              </h1>
+              <p>
+                Détection de nouveaux tokens Solana via Helius,
+                surveillance du marché et présélection pour analyse.
+                Les données présentées ne constituent ni une prédiction
+                de prix ni une recommandation d&apos;achat.
+              </p>
+            </div>
+
+            <div className="radarPulse" aria-hidden="true">
+              <div className="pulseRing ringOne" />
+              <div className="pulseRing ringTwo" />
+              <div className="pulseRing ringThree" />
+              <div className="pulseLine lineOne" />
+              <div className="pulseLine lineTwo" />
+              <div className="pulseCore">PFX</div>
+            </div>
+          </section>
+
+          <section className="statusBar">
+            <div className="statusLeft">
+              <span
+                className={`statusDot ${
+                  error ? "statusError" : "statusOnline"
+                }`}
+              />
+              <div>
+                <strong>
+                  {error
+                    ? "RADAR TEMPORAIREMENT INDISPONIBLE"
+                    : loading
+                    ? "CHARGEMENT DU RADAR"
+                    : "RADAR OPÉRATIONNEL"}
+                </strong>
+                <span>
+                  {lastUpdated
+                    ? `Dernière mise à jour : ${lastUpdated.toLocaleTimeString(
+                        "fr-FR"
+                      )}`
+                    : "En attente des données"}
+                </span>
+              </div>
+            </div>
+
+            <div className="statusActions">
+              <label className="autoRefresh">
+                <input
+                  type="checkbox"
+                  checked={autoRefresh}
+                  onChange={(event) =>
+                    setAutoRefresh(event.target.checked)
+                  }
+                />
+                Auto 60 s
+              </label>
+
+              <button
+                type="button"
+                className="refreshButton"
+                disabled={refreshing || loading}
+                onClick={() => loadRadar(true, radarPage === 0)}
+              >
+                {refreshing ? "ACTUALISATION..." : "ACTUALISER"}
+              </button>
+            </div>
+          </section>
+
+          {source === "live" && (
+            <div className="onchainLine">
+              <span>
+                Couverture Radar : {tokens.length} token(s) affichables sur
+                {totalIndexed !== null ? " " + totalIndexed.toLocaleString("fr-FR") + " indexés dans PFX" : " les détections enregistrées dans PFX"}.
+                Le flux présente au maximum 100 enregistrements récents par requête, avant filtres.
+                Les filtres s'appliquent uniquement aux tokens chargés sur cette page ; le projet officiel PFX reste affiché séparément.
+                Sur cette page : {pageCoverage.pairsFound}/{pageCoverage.total} paires DEX retrouvées,
+                {pageCoverage.marketObserved}/{pageCoverage.total} avec liquidité chiffrée,
+                {pageCoverage.historicalSales}/{pageCoverage.total} avec ventes historiques observées (hors cas signalés comme restrictions ou gel),
+                {pageCoverage.securityChecked}/{pageCoverage.total} contrôles techniques Solana,
+                {pageCoverage.concentrationChecked}/{pageCoverage.total} contrôles de concentration.
+                Une absence de données n'est pas une preuve d'absence de marché ou de risque.
+                Les ventes historiques ne garantissent jamais la possibilité de revendre ses propres tokens.
+                Cette sélection n'est pas un recensement exhaustif des créations Solana
+                ou Pump.fun ; un token absent n'est pas nécessairement sûr ni inexistant.
+              </span>
+            </div>
+          )}
+
+          {source === "live" && pageCoverage.namesMissing > 0 && <p role="status" className="onchainLine">
+            {pageCoverage.namesMissing} nom(s) non récupéré(s) sur cette page. Le mint est détecté, mais ses métadonnées ne sont pas encore disponibles auprès des sources consultées. Cela ne signifie pas que le token n’a pas de nom et ne constitue pas un verdict de risque.
+          </p>}
+          <section className="riskGlobalBanner" aria-label="Découverte Pump.fun">
+            <strong>CRÉATIONS RÉCENTES PUMP.FUN · DÉCOUVERTE NON AUDITÉE</strong>
+            <p>
+              Échantillon limité aux créations récentes renvoyées par Pump.fun.
+              Ce flux ne garantit ni liquidité, ni revente possible, ni sécurité.
+              Il ne modifie pas les scores du Radar Helius ou du Radar marché.
+            </p>
+            <button type="button" className="refreshButton" onClick={loadPumpDiscovery} disabled={pumpLoading}>
+              {pumpLoading ? "CHARGEMENT..." : pumpLoaded ? "ACTUALISER PUMP.FUN" : "AFFICHER LES CRÉATIONS PUMP.FUN"}
+            </button>
+            {pumpError && <p role="alert">{pumpError} Les anciennes données ne sont pas présentées comme actuelles.</p>}
+            {pumpAccessRestricted && (
+              <p>Pour continuer les découvertes Solana, utilisez le flux Helius ci-dessous. Les données de marché DexScreener restent disponibles dans l’onglet Radar marché.</p>
+            )}
+            {pumpLoaded && !pumpError && (
+              <p>Échantillon reçu : {pumpUpdatedAt && !Number.isNaN(Date.parse(pumpUpdatedAt)) ? new Date(pumpUpdatedAt).toLocaleString("fr-FR") : "date indisponible"}. L’heure de réception ne garantit pas la fraîcheur de chaque token.</p>
+            )}
+            {pumpLoaded && !pumpError && (
+              <div style={{ marginTop: 16 }}>
+                <p>{pumpTokens.length} token(s) retourné(s), non vérifiés. Cliquez sur un mint pour lancer son analyse.</p>
+                <div style={{ display: "grid", gap: 8, maxHeight: 360, overflowY: "auto" }}>
+                  {pumpTokens.map((coin) => (
+                    <div key={coin.mint} style={{ padding: 10, border: "1px solid #566", borderRadius: 8 }}>
+                      <strong>{coin.name || "Sans nom"} ({coin.symbol || "?"})</strong>
+                      <div style={{ overflowWrap: "anywhere", fontSize: 12 }}>{coin.mint}</div>
+                      <div style={{ fontSize: 12 }}>Non vérifié · Liquidité inconnue · Revente non vérifiée</div>
+                      <button type="button" className="refreshButton" onClick={() => router.push("/?mint=" + encodeURIComponent(coin.mint))}>
+                        OUVRIR DANS ANALYZER
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+
+          <section className="riskGlobalBanner" aria-label="Détections Solana sur 72 heures">
+            <strong>DÉTECTIONS SOLANA · 72 DERNIÈRES HEURES</strong>
+            <p role="status">
+              {detected72h !== null
+                ? detected72h.toLocaleString("fr-FR") + " tokens détectés et enregistrés dans l’index PROFITX AI."
+                : detected72hError ? "Statistique temporairement indisponible." : "Calcul du nombre de détections..."}
+            </p>
+            <p>Ce chiffre correspond aux dates de détection dans notre index, pas au nombre de créations vérifiées sur la blockchain.</p>
+          </section>
+
+          <section className="sourceSelector">
+            <button
+              type="button"
+              className={source === "live" ? "sourceActive" : ""}
+              onClick={() => changeSource("live")}
+            >
+              HELIUS · NOUVEAUX TOKENS
+            </button>
+            <button
+              type="button"
+              className={source === "market" ? "sourceActive" : ""}
+              onClick={() => changeSource("market")}
+            >
+              RADAR MARCHÉ · EXISTANT
+            </button>
+            <span>
+              {source === "live"
+                ? "Détections Helius enregistrées dans Supabase — données non auditées"
+                : "Signaux du moteur Radar historique"}
+            </span>
+          </section>
+
+          <section className="riskGlobalBanner" role="note">
+            <strong>⚠ ALERTE PROFITX — NE CONFONDEZ PAS DÉTECTION ET FIABILITÉ</strong>
+            <p>
+              Un token nouvellement détecté n'est pas audité. Un avertissement orange
+              signifie que des données essentielles manquent ; un avertissement rouge
+              repose sur un signal défavorable observé. Aucun de ces signaux ne prouve
+              à lui seul une arnaque. Vérifiez toujours avant d'investir.
+            </p>
+          </section>
+
+          <section className="controls">
+            <div className="searchBox">
+              <label htmlFor="radar-search">RECHERCHER</label>
+              <input autoCapitalize="none" autoCorrect="off" spellCheck={false} maxLength={80}
+                id="radar-search"
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Nom, symbole ou mint..."
+                autoComplete="off"
+              />
+            </div>
+
+            <div className="controlBox">
+              <label htmlFor="radar-sort">CLASSER PAR</label>
+              <select
+                id="radar-sort"
+                value={sortBy}
+                onChange={(event) => setSortBy(event.target.value)}
+              >
+                <option value="recent">
+                  {source === "live" ? "Détections les plus récentes" : "Paires DEX les plus récentes"}
+                </option>
+                <option value="score">Score PFX</option>
+                <option value="liquidity">Liquidité</option>
+                <option value="volume">Volume 24 h</option>
+                <option value="marketCap">Market cap</option>
+                <option value="change">Variation 24 h</option>
+              </select>
+            </div>
+
+            {source === "live" && (
+              <div className="controlBox">
+                <label htmlFor="radar-evidence">DONNÉES VÉRIFIÉES (PAGE ACTUELLE)</label>
+                <select
+                  id="radar-evidence"
+                  value={evidenceFilter}
+                  onChange={(event) => setEvidenceFilter(event.target.value)}
+                >
+                  <option value="all">Tous les tokens</option>
+                  <option value="market">Liquidité DEX observée</option>
+                  <option value="sales">Ventes historiques observées (24 h)</option>
+                  <option value="security">Contrôle technique effectué</option>
+                  <option value="concentration">Concentration contrôlée</option>
+                </select>
+              </div>
+            )}
+
+            <div className="controlBox">
+              <label htmlFor="radar-liquidity">
+                LIQUIDITÉ MIN.
+              </label>
+              <select
+                id="radar-liquidity"
+                value={minimumLiquidity}
+                onChange={(event) =>
+                  setMinimumLiquidity(Number(event.target.value))
+                }
+              >
+                <option value={0}>Toutes</option>
+                <option value={5000}>5 000 $</option>
+                <option value={10000}>10 000 $</option>
+                <option value={25000}>25 000 $</option>
+                <option value={50000}>50 000 $</option>
+                <option value={100000}>100 000 $</option>
+              </select>
+            </div>
+
+            <div className="resultCounter">
+              <span>RÉSULTATS FILTRÉS (PAGE ACTUELLE)</span>
+              <strong>{marketTokens.length}</strong>
+            </div>
+          </section>
+
+          {source === "live" && (
+            <div className="statusActions" style={{ justifyContent: "center", margin: "16px 0", gap: 12 }}>
+              <button type="button" className="refreshButton" disabled={loading || refreshing || radarPage === 0}
+                onClick={() => changeRadarPage(radarPage - 1)}>PRÉCÉDENT</button>
+              <span>Page {radarPage + 1} · 100 tokens maximum par page</span>
+              <button type="button" className="refreshButton" disabled={loading || refreshing || !hasMorePages}
+                onClick={() => changeRadarPage(radarPage + 1)}>SUIVANT</button>
+            </div>
+          )}
+
+          {officialPfxMatch && (
+            <section role="region" aria-label="Résultat officiel PROFITX" style={{
+              border: "2px solid #26e69b",
+              borderRadius: 14,
+              background: "#0b2118",
+              padding: "22px",
+              marginTop: "20px",
+              marginBottom: "20px",
+              color: "#ecfff5"
+            }}>
+              <div style={{color:"#45ffb6",fontWeight:800,letterSpacing:"0.08em",fontSize:12}}>
+                PROFITX AI / ANALYZER — MINT PFX DÉCLARÉ PAR LE PROJET
+              </div>
+              <h2 style={{margin:"10px 0",fontSize:26}}>PROFITX (PFX)</h2>
+              <p style={{wordBreak:"break-all",fontFamily:"monospace",fontSize:14}}>
+                {OFFICIAL_PFX_MINT}
+              </p>
+              <p style={{color:"#b4d7c5",fontSize:13,marginTop:8}}>
+                Un seul mint déclaré par PROFITX AI : vérifiez toujours l’adresse complète.
+                Cette identification du projet n’est pas un audit ni une garantie de sécurité.
+                Les autres tokens appelés PFX peuvent être différents.
+              </p>
+              <PfxPoolStatus />
+              <button type="button" className="refreshButton"
+                onClick={() => router.push("/?mint=" + encodeURIComponent(OFFICIAL_PFX_MINT))}
+              >
+                ANALYSER PFX
+              </button>
+            </section>
+          )}
+
+          {searchingTokens && (
+            <section className="message" role="status">
+              Recherche des tokens Solana au-delà des dernières détections...
+            </section>
+          )}
+          {activeSearchResult?.error && (
+            <section className="message" role="status">{activeSearchResult.error}</section>
+          )}
+
+          {error && (
+            <section className="message errorMessage">
+              <strong>MOTEUR RADAR</strong>
+              <p>{error}</p>
+              <p>
+                L&apos;Analyzer PROFITX reste indépendant et
+                n&apos;est pas affecté.
+              </p>
+            </section>
+          )}
+
+          {loading ? (
+            <section className="loadingPanel">
+              <div className="loader" />
+              <strong>INITIALISATION PFX RADAR</strong>
+              <span>Récupération des signaux Solana...</span>
+            </section>
+          ) : !error && !searchingTokens && marketTokens.length === 0 ? (
+            <section className="emptyPanel">
+              <div className="emptyIcon">◎</div>
+              <strong>AUCUN AUTRE TOKEN POUR CES FILTRES</strong>
+              <p>
+                Aucun autre token chargé sur cette page ne correspond aux critères sélectionnés.
+                Modifiez les filtres{source === "live" ? " ou consultez une autre page du flux Helius" : ""}.
+                Ce résultat ne prouve pas l’absence de tokens correspondants sur Solana.
+                Le mint PFX déclaré reste accessible en tête de page.
+              </p>
+            </section>
+          ) : (
+            <section className="tokenGrid">
+              {marketTokens.map((token, index) => (
+                <article className="tokenCard" key={token.id}>
+                  {token.officialPfx && (
+                    <div role="note" style={{
+                      border: "1px solid #24e397", borderRadius: 10,
+                      padding: "10px 12px", marginBottom: 12,
+                      color: "#5bffc0", fontWeight: 700
+                    }}>
+                      PFX — MINT DÉCLARÉ PAR PROFITX AI
+                      <div style={{fontSize: 12, fontWeight: 400, marginTop: 4}}>
+                        Adresse déclarée par le projet · identité non auditée · sécurité et revente non garanties
+                      </div>
+                    </div>
+                  )}
+                  {riskWarningFor(token) && (
+                    <div
+                      className={`riskWarning ${riskWarningFor(token).level}`}
+                      role="note"
+                      aria-label="Avertissement sur le risque du token"
+                    >
+                      <strong>{riskWarningFor(token).title}</strong>
+                      <p>{riskWarningFor(token).detail}</p>
+                    </div>
+                  )}
+                  <div className="cardTop">
+                    <div className="rank">#{index + 1}</div>
+
+                    <div
+                      className={`scoreBadge ${scoreColor(token.score)}`}
+                    >
+                      <span>SCORE PFX</span>
+                      <strong>
+                        {token.score !== null
+                          ? Math.round(token.score)
+                          : "N/D"}
+                      </strong>
+                      <small>/100</small>
+                    </div>
+                  </div>
+
+                  <div className="tokenIdentity">
+                    <div className="tokenIcon">
+                      {token.symbol !== "N/D"
+                        ? token.symbol.slice(0, 2).toUpperCase()
+                        : "?"}
+                    </div>
+                    <div className="tokenTitle">
+                      <h2>{token.name}</h2>
+                      <div>
+                        {token.symbol === "N/D"
+                          ? "Symbole en attente"
+                          : `$${token.symbol}`}
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="mintButton"
+                    onClick={() => copyMint(token.mint)}
+                    title="Copier le mint"
+                  >
+                    <span>{shortMint(token.mint)}</span>
+                    <strong>
+                      {copiedMint === token.mint ? "COPIÉ" : "COPIER"}
+                    </strong>
+                  </button>
+
+                  <div className="metrics">
+                    {[
+                      ["PRIX", price(token.priceUsd)],
+                      ["MARKET CAP", money(token.marketCap)],
+                      [
+                        source === "live"
+                          ? token.liquidityVerification === "dexscreener_live_pair"
+                            ? "LIQUIDITÉ DEX OBSERVÉE"
+                            : "LIQUIDITÉ NON VÉRIFIÉE"
+                          : "LIQUIDITÉ",
+                        money(token.liquidity),
+                      ],
+                      ["VOLUME 24 H", money(token.volume24h)],
+                      [
+                        "TRANSACTIONS 24 H",
+                        integer(token.transactions24h),
+                      ],
+                      source === "live"
+                        ? ["ÂGE DU TOKEN SELON HELIUS", ageSince(token.onchainCreationTime)]
+                        : ["ÂGE DE LA PAIRE DEX", ageSince(token.pairCreationTime)],
+                    ].map(([label, value]) => (
+                      <div className="metric" key={label}>
+                        <span>{label}</span>
+                        <strong>{value}</strong>
+                      </div>
+                    ))}
+                  </div>
+
+                  {source === "live" && (
+                    <div className="onchainLine">
+                      <span>
+                        Données de marché : {token.liquidityVerification === "dexscreener_live_pair"
+                          ? "Paire Solana retrouvée via DexScreener avec liquidité chiffrée indicative ; revente non garantie."
+                          : token.marketFetchedAt
+                            ? "Paire Solana retrouvée via DexScreener, mais liquidité non chiffrée dans cette réponse ; revente non vérifiée."
+                            : "Aucune paire DEX retrouvée dans cette réponse ; absence de données ne signifie pas absence de marché."}
+                        {" "}
+                        {token.marketFetchedAt && !Number.isNaN(new Date(token.marketFetchedAt).getTime())
+                          ? "Données consultées le " + new Date(token.marketFetchedAt).toLocaleString("fr-FR") + " (heure de récupération, pas de dernière transaction)."
+                          : "Horodatage de consultation du marché indisponible."}
+                      </span>
+                    </div>
+                  )}
+
+                  {source === "live" && token.marketPairUrl && (
+                    <div className="onchainLine">
+                      <span>
+                        Source de marché : {token.marketDexId || "DEX non précisé"} —{" "}
+                        <a href={token.marketPairUrl} target="_blank" rel="noopener noreferrer">
+                          consulter la paire sur DexScreener
+                        </a>.
+                      </span>
+                    </div>
+                  )}
+
+                  {source === "live" && token.marketDexId?.toLowerCase() === "pumpfun" && (
+                    <div className="onchainLine">
+                      <span>
+                        Marché Pump.fun détecté via DexScreener : les transactions observées
+                        ne prouvent ni une migration vers Raydium ni la présence d'une
+                        liquidité DEX librement retirable. Les réserves réelles et virtuelles
                         de la courbe de bonding ne sont pas vérifiées par ce contrôle.
                       </span>
                     </div>

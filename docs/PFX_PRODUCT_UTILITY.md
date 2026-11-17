@@ -13,3 +13,9 @@ Existing visit and successful analysis totals remain intact. New launch, server 
 Only production same-origin manual analysis requests are counted. Preview hosts, known bots and `?usage=off` do not emit event identifiers. Browser events permit only `started` and `failed`; `completed` comes from the validated analysis server success path. All database access is server-side through service-role RPCs; tables have RLS and no public/anon/authenticated grants. Public summary APIs return only allowlisted aggregate fields. Measurement outages never prevent analysis and are displayed as unavailable, not invented zeros.
 
 Validation: API allowlists and unavailable/zero handling are tested; transactional database assertions verify deduplication and aggregation and roll back all test events. Production UI checks use `?usage=off`.
+
+## Analysis request reliability
+
+A 45-second browser deadline covers both response headers and response body. Timeout aborts the underlying request and releases the UI even if a transport ignores cancellation. A synchronous ref lock prevents duplicate launches before React rerenders. Leaving the page aborts the request; late results/errors are ignored and do not generate a false browser-failure event. Starting an analysis clears stale token-search notices. Network failures have a French retry message; mint matching and successful-response validation remain mandatory.
+
+Validation includes stalled requests, stalled response bodies, caller cancellation, timer cleanup, network errors, duplicate clicks before rerender, and late responses after navigation.

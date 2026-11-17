@@ -4,6 +4,7 @@ import QuoteFreshness from "../components/QuoteFreshness";
 import AnalyzerUsage from "../components/AnalyzerUsage";
 import PfxUtility from "../components/PfxUtility";
 import AnalysisJourney from "../components/AnalysisJourney";
+import { fetchAnalysisResponse } from "../utils/analysis-request";
 import { recordAnalysisJourney, usageEventId } from "../utils/usage-client";
 import { securityWarningText } from "../utils/security-warning";
 import { useEffect, useRef, useState } from "react";
@@ -452,7 +453,11 @@ const [tokenSearchNotice, setTokenSearchNotice] = useState("");
 const tokenSearchRequest = useRef(0);
 const tokenSearchTimer = useRef(null);
 const tokenSearchAbort = useRef(null);
-useEffect(() => () => { clearTimeout(tokenSearchTimer.current); tokenSearchAbort.current?.abort(); }, []);
+const analysisRequest = useRef(null);
+useEffect(() => () => {
+  clearTimeout(tokenSearchTimer.current); tokenSearchAbort.current?.abort();
+  const pending = analysisRequest.current; analysisRequest.current = null; pending?.abort();
+}, []);
   const [data, setData] =
     useState(null);
 
@@ -607,10 +612,13 @@ async function searchToken(query) {
   async function analyze() { return runAnalysis(mint); }
 
   async function runAnalysis(requestedMint) {
-    if (loading) return;
+    if (loading || analysisRequest.current) return;
     const cleanMint = requestedMint.trim();
     if (!isSolanaMint(cleanMint)) { setError("Sélectionnez un token dans les résultats ou collez une adresse mint Solana valide."); return; }
+    const controller = new AbortController();
+    analysisRequest.current = controller;
     clearTimeout(tokenSearchTimer.current); tokenSearchAbort.current?.abort();
+    setTokenSearchError(""); setTokenSearchNotice("");
     quoteContext.current++;
     setSellQuoteLoading(false); setEurQuoteLoading(false);
     tokenSearchRequest.current++;
@@ -629,62 +637,13 @@ async function searchToken(query) {
     const usageId = usageEventId();
     recordAnalysisJourney(usageId, "started");
     try {
-      const response =
-        await fetch(
-          "/api/analyze",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type":
-                "application/json",
-              Accept:
-                "application/json",
-              ...(usageId ? {"x-pfx-usage-event":usageId} : {})
-            },
-            body:
-              JSON.stringify({
-                mint: cleanMint
-              })
-          }
-        );
-
-      const text =
-        await response.text();
-
-      let result;
-
-      try {
-        result =
-          text
-            ? JSON.parse(text)
-            : null;
-      } catch {
-        throw new Error(
-          `Le serveur a retourné une réponse invalide (${response.status}).`
-        );
-      }
-
-      if (!response.ok) {
-        throw new Error(
-          result?.error ||
-            result?.message ||
-            `Erreur serveur HTTP ${response.status}.`
-        );
-      }
-
-      if (!result) {
-        throw new Error(
-          "Le serveur n'a retourné aucune donnée."
-        );
-      }
-
-      if (result.ok !== true || result.mint !== cleanMint) {
-        throw new Error(result.error || "La réponse ne correspond pas au mint demandé. Relancez l’analyse.");
-      }
+      const result = await fetchAnalysisResponse(cleanMint, {eventId:usageId, controller});
+      if (analysisRequest.current !== controller) return;
       setData(result);
       window.dispatchEvent(new Event("pfx-usage-updated"));
 
     } catch (e) {
+      if (analysisRequest.current !== controller) return;
       recordAnalysisJourney(usageId, "failed");
       console.error(
         "ProfitX analyse error:",
@@ -697,7 +656,10 @@ async function searchToken(query) {
       );
 
     } finally {
-      setLoading(false);
+      if (analysisRequest.current === controller) {
+        analysisRequest.current = null;
+        setLoading(false);
+      }
     }
   }
 

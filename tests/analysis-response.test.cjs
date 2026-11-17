@@ -20,12 +20,14 @@ test('editing a comparison clears both old results and their message',()=>{
  const h=comparison();h.state.a={mint:'old-a'};h.state.b={mint:'old-b'};h.state.error='old';h.ctx.clearComparison();assert.equal(h.state.a,null);assert.equal(h.state.b,null);assert.equal(h.state.error,'');
 });
 const analyzer=fs.readFileSync(path.join(__dirname,'../pages/index.js'),'utf8');
-async function rootResponse(payload){
- const state={};const ctx={recordAnalysisJourney(){},usageEventId:()=>null,window:{dispatchEvent(){}},Event:class{},loading:false,mint:'requested',isSolanaMint:()=>true,clearTimeout,tokenSearchTimer:{current:null},tokenSearchAbort:{current:null},quoteContext:{current:0},tokenSearchRequest:{current:0},
+function rootHarness(payload){
+ const state={};const ctx={AbortController,setTimeout,analysisRequest:{current:null},recordAnalysisJourney(){},usageEventId:()=>null,window:{dispatchEvent(){}},Event:class{},loading:false,mint:'requested',isSolanaMint:()=>true,clearTimeout,tokenSearchTimer:{current:null},tokenSearchAbort:{current:null},quoteContext:{current:0},tokenSearchRequest:{current:0},
  console:{error(){}},fetch:async()=>({ok:true,text:async()=>JSON.stringify(payload)})};
- for(const key of ['SellQuoteLoading','EurQuoteLoading','TokenResults','TokenSearchLoading','WatchlistNotice','Loading','Error','Data','SellQuote','SellQuoteError','EurQuote','EurQuoteError'])ctx['set'+key]=v=>state[key]=v;
- vm.runInNewContext(analyzer.slice(analyzer.indexOf('  async function analyze()'),analyzer.indexOf('  const score =',analyzer.indexOf('  async function analyze()'))),ctx);await ctx.analyze();return state;
+ for(const key of ['TokenSearchError','TokenSearchNotice','SellQuoteLoading','EurQuoteLoading','TokenResults','TokenSearchLoading','WatchlistNotice','Loading','Error','Data','SellQuote','SellQuoteError','EurQuote','EurQuoteError'])ctx['set'+key]=v=>state[key]=v;
+ vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../utils/analysis-request.js'),'utf8').replace('export async function','async function'),ctx);
+ vm.runInNewContext(analyzer.slice(analyzer.indexOf('  async function analyze()'),analyzer.indexOf('  const score =',analyzer.indexOf('  async function analyze()'))),ctx);return {ctx,state};
 }
+async function rootResponse(payload){const h=rootHarness(payload);await h.ctx.analyze();return h.state;}
 test('Analyzer never displays a successful HTTP response for another mint or a failed result',async()=>{
  for(const payload of [{ok:true,mint:'other'},{ok:false,mint:'requested'},{}]){const state=await rootResponse(payload);assert.equal(state.Data,null);assert.ok(state.Error);assert.equal(state.Loading,false);}
 });
@@ -47,4 +49,16 @@ test('a failed comparison cancels the other request and preserves the actual err
  otherSignal=signal;return new Promise((resolve,reject)=>signal.addEventListener('abort',()=>reject(new Error('aborted'))));};
  await h.ctx.compareTokens();assert.equal(otherSignal.aborted,true);assert.equal(h.state.error,'Service indisponible');
  assert.equal(h.state.loading,false);assert.equal(h.state.a,null);assert.equal(h.state.b,null);
+});
+
+test('rapid duplicate launches share one request before React rerenders',async()=>{
+ const h=rootHarness();let finish,calls=0;
+ h.ctx.fetchAnalysisResponse=()=>{calls++;return new Promise(resolve=>{finish=resolve;});};
+ const first=h.ctx.analyze();await h.ctx.analyze();assert.equal(calls,1);
+ finish({ok:true,mint:'requested'});await first;assert.equal(h.ctx.analysisRequest.current,null);assert.equal(h.state.Loading,false);
+});
+test('a response arriving after navigation cannot change results or report a false error',async()=>{
+ const h=rootHarness();let finish;h.ctx.fetchAnalysisResponse=()=>new Promise(resolve=>{finish=resolve;});
+ const first=h.ctx.analyze();const controller=h.ctx.analysisRequest.current;h.ctx.analysisRequest.current=null;controller.abort();
+ finish({ok:true,mint:'requested'});await first;assert.equal(h.state.Data,null);assert.equal(h.state.Error,'');
 });

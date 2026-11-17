@@ -1,3 +1,4 @@
+import DiscoverTools from "../components/DiscoverTools";
 import ObservatoryMark from "../components/ObservatoryMark";
 import QuoteFreshness from "../components/QuoteFreshness";
 import AnalyzerUsage from "../components/AnalyzerUsage";
@@ -950,6 +951,7 @@ async function searchToken(query) {
         <div><span>02 / COMPRENDRE</span><strong>Les risques et leurs sources</strong></div>
         <div><span>03 / VÉRIFIER</span><strong>Les limites de chaque résultat</strong></div>
       </div>
+      <DiscoverTools />
       <AnalyzerUsage />
       <details className="pfxProjectDetails">
         <summary><span>LE PROJET PFX</span> Token officiel, mint et liens du projet <span aria-hidden="true">+</span></summary>

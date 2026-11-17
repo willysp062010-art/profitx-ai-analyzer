@@ -1,6 +1,7 @@
 import "../styles/globals.css";
 import "../styles/pfx-observatory.css";
 import Head from "next/head";
+import Link from "next/link";
 import SiteNavigation from "../components/SiteNavigation";
 
 export default function App({ Component, pageProps }) {
@@ -18,6 +19,10 @@ export default function App({ Component, pageProps }) {
       <div className="pfxObservatoryBackground" aria-hidden="true" />
       <div className="pfxSiteContent">
         <SiteNavigation />
+        <aside className="pfxReleaseStrip" aria-label="Les nouveautés PROFITX AI">
+          <span>NOUVEAU VISAGE</span><p>PFX fait peau neuve. Découvrez nos outils.</p>
+          <Link href="/decouvrir">Découvrir <span aria-hidden="true">↗</span></Link>
+        </aside>
         <Component {...pageProps} />
       </div>
     </>

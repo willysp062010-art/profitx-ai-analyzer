@@ -280,3 +280,66 @@ body { background-image:radial-gradient(ellipse at 94% 12%,#a431ff1a,transparent
   .pfxHeroFoot { gap:10px; }
 }
 @media(prefers-reduced-motion:reduce) { .pfxNavigationLinks a { transition:none; } }
+
+/* Visible release announcement and practical discovery, without interrupting tools. */
+.pfxReleaseStrip { width:min(1360px,calc(100% - 64px)); margin:16px auto 0; display:flex; align-items:center; gap:16px; padding:10px 16px; border:1px solid #324465; border-radius:12px; background:linear-gradient(100deg,#00cfff08,#b45cff10); font-family:var(--pfx-font); font-size:12px; }
+.pfxReleaseStrip > span { font-size:9px; letter-spacing:.12em; color:#83e5ff; white-space:nowrap; }
+.pfxReleaseStrip p { margin:0; color:#c0c9db; }
+.pfxReleaseStrip a { margin-left:auto; display:flex; gap:8px; align-items:center; color:#e4dcff; text-decoration:none; min-height:24px; white-space:nowrap; }
+.pfxReleaseStrip a:hover,.pfxDiscoverHeading > a:hover,.pfxGuideTool a:hover { color:#70e6ff; text-decoration:underline; text-underline-offset:4px; }
+.pfxDiscover { margin:42px 0 30px; }
+.pfxDiscoverHeading { display:flex; align-items:end; justify-content:space-between; flex-wrap:wrap; gap:18px; margin:0 0 22px; }
+#pfx-main-content .pfxDiscoverHeading h2 { margin:10px 0 0; font-weight:450; }
+.pfxDiscoverHeading > a { color:#9fe6f5; text-decoration:none; font-size:13px; min-height:44px; display:flex; align-items:center; gap:8px; }
+.pfxDiscoverGrid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }
+.pfxDiscoverCard { display:block; padding:25px; border:1px solid #303c54; border-radius:20px; background:linear-gradient(140deg,#10182a,#0b111c); color:var(--pfx-text); text-decoration:none; transition:border-color .15s,background .15s; }
+.pfxDiscoverCard:hover { border-color:#6d91b7; background:linear-gradient(140deg,#17233a,#111a2c); }
+.pfxDiscoverNumber { display:flex; justify-content:space-between; align-items:center; font-size:11px; color:#86ddef; letter-spacing:.12em; }
+.pfxDiscoverNumber > span { font-size:20px; color:#d38dff; }
+#pfx-main-content .pfxDiscoverCard h3 { font-size:22px; margin:20px 0 12px; font-weight:400; }
+#pfx-main-content .pfxDiscoverCard p { margin:0; color:var(--pfx-muted); font-size:14px; line-height:1.75; }
+.pfxGuide { max-width:1200px; }
+#pfx-main-content .pfxGuideHero { padding:60px 0 48px; }
+#pfx-main-content .pfxGuideHero h1 { font-size:clamp(37px,5vw,68px); }
+#pfx-main-content .pfxGuideHero .intro { font-size:18px; max-width:780px; }
+.pfxGuideActions { display:flex; flex-wrap:wrap; gap:12px; margin-top:30px; }
+.pfxGuideActions a { display:flex; align-items:center; justify-content:center; gap:14px; padding:16px 22px; text-decoration:none; border:1px solid #435674; }
+.pfxGuideSteps { padding:35px 0 48px; }
+.pfxGuideSteps ol { padding:0; margin:25px 0 0; list-style:none; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:25px; }
+.pfxGuideSteps li { padding-top:20px; border-top:1px solid #3c4a64; }
+.pfxGuideSteps li > span { color:#7cddf0; font-size:12px; }
+#pfx-main-content .pfxGuideSteps h3 { font-size:22px; margin:17px 0 10px; }
+.pfxGuideSteps p { color:var(--pfx-muted); font-size:14px; }
+.pfxGuideGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
+#pfx-main-content .pfxGuideTool { margin:0; padding:28px; display:flex; flex-direction:column; }
+#pfx-main-content .pfxGuideTool h3 { font-size:26px; margin:16px 0 0; }
+.pfxGuideTool p { color:var(--pfx-muted); margin-bottom:22px; }
+.pfxGuideTool a { display:flex; align-items:center; justify-content:space-between; margin-top:auto; color:#a9e5f3; text-decoration:none; min-height:44px; }
+#pfx-main-content .pfxGuideFaq { margin-top:32px; }
+.pfxGuideFaq details { border-top:1px solid #2e3c54; padding:8px 0; }
+.pfxGuideFaq summary { min-height:48px; padding:12px 0; cursor:pointer; color:#e1e8f7; }
+.pfxGuideFaq details p { color:var(--pfx-muted); max-width:900px; }
+.pfxGuideRelease { color:#8d9bb4; margin:24px 0 0; font-size:12px; }
+@media(max-width:800px) {
+ .pfxReleaseStrip { width:calc(100% - 32px); gap:12px; }
+ .pfxDiscoverGrid,.pfxGuideSteps ol { grid-template-columns:1fr; }
+ .pfxDiscoverCard { padding:22px; }
+ #pfx-main-content .pfxDiscoverCard h3 { margin:12px 0 10px; }
+ .pfxGuideSteps li { display:flex; gap:18px; align-items:baseline; }
+ #pfx-main-content .pfxGuideSteps h3 { margin-top:0; }
+}
+@media(max-width:600px) {
+ .pfxReleaseStrip { flex-wrap:wrap; padding:8px 12px; gap:0 12px; }
+ .pfxReleaseStrip > span { flex:1; }
+ .pfxReleaseStrip p { order:3; width:100%; font-size:12px; padding-bottom:6px; }
+ .pfxReleaseStrip a { min-height:36px; }
+ .pfxGuideGrid { grid-template-columns:1fr; }
+ #pfx-main-content .pfxGuideHero { padding:34px 0; }
+ #pfx-main-content .pfxGuideHero h1 { font-size:clamp(34px,8.5vw,48px); }
+ #pfx-main-content .pfxGuideHero .intro { font-size:16px; }
+ #pfx-main-content .pfxGuideTool { padding:22px; }
+ .pfxGuideActions a { width:100%; min-height:48px; }
+ .pfxDiscover { margin-top:30px; }
+ .pfxDiscoverHeading { gap:8px; }
+}
+@media(prefers-reduced-motion:reduce) { .pfxDiscoverCard { transition:none; } }

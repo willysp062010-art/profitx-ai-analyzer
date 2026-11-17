@@ -1229,8 +1229,8 @@ async function searchToken(query) {
 
           <AnalysisQualityNotice quality={data.dataQuality} />
           <div style={{ display: "flex", flexWrap: "wrap", gap: 12, margin: "16px 0" }}>
-            <button type="button" onClick={() => followAnalyzedToken()} style={{ padding: "12px 18px", cursor: "pointer" }}>SUIVRE CE TOKEN</button>
-            <button type="button" onClick={() => followAnalyzedToken(true)} style={{ padding: "12px 18px", cursor: "pointer" }}>CRÉER UNE ALERTE</button>
+            <button type="button" className="secondaryButton" onClick={() => followAnalyzedToken()} style={{ padding: "12px 18px", cursor: "pointer" }}>Suivre ce token</button>
+            <button type="button" className="secondaryButton" onClick={() => followAnalyzedToken(true)} style={{ padding: "12px 18px", cursor: "pointer" }}>Créer une alerte</button>
           </div>
           {watchlistNotice && <p role="status" style={{ color: "#d8e5dd" }}>{watchlistNotice}</p>}
           <div className="panel">

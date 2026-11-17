@@ -942,6 +942,8 @@ async function searchToken(query) {
 
         </div>
 
+        {error && <p className="error" role="alert">{error}</p>}
+        {data && <p role="status"><a className="pfxResultLink" href="#pfx-analysis-results">Analyse prête — voir les résultats ↓</a></p>}
         <div className="pfxTryExample">
           <button type="button" disabled={loading} onClick={() => {
             const example = "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263";
@@ -1165,16 +1167,11 @@ async function searchToken(query) {
       </section>
       </details>
 
-      {error && (
-        <div className="error">
-          {error}
-        </div>
-      )}
 
 
       {data && (
 
-        <section className="results">
+        <section className="results" id="pfx-analysis-results" aria-label="Résultats de l’analyse">
 
           <div className="scoreCard">
 

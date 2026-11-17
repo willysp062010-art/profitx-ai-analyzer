@@ -362,3 +362,6 @@ body { background-image:radial-gradient(ellipse at 94% 12%,#a431ff1a,transparent
 .pfxTryExample p {font-size:13px;line-height:1.6;color:#aebcd0;margin:0;}
 .pfxJourneyNumber {display:block;font-size:32px;color:#6ae6cf;}
 @media(max-width:640px){.pfxUtilityGrid{grid-template-columns:1fr}.pfxTryExample{align-items:flex-start;flex-direction:column}.pfxUtilityGrid article{padding:18px}}
+
+.pfxResultLink {display:inline-flex;align-items:center;min-height:44px;color:#6aebc1;text-decoration:underline;font-weight:700;}
+#pfx-analysis-results {scroll-margin-top:24px;}

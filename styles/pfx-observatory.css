@@ -343,3 +343,22 @@ body { background-image:radial-gradient(ellipse at 94% 12%,#a431ff1a,transparent
  .pfxDiscoverHeading { gap:8px; }
 }
 @media(prefers-reduced-motion:reduce) { .pfxDiscoverCard { transition:none; } }
+
+/* Clear product utility and accessible first-analysis entry point. */
+.pfxUtility {margin:28px 0;padding:clamp(20px,3vw,34px);border:1px solid #354357;border-radius:22px;background:linear-gradient(125deg,#111824,#12101e);color:#eef4fc;}
+.pfxUtility h2 {font-size:clamp(24px,3vw,34px);margin:6px 0 16px;}
+.pfxUtility h3 {font-size:23px;margin:16px 0 10px;}
+.pfxUtility p {line-height:1.7;color:#bac8da;}
+.pfxUtilityEyebrow {font-size:12px;letter-spacing:.12em;color:#5ee4ea!important;}
+.pfxUtilityGrid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px;margin-top:24px;}
+.pfxUtilityGrid article {padding:22px;border:1px solid #364256;border-radius:16px;background:#0a101a;}
+.pfxUtilityBadge {font-size:11px;letter-spacing:.06em;color:#55f0b0;}
+.pfxUtilityPlanned {color:#c3a3ff;}
+.pfxUtility a {display:inline-flex;align-items:center;min-height:44px;color:#69e5ee;text-decoration:underline;}
+.pfxUtilityNote {font-size:13px;margin:20px 0 0;}
+.pfxTryExample {display:flex;align-items:center;gap:16px;margin:16px 0;}
+.pfxTryExample button {min-height:44px;flex-shrink:0;padding:12px 18px;border:1px solid #47cfda;border-radius:12px;background:#142735;color:#8aebf3;font:inherit;cursor:pointer;}
+.pfxTryExample button:disabled {opacity:.5;cursor:wait;}
+.pfxTryExample p {font-size:13px;line-height:1.6;color:#aebcd0;margin:0;}
+.pfxJourneyNumber {display:block;font-size:32px;color:#6ae6cf;}
+@media(max-width:640px){.pfxUtilityGrid{grid-template-columns:1fr}.pfxTryExample{align-items:flex-start;flex-direction:column}.pfxUtilityGrid article{padding:18px}}

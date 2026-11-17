@@ -2,7 +2,9 @@ import DiscoverTools from "../components/DiscoverTools";
 import ObservatoryMark from "../components/ObservatoryMark";
 import QuoteFreshness from "../components/QuoteFreshness";
 import AnalyzerUsage from "../components/AnalyzerUsage";
-import { usageEventId } from "../utils/usage-client";
+import PfxUtility from "../components/PfxUtility";
+import AnalysisJourney from "../components/AnalysisJourney";
+import { recordAnalysisJourney, usageEventId } from "../utils/usage-client";
 import { securityWarningText } from "../utils/security-warning";
 import { useEffect, useRef, useState } from "react";
 import PfxPoolStatus from "../components/PfxPoolStatus";
@@ -442,7 +444,7 @@ function buildProfitxDiagnostic({
 
 export default function Home() {
   const [mint, setMint] =
-    useState(DEFAULT_MINT);
+    useState("");
 const [tokenResults, setTokenResults] = useState([]);
 const [tokenSearchLoading, setTokenSearchLoading] = useState(false);
 const [tokenSearchError, setTokenSearchError] = useState("");
@@ -602,9 +604,11 @@ async function searchToken(query) {
     if (requestId === tokenSearchRequest.current) setTokenSearchLoading(false);
   }
 }
-  async function analyze() {
+  async function analyze() { return runAnalysis(mint); }
+
+  async function runAnalysis(requestedMint) {
     if (loading) return;
-    const cleanMint = mint.trim();
+    const cleanMint = requestedMint.trim();
     if (!isSolanaMint(cleanMint)) { setError("Sélectionnez un token dans les résultats ou collez une adresse mint Solana valide."); return; }
     clearTimeout(tokenSearchTimer.current); tokenSearchAbort.current?.abort();
     quoteContext.current++;
@@ -622,8 +626,9 @@ async function searchToken(query) {
     setEurQuote(null);
     setEurQuoteError("");
 
+    const usageId = usageEventId();
+    recordAnalysisJourney(usageId, "started");
     try {
-      const usageId = usageEventId();
       const response =
         await fetch(
           "/api/analyze",
@@ -680,6 +685,7 @@ async function searchToken(query) {
       window.dispatchEvent(new Event("pfx-usage-updated"));
 
     } catch (e) {
+      recordAnalysisJourney(usageId, "failed");
       console.error(
         "ProfitX analyse error:",
         e
@@ -931,9 +937,17 @@ async function searchToken(query) {
           >
             {loading
               ? "Analyse..."
-              : "Analyser"}
+              : "Analyser gratuitement"}
           </button>
 
+        </div>
+
+        <div className="pfxTryExample">
+          <button type="button" disabled={loading} onClick={() => {
+            const example = "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263";
+            setMint(example); runAnalysis(example);
+          }}>Essayer avec BONK →</button>
+          <p>Une vraie analyse à la demande, sans wallet ni PFX. Cet exemple n’est pas une recommandation d’achat.</p>
         </div>
 
         <div className="hint">
@@ -953,6 +967,8 @@ async function searchToken(query) {
       </div>
       <DiscoverTools />
       <AnalyzerUsage />
+      <AnalysisJourney />
+      <PfxUtility />
       <details className="pfxProjectDetails">
         <summary><span>LE PROJET PFX</span> Token officiel, mint et liens du projet <span aria-hidden="true">+</span></summary>
 <section className="panel">

@@ -9,7 +9,7 @@ const TOOLS = [
   ["/intelligence", "Intelligence"],
   ["/watchlist", "Watchlist"],
   ["/alerts", "Alertes"],
-  ["/obtenir-pfx", "Obtenir PFX"],
+  ["/obtenir-pfx", "Le token PFX"],
 ];
 
 export default function SiteNavigation() {

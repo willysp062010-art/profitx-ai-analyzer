@@ -24,6 +24,9 @@ export async function usageRpc(name, body) {
 export async function recordAnalysisUsage(req) {
   const id=req.headers?.["x-pfx-usage-event"];
   if (req.method !== "POST" || !usageRequestAllowed(req) || !usageEventIdValid(id) || !usageRateAllowed(req)) return;
-  try { await usageRpc("pfx_record_usage",{p_event_id:id,p_kind:"analysis"}); }
+  try { await Promise.allSettled([
+    usageRpc("pfx_record_usage",{p_event_id:id,p_kind:"analysis"}),
+    usageRpc("pfx_record_analysis_funnel",{p_event_id:id,p_kind:"completed"})
+  ]); }
   catch { /* Usage measurement must never prevent an analysis. */ }
 }

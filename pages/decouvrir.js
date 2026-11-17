@@ -9,7 +9,7 @@ const TOOLS = [
   ["Intelligence", "/intelligence", "Lire l’analyse en contexte", "Retrouvez une lecture structurée des forces, vigilances et informations manquantes d’un token."],
   ["Watchlist", "/watchlist", "Garder vos repères", "Conservez une sélection dans ce navigateur. Utilisez l’export et l’import pour la transférer sur un autre appareil."],
   ["Alertes", "/alerts", "Définir vos seuils", "Suivez des conditions de prix, variation, liquidité ou volume. Les contrôles manuels et automatiques ne garantissent pas une surveillance continue. Les e-mails ne sont pas activés."],
-  ["Obtenir PFX", "/obtenir-pfx", "Vérifier le token du projet", "Retrouvez le mint déclaré par PROFITX et ses liens. PFX reste sur Solana. L’Analyzer est utilisable sans détenir PFX ni connecter de wallet."],
+  ["Le token PFX", "/obtenir-pfx", "Vérifier le token du projet", "Retrouvez le mint déclaré par PROFITX et ses liens. PFX reste sur Solana. L’Analyzer est utilisable sans détenir PFX ni connecter de wallet."],
 ];
 export default function Decouvrir() {
   return <>
@@ -31,6 +31,7 @@ export default function Decouvrir() {
       <section className="panel pfxGuideFaq" aria-labelledby="pfx-guide-faq"><h2 id="pfx-guide-faq">Les réponses essentielles.</h2>
         <details><summary>Faut-il acheter PFX pour utiliser les outils ?</summary><p>Non. L’analyse Solana est gratuite et ne nécessite ni achat de PFX ni connexion de wallet.</p></details>
         <details><summary>Une analyse favorable garantit-elle un investissement sûr ?</summary><p>Non. Les observations dépendent des sources accessibles et peuvent être incomplètes. Les contrôles ne constituent pas un audit de sécurité et ne prédisent pas les performances futures.</p></details>
+        <details><summary>À quoi sert PFX aujourd’hui ?</summary><p>PFX est le token du projet sur Solana. Il ne débloque actuellement aucune fonction supplémentaire. Une option de paiement avec avantage tarifaire pour de futurs services est envisagée ; elle n’est pas activée. <Link href="/obtenir-pfx">Voir le rôle du token et les fonctions envisagées.</Link></p></details>
         <details><summary>Quels réseaux sont disponibles ?</summary><p>Les outils présentés ici sont consacrés à Solana. Le multichain est prévu ; il n’est pas encore disponible.</p></details>
       </section>
       <p className="pfxGuideRelease">Nouvelle interface présentée le 17 novembre 2026 · Logo multicolore, nouvelle typographie et navigation adaptée aux petits écrans.</p>

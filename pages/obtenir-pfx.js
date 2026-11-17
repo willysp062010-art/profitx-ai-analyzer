@@ -1,6 +1,7 @@
 
 import { useState } from "react";
 import Head from "next/head";
+import PfxUtility from "../components/PfxUtility";
 
 const PFX_MINT =
   "6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump";
@@ -35,30 +36,31 @@ export default function ObtenirPFX() {
   return (
     <>
       <Head>
-        <title>Obtenir PFX sur Raydium | PROFITX AI</title>
+        <title>PFX : utilité, projet et guide Raydium | PROFITX AI</title>
         <meta
           name="description"
-          content="Guide officiel pour obtenir PROFITX PFX sur Raydium, réseau Solana. Vérifiez le mint et les risques avant toute transaction."
+          content="Comprendre le rôle actuel de PFX et les fonctions envisagées. Analyse Solana gratuite sans token. Mint officiel et guide Raydium."
         />
       </Head>
 
       <main id="pfx-main-content" tabIndex={-1} className="page">
 
 
+        <PfxUtility />
         <section className="hero">
           <div className="eyebrow">
             PROFITX • TOKEN OFFICIEL • SOLANA
           </div>
 
           <h1>
-            Obtenir <span>PFX</span>
+            Le token <span>PFX</span>
           </h1>
 
           <p className="lead">
             PROFITX PFX dispose désormais de son pool
             officiel PFX/SOL sur Raydium.
-            Ce guide vous accompagne étape par étape
-            pour accéder au token officiel.
+            L’analyse Solana reste gratuite sans acheter PFX.
+            Le guide ci-dessous explique les échanges pour ceux qui souhaitent en effectuer.
           </p>
 
           <div className="status">

@@ -19,6 +19,6 @@ The private scheduler table contains real successful daily executions from 13 th
 
 ## Validation and limits
 
-212 automated tests pass and the production build compiles. Tests cover lookahead boundaries, read-only radar behavior, shared cancellation, metadata provenance, authenticated backfill budget, and alert evidence freshness, failure and privacy.
+213 automated tests pass and the production build compiles. Tests cover lookahead boundaries, read-only radar behavior, shared cancellation, metadata provenance, microsecond-preserving pagination, authenticated backfill budget, and alert evidence freshness, failure and privacy.
 
 Real-time delivery, email notifications, exhaustive blockchain coverage and multichain support are not introduced by this change. Existing external provider limitations remain. Public page and API validation must use the resulting production deployment; a successful local build alone does not establish production success.

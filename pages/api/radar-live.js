@@ -400,7 +400,8 @@ export default async function handler(req, res) {
     const pageLimit = 100;
     const snapshotRaw = typeof req.query.snapshot === "string" ? req.query.snapshot : "";
     const snapshotDate = snapshotRaw ? new Date(snapshotRaw) : null;
-    if (snapshotRaw && (!snapshotDate || !Number.isFinite(snapshotDate.getTime()) ||
+    if (snapshotRaw && (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/.test(snapshotRaw) ||
+        !snapshotDate || !Number.isFinite(snapshotDate.getTime()) ||
         snapshotDate.getTime() > Date.now() + 60000)) {
       return res.status(400).json({ error: "Date de référence invalide" });
     }
@@ -412,7 +413,8 @@ export default async function handler(req, res) {
         "security_score,utility_score," +
         "speculation_risk_score,analysis_status",
       chain_id: "eq.solana",
-      ...(snapshotDate ? { detected_at: "lte." + snapshotDate.toISOString() } : {}),
+      // Preserve database microseconds: rounding the snapshot can skip a row.
+      ...(snapshotDate ? { detected_at: "lte." + snapshotRaw } : {}),
       order: "detected_at.desc,id.desc",
       offset: String(page * pageLimit),
       limit: String(pageLimit + 1)
@@ -519,7 +521,7 @@ export default async function handler(req, res) {
       source: "helius_supabase",
       count: tokens.length,
       totalIndexed,
-      snapshot: snapshotDate ? snapshotDate.toISOString() : (rows[0]?.detected_at || null),
+      snapshot: snapshotRaw || rows[0]?.detected_at || null,
       pageLimit,
       page,
       hasMore,

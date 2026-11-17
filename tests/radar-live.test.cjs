@@ -142,3 +142,18 @@ test("transient DAS metadata is attributed to Helius instead of claiming databas
  const result=resolveTokenIdentity({name:null,liveMetadata:{name:"Read-only identity",symbol:"READ"}});
  assert.equal(result.name,"Read-only identity");assert.equal(result.nameSource,"helius_das");
 });
+
+test("pagination retains database microseconds in its snapshot boundary",async()=>{
+ const snapshot="2026-11-16T12:34:56.123456+00:00";
+ let query;
+ const handler=vm.runInNewContext(source+"\nhandler;",{
+  process:{env:{SUPABASE_URL:"https://db.test",SUPABASE_SERVICE_ROLE_KEY:"private"}},
+  URLSearchParams,AbortSignal,console,fetch:async url=>{
+   query=new URL(url).searchParams;return new Response("[]");
+  }
+ });
+ const res={setHeader(){},status(n){this.statusCode=n;return this;},json(body){this.body=body;return this;}};
+ await handler({method:"GET",query:{page:"1",snapshot}},res);
+ assert.equal(res.statusCode,200);assert.equal(query.get("detected_at"),"lte."+snapshot);
+ assert.equal(res.body.snapshot,snapshot);assert.equal(query.get("offset"),"100");
+});

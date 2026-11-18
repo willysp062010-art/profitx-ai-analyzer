@@ -1,9 +1,12 @@
 import argparse
 import concurrent.futures as cf
 import os
+import fcntl
 import json
 import re
 import sys
+import tempfile
+from pathlib import Path
 import urllib.request
 import urllib.parse
 from datetime import datetime, timezone
@@ -124,6 +127,18 @@ def reconcile(blocks):
     return inserted
 
 
+def save_checkpoint(path, anchor, index_url):
+    with tempfile.NamedTemporaryFile(mode="w", dir=path.parent, delete=False) as handle:
+        temporary = Path(handle.name)
+        try:
+            json.dump({"verified_through": anchor, "index_url": index_url}, handle)
+            handle.flush()
+            os.fsync(handle.fileno())
+            os.replace(temporary, path)
+        finally:
+            temporary.unlink(missing_ok=True)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("anchor", type=int, help="End slot for a contiguous range, or sample anchor")
@@ -131,7 +146,30 @@ def main():
     parser.add_argument("--start", type=int, help="Start slot for a contiguous range")
     parser.add_argument("--workers", type=int, choices=range(1, 25), default=3)
     parser.add_argument("--repair", action="store_true", help="Insert verified mints with Supabase credentials")
+    parser.add_argument("--checkpoint", type=Path, help="Resume verified repair ranges from this file")
     args = parser.parse_args()
+    if args.checkpoint is None:
+        return scan(args, parser)
+    if not args.repair:
+        parser.error("--checkpoint requires --repair")
+    lock_path = args.checkpoint.with_name(args.checkpoint.name + ".lock")
+    with lock_path.open("a") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            parser.error("Another repair is using this checkpoint")
+        if args.checkpoint.exists():
+            state = json.loads(args.checkpoint.read_text())
+            verified_through = state.get("verified_through")
+            if type(verified_through) is not int or verified_through < 0 or state.get("index_url") != args.index_url:
+                parser.error("Invalid checkpoint or index URL mismatch")
+            if args.start is not None and args.start != verified_through + 1:
+                parser.error("--start must immediately follow the checkpoint")
+            args.start = verified_through + 1
+        return scan(args, parser)
+
+
+def scan(args, parser):
 
     if args.start is None:
         if args.repair:
@@ -177,6 +215,8 @@ def main():
     json.dump(report, sys.stdout, indent=2)
     if incomplete or any(row["indexed"] is not True for row in report["comparisons"]):
         return 1
+    if args.checkpoint is not None:
+        save_checkpoint(args.checkpoint, args.anchor, args.index_url)
     return 0
 
 

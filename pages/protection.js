@@ -26,7 +26,7 @@ export default function Protection() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ owner: address.trim() }),
-        signal: AbortSignal.timeout(12000)
+        signal: AbortSignal.timeout(16000)
       });
       const result = await response.json();
       if (!response.ok) {
@@ -56,7 +56,9 @@ export default function Protection() {
           <button disabled={busy}>{busy ? "Vérification…" : "Vérifier le portefeuille"}</button>
         </form>
         <div aria-live="polite">{wallet?.error ? <p>{wallet.error}</p> : wallet && <>
-          <p>{wallet.partial ? "Contrôle partiel. Certaines données Solana sont indisponibles." : "Comptes SPL Token et Token-2022 contrôlés."} {wallet.total} autorisation(s) détectée(s).</p>
+          {wallet.delegationsUnavailable
+            ? <p>Vérification des autorisations indisponible.</p>
+            : <p>{wallet.partial ? "Vérification partielle des autorisations." : "Comptes SPL Token et Token-2022 contrôlés."} {wallet.total} autorisation(s) observée(s).</p>}
           {wallet.total > wallet.delegates.length && <p>Les 100 premières autorisations sont affichées.</p>}
           <ul>{wallet.delegates.map(item => <li key={item.account}>
             <a href={`https://solscan.io/account/${item.account}`} target="_blank" rel="noreferrer">Voir le compte token</a>
@@ -67,8 +69,11 @@ export default function Protection() {
           <h3>Sorties et baisses de solde récentes</h3>
           <p>Jusqu’à huit transactions qui référencent directement cette adresse. Les baisses de solde peuvent correspondre à un échange ou à une autre opération légitime.</p>
           {!wallet.history || (wallet.history.partial && !wallet.history.reviewed) ? <p>Historique indisponible.</p> : <>
-            <p>{wallet.history.reviewed} transaction(s) examinée(s). {wallet.history.partial && "Historique partiel."}</p>
-            {!wallet.history.transactions.length && <p>Aucune sortie directe de SOL ou baisse de solde token observée dans cet échantillon.</p>}
+            <p>{wallet.history.requested === 0
+              ? "Aucune transaction récente trouvée pour cette adresse."
+              : `${wallet.history.reviewed} sur ${wallet.history.requested ?? wallet.history.reviewed} transaction(s) examinée(s).`}
+              {wallet.history.partial && " Historique partiel."}</p>
+            {wallet.history.reviewed > 0 && !wallet.history.transactions.length && <p>Aucune sortie directe de SOL ou baisse de solde token observée dans cet échantillon.</p>}
             {wallet.history.repeatedDestinations?.map(({ destination, signatures }) => <div key={destination}>
               <h4>Envois rapprochés vers le même destinataire</h4>
               <p>{signatures.length} transactions SOL sur dix minutes ou moins vers <code style={{ overflowWrap: "anywhere" }}>{destination}</code>. Vérifiez si vous reconnaissez ces envois.</p>

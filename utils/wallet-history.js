@@ -1,4 +1,5 @@
 const limit = 8;
+const transactionConcurrency = 4;
 const signaturePattern = /^[1-9A-HJ-NP-Za-km-z]{64,88}$/;
 
 async function rpc(endpoint, signal, method, params) {
@@ -48,8 +49,8 @@ export async function readWalletHistory(endpoint, owner, signal) {
   const signatures = await rpc(endpoint, signal, "getSignaturesForAddress", [owner, { limit, commitment: "confirmed" }]);
   if (!Array.isArray(signatures) || signatures.length > limit) throw new Error("Invalid history");
   const checked = [];
-  for (let offset = 0; offset < signatures.length; offset += 2) {
-    const batch = await Promise.allSettled(signatures.slice(offset, offset + 2).map(async ({ signature, err, blockTime }) => {
+  for (let offset = 0; offset < signatures.length; offset += transactionConcurrency) {
+    const batch = await Promise.allSettled(signatures.slice(offset, offset + transactionConcurrency).map(async ({ signature, err, blockTime }) => {
       if (typeof signature !== "string" || !signaturePattern.test(signature)) throw new Error("Invalid signature");
       if (err) return null;
       const transaction = await rpc(endpoint, signal, "getTransaction", [signature, {
@@ -65,6 +66,7 @@ export async function readWalletHistory(endpoint, owner, signal) {
   const transactions = reviewed.map(item => item.value).filter(Boolean);
   const repeatedDestinations = findRepeatedDestinations(transactions);
   return {
+    requested: signatures.length,
     reviewed: reviewed.length,
     partial: reviewed.length !== signatures.length,
     transactions, repeatedDestinations

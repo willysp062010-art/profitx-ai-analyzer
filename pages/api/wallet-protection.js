@@ -50,16 +50,17 @@ export default async function handler(req, res) {
   }
   const endpoint = process.env.SOLANA_RPC_URL ||
     (process.env.HELIUS_API_KEY ? `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}` : "https://api.mainnet-beta.solana.com");
-  const signal = AbortSignal.timeout(8000);
+  const delegationSignal = AbortSignal.timeout(8000);
+  const historySignal = AbortSignal.timeout(12000);
   const [results, historyResult] = await Promise.all([
-    Promise.allSettled(programs.map(program => readAccounts(endpoint, owner, program, signal))),
-    readWalletHistory(endpoint, owner, signal).catch(() => null)
+    Promise.allSettled(programs.map(program => readAccounts(endpoint, owner, program, delegationSignal))),
+    readWalletHistory(endpoint, owner, historySignal).catch(() => null)
   ]);
   if (!historyResult && results.every(result => result.status === "rejected")) {
     return res.status(503).json({ error: "Données Solana indisponibles. Réessayez dans un instant." });
   }
   const failures = results.filter(result => result.status === "rejected").length;
   const delegates = results.flatMap(result => result.status === "fulfilled" ? result.value : []);
-  return res.status(200).json({ partial: failures > 0, total: delegates.length, delegates: delegates.slice(0, 100), history: historyResult });
+  return res.status(200).json({ partial: failures > 0, delegationsUnavailable: failures === programs.length, total: delegates.length, delegates: delegates.slice(0, 100), history: historyResult });
 }
 export const config = { api: { bodyParser: { sizeLimit: "1kb" } } };

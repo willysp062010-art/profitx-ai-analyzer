@@ -243,8 +243,16 @@ def scan(args, parser, compact=False):
                 or any(not args.start <= slot <= args.anchor for slot in slots)):
             parser.error("RPC returned an invalid finalized block list")
 
+    started = time.monotonic()
     with cf.ThreadPoolExecutor(max_workers=args.workers) as pool:
         blocks = list(pool.map(collect, slots))
+    elapsed = time.monotonic() - started
+    blocks_read = sum("error" not in block for block in blocks)
+    throughput = {
+        "blocks_read": blocks_read,
+        "block_read_seconds": round(elapsed, 3),
+        "blocks_per_second": round(blocks_read / elapsed, 3) if elapsed else None,
+    }
     incomplete = any("error" in block or block["unknown_token_instructions_or_transactions"] for block in blocks)
     if args.start is not None and not incomplete:
         expected_parent = blocks[0]["parent_slot"]
@@ -265,6 +273,7 @@ def scan(args, parser, compact=False):
         "start_slot": args.start,
         "blocks": blocks,
         "incomplete": incomplete,
+        "throughput": throughput,
     }
     if args.repair and not incomplete:
         report["inserted"] = reconcile(blocks)
@@ -274,6 +283,7 @@ def scan(args, parser, compact=False):
             "start_slot": args.start,
             "end_slot": args.anchor,
             "blocks": len(blocks),
+            "throughput": throughput,
             "incomplete": incomplete,
             "inserted": report.get("inserted"),
             "creations": len(report["comparisons"]),

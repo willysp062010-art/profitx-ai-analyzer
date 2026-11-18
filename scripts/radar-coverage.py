@@ -142,9 +142,15 @@ def save_checkpoint(path, anchor, index_url):
             temporary.unlink(missing_ok=True)
 
 
+def parse_anchor(value):
+    if value == "finalized":
+        return None
+    return int(value)
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("anchor", type=int, help="End slot for a contiguous range, or sample anchor")
+    parser.add_argument("anchor", type=parse_anchor, help="End slot, sample anchor, or finalized")
     parser.add_argument("index_url")
     parser.add_argument("--start", type=int, help="Start slot for a contiguous range")
     parser.add_argument("--workers", type=int, choices=range(1, 25), default=3)
@@ -153,6 +159,8 @@ def main():
     parser.add_argument("--batch-size", type=int, metavar="SLOTS",
                         help="Process successive ranges of 1 to 500 slots through the anchor")
     args = parser.parse_args()
+    if args.anchor is None and args.batch_size is None:
+        parser.error("The finalized anchor requires --batch-size and --checkpoint")
     if args.batch_size is not None and (not args.checkpoint or not 1 <= args.batch_size <= 500):
         parser.error("--batch-size requires --checkpoint and a size of 1 to 500")
     if args.checkpoint is None:
@@ -181,9 +189,18 @@ def main():
 def catch_up(args, parser):
     if args.start is None or args.start < 0:
         parser.error("The first catch-up requires a non-negative --start")
+    # Freeze the target for this invocation so a scheduled run can exit
+    # even if more slots finalize while it is processing the backlog.
+    target = args.anchor
+    if target is None:
+        target = rpc("getSlot", [{"commitment": "finalized"}])
+        if type(target) is not int or target < 0:
+            raise ValueError("Invalid finalized Solana slot")
+        print(json.dumps({"finalized_target": target, "next_slot": args.start}), flush=True)
+
     batch = copy.copy(args)
-    while batch.start <= args.anchor:
-        batch.anchor = min(batch.start + args.batch_size - 1, args.anchor)
+    while batch.start <= target:
+        batch.anchor = min(batch.start + args.batch_size - 1, target)
         for attempt in range(3):
             try:
                 result = scan(batch, parser, compact=True)

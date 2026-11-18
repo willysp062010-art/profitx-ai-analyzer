@@ -153,7 +153,7 @@ async function verifyCreation(event, endpoint, signal) {
     chain_id: "solana",
     mint,
     source: "helius",
-    launch_platform: null,
+    launch_platform: event.isPumpCreation ? "pump.fun" : null,
     creator_address: null,
     creation_signature: event.signature,
     detected_at: event.receivedAt,
@@ -234,22 +234,19 @@ export default async function handler(req, res) {
   }
 
   const tokens = new Map();
-
-  for (const event of req.body) {
-    const token = parseEvent(event);
-
-    if (token) {
-      tokens.set(token.mint, token);
-    }
-  }
-
   const receivedAt = new Date().toISOString();
   const candidates = new Map();
   for (const event of req.body) {
+    const token = parseEvent(event);
+    if (token) {
+      tokens.set(token.mint, token);
+      continue;
+    }
+
     if (event?.transactionError != null || cleanText(event?.type, 80)?.toUpperCase() !== "CREATE" ||
-        cleanText(event?.source, 80)?.toUpperCase() === "PUMP_FUN" ||
         typeof event?.signature !== "string" || !/^[1-9A-HJ-NP-Za-km-z]{64,88}$/.test(event.signature)) continue;
-    candidates.set(event.signature, { signature: event.signature, receivedAt });
+    const isPumpCreation = cleanText(event.source, 80)?.toUpperCase() === "PUMP_FUN";
+    candidates.set(event.signature, { signature: event.signature, receivedAt, isPumpCreation });
   }
 
   const rpc = process.env.SOLANA_RPC_URL || (process.env.HELIUS_API_KEY

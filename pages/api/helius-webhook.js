@@ -118,6 +118,57 @@ function parseEvent(event) {
   };
 }
 
+const TOKEN_PROGRAMS = new Set([
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+  "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+]);
+
+export function verifiedMints(result) {
+  const instructions = result?.transaction?.message?.instructions;
+  if (!result?.meta || result.meta.err !== null || !Array.isArray(instructions)) return [];
+  const inner = (result.meta.innerInstructions || []).flatMap(group => group.instructions);
+  return [...new Set([...instructions, ...inner].filter(instruction =>
+    TOKEN_PROGRAMS.has(instruction?.programId) &&
+    ["initializeMint", "initializeMint2"].includes(instruction?.parsed?.type)
+  ).map(instruction => instruction.parsed.info?.mint).filter(validAddress))];
+}
+
+async function verifyCreation(event, endpoint, signal) {
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0", id: 1, method: "getTransaction",
+      params: [event.signature, { encoding: "jsonParsed", commitment: "confirmed", maxSupportedTransactionVersion: 1 }]
+    }),
+    signal
+  });
+  if (!response.ok) throw new Error("Solana RPC unavailable");
+  const { result, error } = await response.json();
+  if (error || !result?.meta || !Array.isArray(result.transaction?.message?.instructions) ||
+      result.transaction.signatures?.[0] !== event.signature) {
+    throw new Error("Solana transaction unavailable");
+  }
+  return verifiedMints(result).map(mint => ({
+    chain_id: "solana",
+    mint,
+    source: "helius",
+    launch_platform: null,
+    creator_address: null,
+    creation_signature: event.signature,
+    detected_at: event.receivedAt,
+    created_onchain_at: timestampToISO(result.blockTime),
+    last_seen_at: event.receivedAt,
+    analysis_status: "pending",
+    metadata: {
+      helius_type: "CREATE",
+      slot: Number.isSafeInteger(result.slot) ? result.slot : null,
+      classification: "solana_mint_initialized",
+      verified_creation: true
+    }
+  }));
+}
+
 async function saveToken(token, url, key) {
   const endpoint =
     `${url}/rest/v1/${TABLE}?on_conflict=chain_id,mint`;
@@ -192,6 +243,35 @@ export default async function handler(req, res) {
     }
   }
 
+  const receivedAt = new Date().toISOString();
+  const candidates = new Map();
+  for (const event of req.body) {
+    if (event?.transactionError != null || cleanText(event?.type, 80)?.toUpperCase() !== "CREATE" ||
+        cleanText(event?.source, 80)?.toUpperCase() === "PUMP_FUN" ||
+        typeof event?.signature !== "string" || !/^[1-9A-HJ-NP-Za-km-z]{64,88}$/.test(event.signature)) continue;
+    candidates.set(event.signature, { signature: event.signature, receivedAt });
+  }
+
+  const rpc = process.env.SOLANA_RPC_URL || (process.env.HELIUS_API_KEY
+    ? `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`
+    : "https://api.mainnet-beta.solana.com");
+  const verificationSignal = AbortSignal.timeout(6000);
+  const verificationQueue = [...candidates.values()];
+  let verificationCursor = 0;
+  let verificationFailed = 0;
+  await Promise.all(Array.from({ length: Math.min(4, verificationQueue.length) }, async () => {
+    while (verificationCursor < verificationQueue.length && !verificationSignal.aborted) {
+      try {
+        for (const token of await verifyCreation(verificationQueue[verificationCursor++], rpc, verificationSignal)) {
+          tokens.set(token.mint, token);
+        }
+      } catch {
+        verificationFailed++;
+      }
+    }
+  }));
+  verificationFailed += verificationQueue.length - verificationCursor;
+
   // Bounded concurrency prevents a full 100-event batch from exceeding
   // the serverless execution window while avoiding a Supabase request burst.
   const queue = [...tokens.values()];
@@ -214,9 +294,10 @@ export default async function handler(req, res) {
   }));
 
   // Non-2xx lets Helius retry the batch; ignore-duplicates makes retries safe.
-  if (failed > 0) {
+  if (failed > 0 || verificationFailed > 0) {
     return res.status(500).json({
-      error: "Some database writes failed",
+      error: "Some events could not be processed",
+      verificationFailed,
       received: req.body.length,
       accepted: tokens.size,
       processed,

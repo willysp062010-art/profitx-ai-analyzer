@@ -25,13 +25,17 @@ export default function Protection() {
       const response = await fetch("/api/wallet-protection", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ owner: address.trim() })
+        body: JSON.stringify({ owner: address.trim() }),
+        signal: AbortSignal.timeout(12000)
       });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error);
+      if (!response.ok) {
+        setWallet({ error: result.error || "Contrôle indisponible." });
+        return;
+      }
       setWallet(result);
     } catch {
-      setWallet({ error: "Contrôle impossible. Vérifiez l’adresse Solana et réessayez." });
+      setWallet({ error: "Le contrôle a été interrompu. Réessayez dans un instant." });
     } finally {
       setBusy(false);
     }
@@ -65,6 +69,13 @@ export default function Protection() {
           {!wallet.history || (wallet.history.partial && !wallet.history.reviewed) ? <p>Historique indisponible.</p> : <>
             <p>{wallet.history.reviewed} transaction(s) examinée(s). {wallet.history.partial && "Historique partiel."}</p>
             {!wallet.history.transactions.length && <p>Aucune sortie directe de SOL ou baisse de solde token observée dans cet échantillon.</p>}
+            {wallet.history.repeatedDestinations?.map(({ destination, signatures }) => <div key={destination}>
+              <h4>Envois rapprochés vers le même destinataire</h4>
+              <p>{signatures.length} transactions SOL sur dix minutes ou moins vers <code style={{ overflowWrap: "anywhere" }}>{destination}</code>. Vérifiez si vous reconnaissez ces envois.</p>
+              <ul>{signatures.map((signature, index) => <li key={signature}>
+                <a href={`https://solscan.io/tx/${signature}`} target="_blank" rel="noreferrer">Examiner la transaction {index + 1}</a>
+              </li>)}</ul>
+            </div>)}
             <ul>{wallet.history.transactions.map(tx => <li key={tx.signature}>
               <a href={`https://solscan.io/tx/${tx.signature}`} target="_blank" rel="noreferrer">Voir la transaction</a>
               {Number.isSafeInteger(tx.blockTime) && <time dateTime={new Date(tx.blockTime * 1000).toISOString()}> · {new Date(tx.blockTime * 1000).toLocaleString("fr-FR")}</time>}

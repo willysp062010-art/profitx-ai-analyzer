@@ -50,21 +50,50 @@ export async function readWalletHistory(endpoint, owner, signal) {
   const checked = [];
   for (let offset = 0; offset < signatures.length; offset += 2) {
     const batch = await Promise.allSettled(signatures.slice(offset, offset + 2).map(async ({ signature, err, blockTime }) => {
-      if (!signaturePattern.test(signature)) throw new Error("Invalid signature");
+      if (typeof signature !== "string" || !signaturePattern.test(signature)) throw new Error("Invalid signature");
       if (err) return null;
       const transaction = await rpc(endpoint, signal, "getTransaction", [signature, {
         encoding: "jsonParsed", commitment: "confirmed", maxSupportedTransactionVersion: 0
       }]);
       const movements = outflows(transaction, owner);
-      return movements.length ? { signature, blockTime, movements } : null;
+      return movements.length ? { signature, blockTime: Number.isSafeInteger(blockTime) && blockTime > 0 && blockTime <= 253402300799 ? blockTime : null, movements } : null;
     }));
     checked.push(...batch);
     if (signal.aborted) break;
   }
   const reviewed = checked.filter(item => item.status === "fulfilled");
+  const transactions = reviewed.map(item => item.value).filter(Boolean);
+  const repeatedDestinations = findRepeatedDestinations(transactions);
   return {
     reviewed: reviewed.length,
     partial: reviewed.length !== signatures.length,
-    transactions: reviewed.map(item => item.value).filter(Boolean)
+    transactions, repeatedDestinations
   };
+}
+
+// Count separate confirmed transactions, never multiple instructions in the same transaction.
+export function findRepeatedDestinations(transactions) {
+  const byDestination = new Map();
+  for (const tx of transactions) {
+    if (!Number.isSafeInteger(tx.blockTime)) continue;
+    const destinations = new Set(tx.movements.filter(item =>
+      item.asset === "SOL" && typeof item.destination === "string" &&
+      /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(item.destination)
+    ).map(item => item.destination));
+    for (const destination of destinations) {
+      if (!byDestination.has(destination)) byDestination.set(destination, new Map());
+      byDestination.get(destination).set(tx.signature, tx.blockTime);
+    }
+  }
+  const matches = [];
+  for (const [destination, entries] of byDestination) {
+    const sorted = [...entries].sort((a, b) => a[1] - b[1]);
+    let longest = [];
+    for (let start = 0; start < sorted.length; start++) {
+      const window = sorted.slice(start).filter(entry => entry[1] - sorted[start][1] <= 600);
+      if (window.length > longest.length) longest = window;
+    }
+    if (longest.length >= 2) matches.push({ destination, signatures: longest.map(([signature]) => signature) });
+  }
+  return matches;
 }

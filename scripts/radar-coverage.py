@@ -3,6 +3,7 @@ import copy
 import concurrent.futures as cf
 import os
 import fcntl
+import gzip
 import json
 import re
 import sys
@@ -24,10 +25,14 @@ MINT = re.compile(r"[1-9A-HJ-NP-Za-km-z]{32,44}")
 def rpc(method, params):
     request = urllib.request.Request(
         RPC, data=json.dumps(dict(jsonrpc="2.0", id=1, method=method, params=params)).encode(),
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": "application/json", "Accept-Encoding": "gzip"},
     )
     with urllib.request.urlopen(request, timeout=20) as response:
-        payload = json.load(response)
+        if response.headers.get("Content-Encoding", "").lower() == "gzip":
+            with gzip.GzipFile(fileobj=response) as decoded:
+                payload = json.load(decoded)
+        else:
+            payload = json.load(response)
     if payload.get("error") or "result" not in payload:
         raise ValueError(f"{method} failed")
     return payload["result"]

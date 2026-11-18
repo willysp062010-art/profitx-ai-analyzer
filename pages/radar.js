@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
+import { summarizeDetectionDelay } from "../utils/radar-detection-delay";
 import PfxPoolStatus from "../components/PfxPoolStatus";
 import { readWatchlist, writeWatchlist, mergeWatchlist } from "../utils/watchlist";
 
@@ -77,6 +78,14 @@ function timestamp(value) {
   }
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatDetectionDelay(ms) {
+  const roundedSeconds = Math.ceil(ms / 1000);
+  if (roundedSeconds < 60) return roundedSeconds + " s";
+  const roundedMinutes = Math.ceil(roundedSeconds / 60);
+  if (roundedMinutes < 60) return roundedMinutes + " min";
+  return Math.floor(roundedMinutes / 60) + " h " + (roundedMinutes % 60) + " min";
 }
 
 function normalizeToken(token, index) {
@@ -558,6 +567,8 @@ export default function Radar() {
     concentrationChecked: tokens.filter((token) => token.concentrationChecked === true).length
   }), [tokens]);
 
+  const detectionDelay = useMemo(() => summarizeDetectionDelay(tokens), [tokens]);
+
   const displayedTokens = useMemo(() => {
     const query = searchQuery.toLowerCase();
 
@@ -777,6 +788,19 @@ export default function Radar() {
                 ou Pump.fun ; un token absent n'est pas nécessairement sûr ni inexistant.
               </span>
             </div>
+          )}
+
+          {source === "live" && detectionDelay.total > 0 && (
+            <section className="onchainLine" aria-label="Délai de détection sur cette page">
+              <strong>Délai entre la création et la première détection PFX</strong>
+              <p>{detectionDelay.measured} sur {detectionDelay.total} tokens ont deux dates exploitables.
+                {detectionDelay.measured > 0 && (
+                  <> Médiane : {formatDetectionDelay(detectionDelay.median)}.
+                    {" "}90 % détectés en {formatDetectionDelay(detectionDelay.p90)} ou moins.</>
+                )}
+              </p>
+              <p>Mesure sur les tokens chargés avant filtres, à partir de la date de création fournie par Helius et de la première détection enregistrée. Les dates manquantes ou incohérentes sont écartées. Ce délai ne mesure pas les créations que le Radar a manquées.</p>
+            </section>
           )}
 
           {source === "live" && pageCoverage.namesMissing > 0 && <p role="status" className="onchainLine">

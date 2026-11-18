@@ -25,10 +25,24 @@ export default async function handler(req, res) {
     if (process.env.JUPITER_API_KEY) headers["x-api-key"] = process.env.JUPITER_API_KEY;
     const response = await fetch(url, { headers, signal: controller.signal });
     const quote = await response.json().catch(() => null);
+    const checkedAt = new Date().toISOString();
+    const noRoute = [200, 400, 422].includes(response.status) &&
+      [quote?.errorCode, quote?.error, quote?.errorMessage].some(value =>
+        typeof value === "string" &&
+        /^(NO_ROUTES_FOUND|COULD_NOT_FIND_ANY_ROUTE|could not find any route|no routes found)\.?$/i.test(value.trim())
+      );
+    if (noRoute) {
+      return res.status(200).json({
+        ok: true, status: "NO_ROUTE", executableNow: null, checkedAt,
+        inputMint: mint, outputMint, inputAmountRaw: raw,
+        reason: "Jupiter n’a trouvé aucune route pour ce montant."
+      });
+    }
     if (!response.ok || !quote || quote.error || quote.errorCode) {
       return res.status(200).json({
         ok: true, status: "QUOTE_UNAVAILABLE", executableNow: null,
-        reason: "Aucune cotation exploitable disponible pour ce montant.",
+        checkedAt,
+        reason: "Jupiter n’a pas renvoyé de réponse exploitable.",
         providerStatus: response.status,
         note: "Absence de cotation ne signifie pas preuve d'impossibilité de revente."
       });
@@ -42,12 +56,13 @@ export default async function handler(req, res) {
       priceImpactPct: quoteImpactPercent(quote),
       priceImpactUnit: "percentage_points",
       router: quote.router ?? null,
-      quotedAt: new Date().toISOString(),
+      quotedAt: checkedAt, checkedAt,
       note: "Cotation indicative, non simulation d'exécution. La route, les frais, le slippage et la réussite peuvent changer avant signature. Aucune transaction envoyée."
     });
   } catch (error) {
     return res.status(200).json({
       ok: true, status: "QUOTE_UNAVAILABLE", executableNow: null,
+      checkedAt: new Date().toISOString(),
       reason: error?.name === "AbortError" ? "Délai de cotation dépassé." : "Service de cotation indisponible."
     });
   } finally {

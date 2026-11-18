@@ -1674,8 +1674,11 @@ async function searchToken(query) {
             {sellQuote && (
               <div className="observed pfxQuoteResult" aria-live="polite">
                 {sellQuote.status === "ROUTE_QUOTED" && <QuoteFreshness quotedAt={sellQuote.quotedAt} />}
-                <div><span>Quantité cotée</span><strong>{sellQuote.tokenAmount} token(s)</strong></div>
-                <div><span>Résultat Jupiter</span><strong>{sellQuote.status === "ROUTE_QUOTED" ? "Route cotée (indicative)" : "Cotation indisponible"}</strong></div>
+                <div><span>Quantité testée</span><strong>{sellQuote.tokenAmount} token(s)</strong></div>
+                <div><span>Résultat Jupiter</span><strong>{sellQuote.status === "ROUTE_QUOTED" ? "Route de vente trouvée" : sellQuote.status === "NO_ROUTE" ? "Aucune route pour cette quantité" : "Vérification indisponible"}</strong></div>
+                <div><span>Actif de sortie</span><strong>SOL</strong></div>
+                {sellQuote.checkedAt && <div><span>Heure du contrôle</span><strong>{new Date(sellQuote.checkedAt).toLocaleString("fr-FR")}</strong></div>}
+                <div><span>Simulation de transaction</span><strong>Non effectuée</strong></div>
                 {sellQuote.outputAmountRaw != null && (
                   <div><span>Sortie SOL estimée</span><strong>{new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 9 }).format(Number(sellQuote.outputAmountRaw) / 1e9)} SOL</strong></div>
                 )}

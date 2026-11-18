@@ -1,4 +1,5 @@
 import argparse
+import copy
 import concurrent.futures as cf
 import os
 import fcntl
@@ -6,6 +7,8 @@ import json
 import re
 import sys
 import tempfile
+import time
+import urllib.error
 from pathlib import Path
 import urllib.request
 import urllib.parse
@@ -147,7 +150,11 @@ def main():
     parser.add_argument("--workers", type=int, choices=range(1, 25), default=3)
     parser.add_argument("--repair", action="store_true", help="Insert verified mints with Supabase credentials")
     parser.add_argument("--checkpoint", type=Path, help="Resume verified repair ranges from this file")
+    parser.add_argument("--batch-size", type=int, metavar="SLOTS",
+                        help="Process successive ranges of 1 to 500 slots through the anchor")
     args = parser.parse_args()
+    if args.batch_size is not None and (not args.checkpoint or not 1 <= args.batch_size <= 500):
+        parser.error("--batch-size requires --checkpoint and a size of 1 to 500")
     if args.checkpoint is None:
         return scan(args, parser)
     if not args.repair:
@@ -166,10 +173,38 @@ def main():
             if args.start is not None and args.start != verified_through + 1:
                 parser.error("--start must immediately follow the checkpoint")
             args.start = verified_through + 1
+        if args.batch_size is not None:
+            return catch_up(args, parser)
         return scan(args, parser)
 
 
-def scan(args, parser):
+def catch_up(args, parser):
+    if args.start is None or args.start < 0:
+        parser.error("The first catch-up requires a non-negative --start")
+    batch = copy.copy(args)
+    while batch.start <= args.anchor:
+        batch.anchor = min(batch.start + args.batch_size - 1, args.anchor)
+        for attempt in range(3):
+            try:
+                result = scan(batch, parser, compact=True)
+            except urllib.error.HTTPError as error:
+                if error.code not in (408, 429, 500, 502, 503, 504):
+                    raise
+                result = 1
+            except (urllib.error.URLError, TimeoutError):
+                result = 1
+            if result == 0:
+                break
+            if attempt < 2:
+                time.sleep(2 ** (attempt + 1))
+        else:
+            print(f"Could not verify slots {batch.start}–{batch.anchor}", file=sys.stderr)
+            return 1
+        batch.start = batch.anchor + 1
+    return 0
+
+
+def scan(args, parser, compact=False):
 
     if args.start is None:
         if args.repair:
@@ -212,7 +247,18 @@ def scan(args, parser):
     if args.repair and not incomplete:
         report["inserted"] = reconcile(blocks)
     report["comparisons"] = compare_index(blocks, args.index_url)
-    json.dump(report, sys.stdout, indent=2)
+    if compact:
+        print(json.dumps({
+            "start_slot": args.start,
+            "end_slot": args.anchor,
+            "blocks": len(blocks),
+            "incomplete": incomplete,
+            "inserted": report.get("inserted"),
+            "creations": len(report["comparisons"]),
+            "indexed": sum(row["indexed"] is True for row in report["comparisons"]),
+        }), flush=True)
+    else:
+        json.dump(report, sys.stdout, indent=2)
     if incomplete or any(row["indexed"] is not True for row in report["comparisons"]):
         return 1
     if args.checkpoint is not None:

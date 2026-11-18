@@ -304,7 +304,11 @@ h2 { margin:0 0 26px; font-size:28px; }
   .shell .score { font-size:56px; }
   .shell .intro { font-size:17px; }
   .shell .pfxQuoteControls { align-items:stretch !important; }
-  .pfxQuoteControls button { width:100%; }
+  .pfxQuoteControls > label { flex-basis:100%; }
+  .shell .pfxQuoteControls > input { width:100%; max-width:100% !important; }
+  .pfxQuoteControls button { width:100%; min-height:44px; white-space:normal; }
+  .shell .pfxQuoteResult { grid-template-columns:minmax(0,1fr); }
+  .pfxQuoteResult > div { min-width:0; overflow-wrap:anywhere; }
   .pfxUsageGrid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px 12px; }
   .pfxUsageGrid > div > strong { font-size:28px !important; }
   .pfxUsageGrid > div > span { font-size:13px; line-height:1.5; }

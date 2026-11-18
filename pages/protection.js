@@ -3,6 +3,13 @@ import Link from "next/link";
 import Head from "next/head";
 import { inspectLink } from "../utils/protection-link";
 
+function formatUnits(amount, decimals) {
+  if (!decimals) return amount;
+  const padded = amount.padStart(decimals + 1, "0");
+  const fraction = padded.slice(-decimals).replace(/0+$/, "");
+  return padded.slice(0, -decimals) + (fraction ? "," + fraction : "");
+}
+
 export default function Protection() {
   const [address, setAddress] = useState("");
   const [link, setLink] = useState("");
@@ -42,7 +49,7 @@ export default function Protection() {
         <form onSubmit={checkWallet}>
           <label htmlFor="protection-wallet">Adresse publique Solana</label>
           <input id="protection-wallet" required maxLength={44} disabled={busy} value={address} onChange={event => { setAddress(event.target.value); setWallet(null); }} />
-          <button disabled={busy}>{busy ? "Vérification…" : "Vérifier les autorisations"}</button>
+          <button disabled={busy}>{busy ? "Vérification…" : "Vérifier le portefeuille"}</button>
         </form>
         <div aria-live="polite">{wallet?.error ? <p>{wallet.error}</p> : wallet && <>
           <p>{wallet.partial ? "Contrôle partiel. Certaines données Solana sont indisponibles." : "Comptes SPL Token et Token-2022 contrôlés."} {wallet.total} autorisation(s) détectée(s).</p>
@@ -52,6 +59,22 @@ export default function Protection() {
             {" · Délégataire "}<code>{item.delegate}</code>
           </li>)}</ul>
         </>}</div>
+        {wallet && !wallet.error && <section aria-live="polite">
+          <h3>Sorties et baisses de solde récentes</h3>
+          <p>Jusqu’à huit transactions qui référencent directement cette adresse. Les baisses de solde peuvent correspondre à un échange ou à une autre opération légitime.</p>
+          {!wallet.history || (wallet.history.partial && !wallet.history.reviewed) ? <p>Historique indisponible.</p> : <>
+            <p>{wallet.history.reviewed} transaction(s) examinée(s). {wallet.history.partial && "Historique partiel."}</p>
+            {!wallet.history.transactions.length && <p>Aucune sortie directe de SOL ou baisse de solde token observée dans cet échantillon.</p>}
+            <ul>{wallet.history.transactions.map(tx => <li key={tx.signature}>
+              <a href={`https://solscan.io/tx/${tx.signature}`} target="_blank" rel="noreferrer">Voir la transaction</a>
+              {Number.isSafeInteger(tx.blockTime) && <time dateTime={new Date(tx.blockTime * 1000).toISOString()}> · {new Date(tx.blockTime * 1000).toLocaleString("fr-FR")}</time>}
+              <ul>{tx.movements.map((movement, index) => <li key={index}>
+                {formatUnits(movement.amount, movement.decimals)} {movement.asset}
+                {movement.destination && <> vers <code>{movement.destination}</code></>}
+              </li>)}</ul>
+            </li>)}</ul>
+          </>}
+        </section>}
       </section>
       <section className="panel">
         <h2>Vérifier un lien</h2>

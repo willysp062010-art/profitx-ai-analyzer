@@ -26,16 +26,27 @@ export default async function handler(req, res) {
     const response = await fetch(url, { headers, signal: controller.signal });
     const quote = await response.json().catch(() => null);
     const checkedAt = new Date().toISOString();
-    const noRoute = [200, 400, 422].includes(response.status) &&
+    let noRoute = [200, 400, 422].includes(response.status) &&
       [quote?.errorCode, quote?.error, quote?.errorMessage].some(value =>
         typeof value === "string" &&
         /^(NO_ROUTES_FOUND|COULD_NOT_FIND_ANY_ROUTE|could not find any route|no routes found)\.?$/i.test(value.trim())
       );
+    let routeScope = "Jupiter";
+    // Swap v2 can return a generic 400. Only label it as missing a route
+    // if Metis independently reports an explicit routing error.
+    if (response.status === 400 && quote?.error === "Failed to get quotes") {
+      const fallbackUrl = new URL("https://api.jup.ag/swap/v1/quote");
+      fallbackUrl.search = url.search;
+      const fallback = await fetch(fallbackUrl, { headers, signal: controller.signal });
+      const detail = await fallback.json().catch(() => null);
+      noRoute = fallback.status === 400 && detail?.errorCode === "NO_ROUTES_FOUND";
+      routeScope = "Jupiter Metis";
+    }
     if (noRoute) {
       return res.status(200).json({
         ok: true, status: "NO_ROUTE", executableNow: null, checkedAt,
         inputMint: mint, outputMint, inputAmountRaw: raw,
-        reason: "Jupiter n’a trouvé aucune route pour ce montant."
+        reason: `${routeScope} n’a trouvé aucune route pour ce montant.`
       });
     }
     if (!response.ok || !quote || quote.error || quote.errorCode) {

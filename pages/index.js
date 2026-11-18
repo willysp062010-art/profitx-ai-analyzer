@@ -1628,7 +1628,7 @@ async function searchToken(query) {
               nécessaire pour évaluer l'exécution, les frais et le slippage.
             </p>
             <div className="pfxQuoteControls" style={{ marginTop: "16px", display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
-              <label htmlFor="sell-quote-amount">Quantité de tokens à vendre (simulation)</label>
+              <label htmlFor="sell-quote-amount">Quantité de tokens à coter</label>
               <input autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="off" maxLength={40}
                 id="sell-quote-amount"
                 aria-label="Quantité de tokens à coter"
@@ -1647,6 +1647,24 @@ async function searchToken(query) {
               Conversion automatique en unités minimales. Aucun portefeuille ni aucune transaction ne sont utilisés.
             </p>
             {sellQuoteError && <p role="alert">{sellQuoteError}</p>}
+            {sellQuote && (
+              <div className="observed pfxQuoteResult" role="status" style={{ marginTop: "12px" }}>
+                {sellQuote.status === "ROUTE_QUOTED" && <QuoteFreshness quotedAt={sellQuote.quotedAt} />}
+                <div><span>Quantité testée</span><strong>{sellQuote.tokenAmount} token(s)</strong></div>
+                <div><span>Résultat Jupiter</span><strong>{sellQuote.status === "ROUTE_QUOTED" ? "Route de vente trouvée" : sellQuote.status === "NO_ROUTE" ? "Aucune route pour cette quantité" : "Vérification indisponible"}</strong></div>
+                <div><span>Actif de sortie</span><strong>SOL</strong></div>
+                {sellQuote.checkedAt && <div><span>Heure du contrôle</span><strong>{new Date(sellQuote.checkedAt).toLocaleString("fr-FR")}</strong></div>}
+                <div><span>Simulation de transaction</span><strong>Non effectuée</strong></div>
+                {sellQuote.outputAmountRaw != null && (
+                  <div><span>Sortie SOL estimée</span><strong>{new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 9 }).format(Number(sellQuote.outputAmountRaw) / 1e9)} SOL</strong></div>
+                )}
+                {sellQuote.priceImpactPct != null && (
+                  <div><span>Impact prix déclaré par Jupiter</span><strong>{new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 4 }).format(Number(sellQuote.priceImpactPct))}%</strong></div>
+                )}
+                {sellQuote.reason && <div><span>Motif</span><strong>{sellQuote.reason}</strong></div>}
+                <div><span>Exécution réelle</span><strong>Non vérifiée par cette cotation</strong></div>
+              </div>
+            )}
             <div style={{ marginTop: "18px" }}>
               <strong>Simulation indicative par montant en euros</strong>
               <p style={{ opacity: 0.8 }}>Montant de référence : estimation des tokens achetables, puis cotation de leur revente. Ce n'est pas une garantie de récupérer ce montant.</p>
@@ -1671,24 +1689,7 @@ async function searchToken(query) {
                 </div>
               )}
             </div>
-            {sellQuote && (
-              <div className="observed pfxQuoteResult" aria-live="polite">
-                {sellQuote.status === "ROUTE_QUOTED" && <QuoteFreshness quotedAt={sellQuote.quotedAt} />}
-                <div><span>Quantité testée</span><strong>{sellQuote.tokenAmount} token(s)</strong></div>
-                <div><span>Résultat Jupiter</span><strong>{sellQuote.status === "ROUTE_QUOTED" ? "Route de vente trouvée" : sellQuote.status === "NO_ROUTE" ? "Aucune route pour cette quantité" : "Vérification indisponible"}</strong></div>
-                <div><span>Actif de sortie</span><strong>SOL</strong></div>
-                {sellQuote.checkedAt && <div><span>Heure du contrôle</span><strong>{new Date(sellQuote.checkedAt).toLocaleString("fr-FR")}</strong></div>}
-                <div><span>Simulation de transaction</span><strong>Non effectuée</strong></div>
-                {sellQuote.outputAmountRaw != null && (
-                  <div><span>Sortie SOL estimée</span><strong>{new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 9 }).format(Number(sellQuote.outputAmountRaw) / 1e9)} SOL</strong></div>
-                )}
-                {sellQuote.priceImpactPct != null && (
-                  <div><span>Impact prix déclaré par Jupiter</span><strong>{new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 4 }).format(Number(sellQuote.priceImpactPct))}%</strong></div>
-                )}
-                {sellQuote.reason && <div><span>Motif</span><strong>{sellQuote.reason}</strong></div>}
-                <div><span>Exécution réelle</span><strong>Non garantie / non vérifiée</strong></div>
-              </div>
-            )}
+
           </div>
 
           <div className="panel">

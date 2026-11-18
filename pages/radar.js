@@ -790,6 +790,15 @@ export default function Radar() {
             </div>
           )}
 
+          {source === "live" && (
+            <section className="onchainLine" aria-label="Couverture vérifiée du Radar">
+              <strong>Couverture vérifiée sur Solana</strong>
+              <p>Relevé du 18 novembre 2026 sur 48 blocs finalisés, du slot 470 967 386 au slot 470 967 433.</p>
+              <p>17 créations confirmées, dont 6 détectées automatiquement et 11 retrouvées par rattrapage. Les 17 sont présentes dans l’index.</p>
+              <p>Ce relevé est ponctuel. Le retard de couverture par rapport à Solana n’est pas mesuré en continu.</p>
+            </section>
+          )}
+
           {source === "live" && detectionDelay.total > 0 && (
             <section className="onchainLine" aria-label="Délai de détection sur cette page">
               <strong>Délai entre la création et la première détection PFX</strong>
@@ -799,7 +808,7 @@ export default function Radar() {
                     {" "}90 % détectés en {formatDetectionDelay(detectionDelay.p90)} ou moins.</>
                 )}
               </p>
-              <p>Mesure sur les tokens chargés avant filtres, à partir de la date de création fournie par Helius et de la première détection enregistrée. Les dates manquantes ou incohérentes sont écartées. Ce délai ne mesure pas les créations que le Radar a manquées.</p>
+              <p>Mesure sur les tokens chargés avant filtres, à partir de la date de création enregistrée et de la première indexation. Le délai inclut les entrées rattrapées. Les dates manquantes ou incohérentes sont écartées. Ce délai ne mesure pas les créations que le Radar a manquées.</p>
             </section>
           )}
 
@@ -1175,7 +1184,9 @@ export default function Radar() {
                   {source === "live" && (
                     <div className="onchainLine">
                       <span>
-                        Classification : {token.onchainCreationTime !== null
+                        Classification : {token.source === "solana_rpc"
+                          ? "CRÉATION CONFIRMÉE SUR SOLANA — AJOUTÉE PAR RATTRAPAGE"
+                          : token.onchainCreationTime !== null
                           ? token.onchainCreationTime > Date.now()
                             ? "DATE DE CRÉATION FUTURE — À VÉRIFIER"
                             : Date.now() - token.onchainCreationTime <= 24 * 60 * 60 * 1000

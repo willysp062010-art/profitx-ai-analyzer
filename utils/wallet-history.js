@@ -54,7 +54,7 @@ export async function readWalletHistory(endpoint, owner, signal) {
       if (typeof signature !== "string" || !signaturePattern.test(signature)) throw new Error("Invalid signature");
       if (err) return null;
       const transaction = await rpc(endpoint, signal, "getTransaction", [signature, {
-        encoding: "jsonParsed", commitment: "confirmed", maxSupportedTransactionVersion: 0
+        encoding: "jsonParsed", commitment: "confirmed", maxSupportedTransactionVersion: 1
       }]);
       const movements = outflows(transaction, owner);
       return movements.length ? { signature, blockTime: Number.isSafeInteger(blockTime) && blockTime > 0 && blockTime <= 253402300799 ? blockTime : null, movements } : null;

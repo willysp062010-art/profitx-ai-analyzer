@@ -9,6 +9,7 @@ const TOOLS = [
   ["/intelligence", "Intelligence"],
   ["/watchlist", "Watchlist"],
   ["/alerts", "Alertes"],
+  ["/protection", "Protection"],
   ["/obtenir-pfx", "Le token PFX"],
 ];
 

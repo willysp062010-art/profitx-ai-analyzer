@@ -4,6 +4,10 @@ import Head from "next/head";
 import Link from "next/link";
 import SiteNavigation from "../components/SiteNavigation";
 
+const bubbleTokens = ["PFX", "SOL", "BONK", "ORCA", "PFX", "JUP", "JTO", "MNDE"];
+
+const raydiumPfx = "https://raydium.io/swap/?inputMint=sol&outputMint=6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump";
+
 export default function App({ Component, pageProps }) {
   return (
     <>
@@ -18,9 +22,11 @@ export default function App({ Component, pageProps }) {
       </Head>
       <div className="pfxObservatoryBackground" aria-hidden="true" />
       <div className="pfxBackground" aria-hidden="true">
-        {Array.from({ length: 8 }, (_, index) => (
+        {bubbleTokens.map((symbol, index) => (
           <div key={index} className={`pfxBubble pfxBubble${index + 1}`}>
-            <img src="/pfx-logo-spectrum.webp" alt="" width="150" height="150" decoding="async" draggable={false} />
+            {symbol === "PFX"
+              ? <img src="/pfx-logo-spectrum.webp" alt="" width="150" height="150" decoding="async" draggable={false} />
+              : <span className="pfxBubbleSymbol">{symbol}</span>}
           </div>
         ))}
       </div>
@@ -30,8 +36,45 @@ export default function App({ Component, pageProps }) {
           <span>NOUVEAU VISAGE</span><p>PFX fait peau neuve. Découvrez nos outils.</p>
           <Link href="/decouvrir">Découvrir <span aria-hidden="true">↗</span></Link>
         </aside>
+        <nav className="pfxRaydiumLinks" aria-label="Liens Raydium">
+          <a href={raydiumPfx}>PFX sur Raydium ↗</a>
+          <a href="https://raydium.io/liquidity/">Pools Raydium ↗</a>
+        </nav>
         <Component {...pageProps} />
       </div>
+      <style jsx>{`
+        .pfxBubbleSymbol {
+          display: grid;
+          place-items: center;
+          width: 100%;
+          height: 100%;
+          box-sizing: border-box;
+          border: 2px solid #9a87ff;
+          border-radius: 50%;
+          background: radial-gradient(circle at 28% 22%, #327e83, #161032 70%);
+          color: #eafef6;
+          font: 700 clamp(12px, 2vw, 19px) var(--pfx-font);
+        }
+        .pfxRaydiumLinks {
+          width: min(1360px, calc(100% - 32px));
+          margin: 6px auto 0;
+          display: flex;
+          justify-content: flex-end;
+          flex-wrap: wrap;
+          column-gap: 8px;
+        }
+        .pfxRaydiumLinks a {
+          display: inline-flex;
+          align-items: center;
+          min-height: 32px;
+          padding: 0 8px;
+          color: #bce9dd;
+          background: #0d161c;
+          border-radius: 6px;
+          font-size: 12px;
+          text-underline-offset: 2px;
+        }
+      `}</style>
     </>
   );
 }

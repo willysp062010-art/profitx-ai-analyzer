@@ -6,6 +6,16 @@ import SiteNavigation from "../components/SiteNavigation";
 
 const bubbleTokens = ["PFX", "SOL", "BONK", "ORCA", "PFX", "JUP", "JTO", "MNDE"];
 
+const bubbleLogos = {
+  PFX: "/pfx-logo-spectrum.webp",
+  SOL: "https://coin-images.coingecko.com/coins/images/4128/small/solana.png?1718769756",
+  BONK: "https://coin-images.coingecko.com/coins/images/28600/small/bonk.jpg?1696527587",
+  ORCA: "https://coin-images.coingecko.com/coins/images/17547/small/Orca_Logo.png?1696517083",
+  JUP: "https://coin-images.coingecko.com/coins/images/34188/small/jup.png?1704266489",
+  JTO: "https://coin-images.coingecko.com/coins/images/33228/small/jto.png?1701137022",
+  MNDE: "https://coin-images.coingecko.com/coins/images/18867/small/c1.png?1750668234",
+};
+
 const raydiumPfx = "https://raydium.io/swap/?inputMint=sol&outputMint=6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump";
 
 export default function App({ Component, pageProps }) {
@@ -24,9 +34,7 @@ export default function App({ Component, pageProps }) {
       <div className="pfxBackground" aria-hidden="true">
         {bubbleTokens.map((symbol, index) => (
           <div key={index} className={`pfxBubble pfxBubble${index + 1}`}>
-            {symbol === "PFX"
-              ? <img src="/pfx-logo-spectrum.webp" alt="" width="150" height="150" decoding="async" draggable={false} />
-              : <span className="pfxBubbleSymbol">{symbol}</span>}
+            <img src={bubbleLogos[symbol]} alt="" width="150" height="150" decoding="async" draggable={false} />
           </div>
         ))}
       </div>
@@ -43,18 +51,6 @@ export default function App({ Component, pageProps }) {
         <Component {...pageProps} />
       </div>
       <style jsx>{`
-        .pfxBubbleSymbol {
-          display: grid;
-          place-items: center;
-          width: 100%;
-          height: 100%;
-          box-sizing: border-box;
-          border: 2px solid #9a87ff;
-          border-radius: 50%;
-          background: radial-gradient(circle at 28% 22%, #327e83, #161032 70%);
-          color: #eafef6;
-          font: 700 clamp(12px, 2vw, 19px) var(--pfx-font);
-        }
         .pfxRaydiumLinks {
           width: min(1360px, calc(100% - 32px));
           margin: 6px auto 0;

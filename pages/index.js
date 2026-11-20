@@ -1862,6 +1862,14 @@ async function searchToken(query) {
             </div>
 
 
+            {!distributionView && (
+              <p className="hint">
+                Concentration des détenteurs non vérifiée. Les données disponibles
+                ne suffisent pas à calculer la part des plus gros détenteurs.
+                La concentration réelle reste inconnue.
+              </p>
+            )}
+
             {distributionView && (
 
               <div

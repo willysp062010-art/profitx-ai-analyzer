@@ -509,6 +509,7 @@ export default function Radar() {
     if (!autoRefresh || (source === "live" && radarPage > 0)) return;
 
     const interval = setInterval(() => {
+      if (document.visibilityState !== "visible") return;
       loadRadar(true, true);
     }, REFRESH_INTERVAL);
 

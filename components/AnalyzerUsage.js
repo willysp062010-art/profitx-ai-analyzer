@@ -8,7 +8,6 @@ export default function AnalyzerUsage() {
   useEffect(()=>{
     let active=true; const controller=new AbortController();
     async function refresh() {
-      if (document.visibilityState !== "visible") return;
       const request=++revision.current;
       try {
         const response=await fetch("/api/usage",{cache:"no-store",signal:controller.signal});const data=await response.json();
@@ -16,15 +15,18 @@ export default function AnalyzerUsage() {
         if(active && request===revision.current){setStats(data);setError(false);}
       } catch { if(active && request===revision.current)setError(true); }
     }
+    function refreshWhenVisible() {
+      if (document.visibilityState === "visible") return refresh();
+    }
     if(!visit.current) {
       visit.current=usageEventId();
-      if(visit.current) fetch("/api/usage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:"visit",eventId:visit.current}),keepalive:true}).catch(()=>{}).finally(()=>{if(active)refresh();});
+      if(visit.current) fetch("/api/usage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:"visit",eventId:visit.current}),keepalive:true}).catch(()=>{}).finally(()=>{if(active)refreshWhenVisible();});
     }
-    refresh();
-    const timer=setInterval(refresh,30000);
-    window.addEventListener("pfx-usage-updated",refresh);
-    document.addEventListener("visibilitychange",refresh);
-    return ()=>{active=false;controller.abort();clearInterval(timer);window.removeEventListener("pfx-usage-updated",refresh);document.removeEventListener("visibilitychange",refresh);};
+    refreshWhenVisible();
+    const timer=setInterval(refreshWhenVisible,30000);
+    window.addEventListener("pfx-usage-updated",refreshWhenVisible);
+    document.addEventListener("visibilitychange",refreshWhenVisible);
+    return ()=>{active=false;controller.abort();clearInterval(timer);window.removeEventListener("pfx-usage-updated",refreshWhenVisible);document.removeEventListener("visibilitychange",refreshWhenVisible);};
   },[]);
   const value=key=>error?"N/D":stats?stats[key].toLocaleString("fr-FR"):"…";
   return <section className="pfxUsagePanel" aria-label="Utilisation de l’Analyzer" style={{margin:"24px 0",padding:22,border:"1px solid #2b8b5b",borderRadius:16,background:"#0a1d14",color:"#e7f5ed"}}>

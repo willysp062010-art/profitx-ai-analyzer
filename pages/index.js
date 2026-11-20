@@ -1476,7 +1476,11 @@ async function searchToken(query) {
                 </strong>
                 <small style={{ display: "block", marginTop: 5, opacity: 0.8 }}>
                   {observed.liquidityUsd == null
-                    ? "Liquidité non chiffrée par DexScreener pour cette paire."
+                    ? market?.pairAddress
+                      ? "DexScreener ne fournit pas de montant de liquidité pour cette paire."
+                      : data.status === "NO_MARKET"
+                        ? "Aucune paire DEX détectée par la source consultée."
+                        : "Aucune paire DEX vérifiée. La liquidité reste inconnue."
                     : market?.dexId?.toLowerCase() === "pumpfun"
                       ? "Paire Pump.fun : valeur de marché indicative, pas une preuve de liquidité DEX retirable."
                       : "Valeur déclarée par DexScreener ; réserves et possibilité de revente non auditées."}

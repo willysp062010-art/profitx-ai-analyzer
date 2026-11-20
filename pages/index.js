@@ -598,7 +598,9 @@ async function searchToken(query) {
     }
     if (requestId !== tokenSearchRequest.current) return;
 
-    setTokenResults(result.results || []);
+    const results = result.results || [];
+    setTokenResults(results);
+    if (!results.length) setTokenSearchError("Aucun token trouvé. Essayez son adresse mint Solana.");
     setTokenSearchNotice(result.pumpError || "");
   } catch (err) {
     if (requestId !== tokenSearchRequest.current) return;
@@ -609,7 +611,18 @@ async function searchToken(query) {
     if (requestId === tokenSearchRequest.current) setTokenSearchLoading(false);
   }
 }
-  async function analyze() { return runAnalysis(mint); }
+  async function analyze() {
+    const query = mint.trim();
+    if (isSolanaMint(query)) return runAnalysis(query);
+    if (tokenSearchLoading || query.length < 2) return;
+    if (tokenResults.length) {
+      setError("Choisissez le token à analyser dans les résultats.");
+      return;
+    }
+    setError("");
+    clearTimeout(tokenSearchTimer.current);
+    return searchToken(query);
+  }
 
   async function runAnalysis(requestedMint) {
     if (loading || analysisRequest.current) return;
@@ -813,8 +826,9 @@ async function searchToken(query) {
   setMint(value); setError("");
   setTokenResults([]); setTokenSearchNotice(""); setTokenSearchError("");
   tokenSearchRequest.current++; tokenSearchAbort.current?.abort(); clearTimeout(tokenSearchTimer.current);
-  setTokenSearchLoading(value.trim().length >= 2);
-  if (value.trim().length >= 2) tokenSearchTimer.current = setTimeout(() => searchToken(value), 300);
+  const shouldSearch = value.trim().length >= 2 && !isSolanaMint(value.trim());
+  setTokenSearchLoading(shouldSearch);
+  if (shouldSearch) tokenSearchTimer.current = setTimeout(() => searchToken(value), 300);
 }}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
@@ -854,13 +868,8 @@ async function searchToken(query) {
         key={token.mint}
         type="button"
         onClick={() => {
-          clearTimeout(tokenSearchTimer.current); tokenSearchAbort.current?.abort();
-          tokenSearchRequest.current++;
-          setTokenSearchLoading(false);
-          setError("");
           setMint(token.mint);
-          setTokenResults([]);
-          setTokenSearchError("");
+          runAnalysis(token.mint);
         }}
         style={{
           display: "block",
@@ -894,12 +903,13 @@ async function searchToken(query) {
             onClick={analyze}
             disabled={
               loading ||
-              !mint.trim()
+              tokenSearchLoading ||
+              mint.trim().length < 2
             }
           >
             {loading
               ? "Analyse..."
-              : "Analyser gratuitement"}
+              : mint.trim() && !isSolanaMint(mint.trim()) ? "Rechercher un token" : "Analyser gratuitement"}
           </button>
 
         </div>

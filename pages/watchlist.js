@@ -1,3 +1,4 @@
+import TokenRiskHistory from "../components/TokenRiskHistory";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
@@ -451,6 +452,7 @@ export default function Watchlist() {
                         ANALYSER →
                       </button>
                     </div>
+                    {item.chainId === "solana" && <TokenRiskHistory key={item.tokenAddress} mint={item.tokenAddress} />}
                   </article>
                 );
               })}

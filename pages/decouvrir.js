@@ -61,6 +61,11 @@ export default function Decouvrir() {
           <summary>Faire un premier exercice sans wallet</summary>
           <p>Dans le <Link href="/repertoire-solana">Répertoire Solana</Link>, cherchez un symbole comme BONK. Comparez les adresses affichées. Recoupez le mint avec les sources du projet, puis ouvrez l’<Link href="/">Analyzer</Link> pour examiner la liquidité et les données manquantes. Cet exercice est gratuit et ne demande aucun achat.</p>
         </details>
+        <div className="pfxGuideActions">
+          <Link className="secondaryButton" href="/?mint=DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263&analyze=1">
+            Lancer une analyse d’exemple avec BONK
+          </Link>
+        </div>
         <p>Pour approfondir les risques et les précautions en France, consultez le <a href="https://www.amf-france.org/fr/espace-epargnants/proteger-son-epargne/crypto-actifs-bitcoin-etc">dossier crypto-actifs de l’AMF</a>.</p>
       </section>
       <section className="pfxGuideSteps" aria-labelledby="pfx-guide-steps"><h2 id="pfx-guide-steps">Votre première analyse, en trois étapes.</h2><ol>

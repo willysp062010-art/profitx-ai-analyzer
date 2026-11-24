@@ -469,13 +469,12 @@ useEffect(() => () => {
     useState("");
   const [watchlistNotice, setWatchlistNotice] = useState("");
 
-  function followAnalyzedToken(openAlerts = false) {
+  function followAnalyzedToken() {
     if (!data?.mint) return;
     try {
       const next = mergeWatchlist(readWatchlist(window.localStorage), [{ mint: data.mint, name: data.token?.name, symbol: data.token?.symbol }]);
       writeWatchlist(window.localStorage, next);
       setWatchlistNotice("Token enregistré dans la Watchlist de ce navigateur.");
-      if (openAlerts) window.location.assign("/alerts?mint=" + encodeURIComponent(data.mint));
     } catch { setWatchlistNotice("Impossible d'enregistrer le token dans ce navigateur. La Watchlist n'a pas été modifiée."); }
   }
 
@@ -563,8 +562,9 @@ useEffect(() => () => {
     const mintFromRadar =
       params.get("mint")?.trim();
 
-    if (mintFromRadar) {
+    if (isSolanaMint(mintFromRadar || "")) {
       setMint(mintFromRadar);
+      if (params.get("analyze") === "1") runAnalysis(mintFromRadar);
     }
   }, []);
 
@@ -1162,14 +1162,14 @@ async function searchToken(query) {
             <ul>
               <li><strong>Ce qu’on a observé</strong> · {typeof observed.liquidityUsd === "number"
                 ? `Liquidité relevée sur le marché analysé : ${observed.liquidityUsd.toLocaleString("fr-FR")} USD.`
-                : "Liquidité non confirmée par les données disponibles."}</li>
+                : "Liquidité non confirmée par les données disponibles."} <a className="pfxResultLink" href="#analyse-marche">Voir les données de marché</a></li>
               <li><strong>Point de vigilance</strong> · {security.freezeAuthorityRevoked === false
                 ? "Une autorité de gel peut encore bloquer des comptes de ce token."
                 : security.mintAuthorityRevoked === false
                   ? "Une autorité peut encore émettre des unités de ce token."
                   : data.dataQuality?.status === "CONFLICTING"
                     ? "Les prix observés se contredisent."
-                    : "La liquidité et les conditions de revente peuvent évoluer."}</li>
+                    : "La liquidité et les conditions de revente peuvent évoluer."} <a className="pfxResultLink" href={security.freezeAuthorityRevoked === false || security.mintAuthorityRevoked === false ? "#analyse-autorites" : "#analyse-marche"}>Voir le détail du contrôle</a></li>
               <li><strong>Limite à retenir</strong> · {data.dataQuality?.issues?.[0]
                 || "Les contrôles décrivent les données disponibles au moment de l’analyse. Un audit de sécurité reste distinct."}</li>
             </ul>
@@ -1245,7 +1245,8 @@ async function searchToken(query) {
           <AnalysisQualityNotice quality={data.dataQuality} />
           <div style={{ display: "flex", flexWrap: "wrap", gap: 12, margin: "16px 0" }}>
             <button type="button" className="secondaryButton" onClick={() => followAnalyzedToken()} style={{ padding: "12px 18px", cursor: "pointer" }}>Suivre ce token</button>
-            <button type="button" className="secondaryButton" onClick={() => followAnalyzedToken(true)} style={{ padding: "12px 18px", cursor: "pointer" }}>Créer une alerte</button>
+            <Link className="secondaryButton" href={{ pathname: "/compare", query: { mint: data.mint } }}>Comparer ce token</Link>
+            <Link className="secondaryButton" href={{ pathname: "/alerts", query: { mint: data.mint } }}>Créer une alerte</Link>
           </div>
           {watchlistNotice && <p role="status" style={{ color: "#d8e5dd" }}>{watchlistNotice}</p>}
           <div className="panel">
@@ -1490,9 +1491,10 @@ async function searchToken(query) {
 
           <div className="panel">
 
-            <h2>
+            <h2 id="analyse-marche">
               Données observées
             </h2>
+            <p>Source marché · {data.source || "Non disponible"} · Analyse du {fmtDate(data.timestamp)}</p>
 
             <div className="observed">
 
@@ -2180,9 +2182,10 @@ async function searchToken(query) {
 
           <div className="panel">
 
-            <h2>
+            <h2 id="analyse-autorites">
               Sécurité
             </h2>
+            <p>{security.available ? "Source · Compte du mint sur Solana" : "Contrôle des autorités indisponible"} · Analyse du {fmtDate(data.timestamp)}</p>
 
             <div className="observed">
 

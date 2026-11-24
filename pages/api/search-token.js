@@ -12,7 +12,8 @@ const OFFICIAL_TOKENS = [
   {
     mint: "6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump",
     name: "PROFITX",
-    symbol: "PFX"
+    symbol: "PFX",
+    imageUri: "/pfx-logo-spectrum.webp"
   }
 ];
 
@@ -127,7 +128,7 @@ function addToken(tokens, token) {
     ...token,
     name: official?.name || token.name,
     symbol: official?.symbol || token.symbol,
-    imageUri: token.imageUri || null,
+    imageUri: official?.imageUri || token.imageUri || null,
     verified: Boolean(official),
     verificationStatus: official
       ? "OFFICIAL_PROJECT_MINT"

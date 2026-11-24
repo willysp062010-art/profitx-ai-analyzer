@@ -1495,6 +1495,13 @@ async function searchToken(query) {
               Données observées
             </h2>
             <p>Source marché · {data.source || "Non disponible"} · Analyse du {fmtDate(data.timestamp)}</p>
+            {data.source === "dexscreener" && isSolanaMint(market.pairAddress) && (
+              <p><a className="pfxResultLink"
+                href={`https://dexscreener.com/solana/${market.pairAddress}`}
+                target="_blank" rel="noopener noreferrer">
+                Consulter la paire sur DexScreener ↗
+              </a></p>
+            )}
 
             <div className="observed">
 
@@ -2186,6 +2193,14 @@ async function searchToken(query) {
               Sécurité
             </h2>
             <p>{security.available ? "Source · Compte du mint sur Solana" : "Contrôle des autorités indisponible"} · Analyse du {fmtDate(data.timestamp)}</p>
+
+            {isSolanaMint(data.mint) && (
+              <p><a className="pfxResultLink"
+                href={`https://solscan.io/token/${data.mint}`}
+                target="_blank" rel="noopener noreferrer">
+                Consulter le mint sur Solscan ↗
+              </a></p>
+            )}
 
             <div className="observed">
 

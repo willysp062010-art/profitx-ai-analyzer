@@ -1193,15 +1193,11 @@ export default function Radar() {
                   {source === "live" && (
                     <div className="onchainLine">
                       <span>
-                        Classification : {token.source === "solana_rpc"
-                          ? "CRÉATION CONFIRMÉE SUR SOLANA — AJOUTÉE PAR RATTRAPAGE"
-                          : token.onchainCreationTime !== null
-                          ? token.onchainCreationTime > Date.now()
-                            ? "DATE DE CRÉATION FUTURE — À VÉRIFIER"
-                            : Date.now() - token.onchainCreationTime <= 24 * 60 * 60 * 1000
-                              ? "ÉVÉNEMENT DE CRÉATION HELIUS DATÉ DE MOINS DE 24 H — NON AUDITÉ"
-                              : "ÉVÉNEMENT DE CRÉATION HELIUS DATÉ DE PLUS DE 24 H — NON AUDITÉ"
-                          : "DATE DE CRÉATION NON CONFIRMÉE — TOKEN SIMPLEMENT INDEXÉ"}
+                        {token.onchainCreationTime === null
+                          ? "Création sur Solana : date non confirmée"
+                          : token.onchainCreationTime > Date.now()
+                            ? "Création sur Solana : date future à vérifier"
+                            : `${token.source === "solana_rpc" ? "Créé sur Solana le" : "Création signalée par Helius le"} ${new Date(token.onchainCreationTime).toLocaleString("fr-FR")}`}
                       </span>
                     </div>
                   )}
@@ -1209,7 +1205,7 @@ export default function Radar() {
                   {source === "live" && (
                     <div className="onchainLine">
                       <span>
-                        Première détection PFX : {token.detectedAt && !Number.isNaN(new Date(token.detectedAt).getTime())
+                        Détecté par PFX : {token.detectedAt && !Number.isNaN(new Date(token.detectedAt).getTime())
                           ? new Date(token.detectedAt).toLocaleString("fr-FR")
                           : "non disponible"}
                       </span>

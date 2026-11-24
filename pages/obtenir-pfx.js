@@ -44,15 +44,6 @@ export default function ObtenirPFX() {
       </Head>
 
       <main id="pfx-main-content" tabIndex={-1} className="page">
-
-
-        <section aria-label="Informations officielles PFX" style={{maxWidth:1100,margin:"20px auto",padding:"20px",border:"1px solid #477a76",borderRadius:14,background:"#0b171b",color:"#e3f4f0"}}>
-          <h2 style={{marginTop:0}}>Références officielles PROFITX AI</h2>
-          <p>Site officiel actuel : <a href="https://profitx-ai.vercel.app/" target="_blank" rel="noopener noreferrer">profitx-ai.vercel.app</a></p>
-          <p>Analyzer : <a href="https://profitx-ai-analyzer.vercel.app/" target="_blank" rel="noopener noreferrer">profitx-ai-analyzer.vercel.app</a></p>
-          <p>Le mint Solana officiel déclaré est <code style={{overflowWrap:"anywhere"}}>{PFX_MINT}</code>. Vérifiez toujours cette adresse plutôt que le seul nom ou symbole.</p>
-          <p>Attention : certains annuaires peuvent encore afficher l’ancien site v0-profitx-landing-page-re.vercel.app et une ancienne description. Ces données proviennent des métadonnées historiques du token et ne prouvent pas que ce site est toujours le site officiel. Les informations on-chain ne peuvent pas nécessairement être modifiées lorsque l’autorité de mise à jour est révoquée.</p>
-        </section>
         <PfxUtility />
         <section className="hero">
           <div className="eyebrow">

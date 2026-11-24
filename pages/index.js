@@ -892,6 +892,10 @@ async function searchToken(query) {
           overflowWrap: "anywhere"
         }}
       >
+        {token.verificationStatus === "OFFICIAL_PROJECT_MINT" && token.imageUri && (
+          <img src={token.imageUri} alt="" width={28} height={28}
+            style={{ verticalAlign: "middle", marginRight: 8 }} />
+        )}
         <strong>{token.name} ({token.symbol})</strong>
         <div style={{ fontSize: "11px", opacity: 0.8 }}>
           {token.mint}

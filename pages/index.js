@@ -1157,6 +1157,24 @@ async function searchToken(query) {
 
         <section className="results" id="pfx-analysis-results" aria-label="Résultats de l’analyse">
 
+          <section className="panel" aria-labelledby="analysis-summary">
+            <h2 id="analysis-summary">L’analyse en bref</h2>
+            <ul>
+              <li><strong>Ce qu’on a observé</strong> · {typeof observed.liquidityUsd === "number"
+                ? `Liquidité relevée sur le marché analysé : ${observed.liquidityUsd.toLocaleString("fr-FR")} USD.`
+                : "Liquidité non confirmée par les données disponibles."}</li>
+              <li><strong>Point de vigilance</strong> · {security.freezeAuthorityRevoked === false
+                ? "Une autorité de gel peut encore bloquer des comptes de ce token."
+                : security.mintAuthorityRevoked === false
+                  ? "Une autorité peut encore émettre des unités de ce token."
+                  : data.dataQuality?.status === "CONFLICTING"
+                    ? "Les prix observés se contredisent."
+                    : "La liquidité et les conditions de revente peuvent évoluer."}</li>
+              <li><strong>Limite à retenir</strong> · {data.dataQuality?.issues?.[0]
+                || "Les contrôles décrivent les données disponibles au moment de l’analyse. Un audit de sécurité reste distinct."}</li>
+            </ul>
+          </section>
+
           <div className="scoreCard">
 
             <div>

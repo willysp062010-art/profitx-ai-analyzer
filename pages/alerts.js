@@ -1283,7 +1283,7 @@ export default function Alerts() {
                   const statusLabel =
                     engineStatus ===
                     "triggered"
-                      ? "DÉCLENCHÉE"
+                      ? "SEUIL ATTEINT"
                       : engineStatus ===
                         "watching"
                       ? "SEUIL NON ATTEINT"
@@ -1291,13 +1291,13 @@ export default function Alerts() {
                         "no_market_data" ||
                         engineStatus ===
                           "metric_unavailable"
-                      ? "INDISPONIBLE"
+                      ? "DONNÉE INDISPONIBLE"
                       : engineStatus ===
                         "paused"
                       ? "PAUSE"
                       : engineStatus === "error"
                       ? "ERREUR DE CONTRÔLE"
-                      : "À VÉRIFIER";
+                      : "AUCUN CONTRÔLE ENREGISTRÉ";
 
                   return (
                     <article
@@ -1430,6 +1430,7 @@ export default function Alerts() {
                         )}
                       </div>
 
+                      {!engineResult?.checkedAt && <div className="hint">Aucune date de contrôle disponible.</div>}
                       {engineResult?.checkedAt && <div className="hint">
                         Dernier contrôle {engineResult.source === "manual" ? "à la demande" : "enregistré sur le serveur"} : {new Date(engineResult.checkedAt).toLocaleString("fr-FR")}.
                         {isOldAlertResult(engineResult) && <strong style={{ display: "block", color: "#ffd18b" }}>Résultat ancien : une nouvelle vérification est nécessaire.</strong>}

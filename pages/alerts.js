@@ -1005,7 +1005,7 @@ export default function Alerts() {
                     placeholder="Nom, symbole ou adresse mint"
                     onChange={(event) => {
                       setTokenQuery(event.target.value);
-                      setTokenLookup(null);
+                      if (event.target.value.trim() !== query) setTokenLookup(null);
                       clearMessages();
                     }}
                   />

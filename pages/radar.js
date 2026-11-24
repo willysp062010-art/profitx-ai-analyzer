@@ -524,11 +524,12 @@ export default function Radar() {
     if (searchQuery.length < 2) return;
 
     const controller = new AbortController();
+    const deadline = AbortSignal.timeout(12000);
     const timer = setTimeout(async () => {
       try {
         const response = await fetch(
           "/api/search-token?q=" + encodeURIComponent(searchQuery),
-          { signal: controller.signal, cache: "no-store" }
+          { signal: AbortSignal.any([controller.signal, deadline]), cache: "no-store" }
         );
         const result = await response.json();
         if (controller.signal.aborted) return;
@@ -671,7 +672,6 @@ export default function Radar() {
     activeRadarRequest.current++;
     radarSnapshot.current = null;
     setTokens([]);
-    setTotalIndexed(null);
     setHasMorePages(false);
     setRadarPage(0);
     setSource(nextSource);
@@ -963,7 +963,7 @@ export default function Radar() {
             </div>
 
             <div className="resultCounter">
-              <span>RÉSULTATS FILTRÉS (PAGE ACTUELLE)</span>
+              <span>{searchQuery.length >= 2 ? "RÉSULTATS DE RECHERCHE FILTRÉS" : "RÉSULTATS FILTRÉS (PAGE ACTUELLE)"}</span>
               <strong>{marketTokens.length}</strong>
             </div>
           </section>
@@ -1040,7 +1040,9 @@ export default function Radar() {
               <div className="emptyIcon">◎</div>
               <strong>AUCUN AUTRE TOKEN POUR CES FILTRES</strong>
               <p>
-                Aucun autre token chargé sur cette page ne correspond aux critères sélectionnés.
+                {searchQuery.length >= 2
+                  ? "Aucun autre token parmi les résultats disponibles ne correspond aux critères sélectionnés."
+                  : "Aucun autre token chargé sur cette page ne correspond aux critères sélectionnés."}
                 Modifiez les filtres{source === "live" ? " ou consultez une autre page du flux Helius" : ""}.
                 Ce résultat ne prouve pas l’absence de tokens correspondants sur Solana.
                 Le mint PFX déclaré reste accessible en tête de page.

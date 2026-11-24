@@ -151,6 +151,7 @@ function normalizeToken(token, index) {
       num(token?.security_score),
     securityScoreSource: token?.securityScoreSource || "unspecified",
     liquidityVerification: token?.liquidityVerification || "not_verified",
+    imageUri: [token?.imageUri, token?.icon].find((uri) => typeof uri === "string" && uri.startsWith("https://")) ?? null,
     marketFetchedAt: token?.marketFetchedAt || null,
     marketDexId: typeof token?.marketDexId === "string" ? token.marketDexId : null,
     marketPairUrl: typeof token?.marketPairUrl === "string" &&
@@ -991,7 +992,7 @@ export default function Radar() {
               <div style={{color:"#45ffb6",fontWeight:800,letterSpacing:"0.08em",fontSize:12}}>
                 PROFITX AI / ANALYZER — MINT PFX DÉCLARÉ PAR LE PROJET
               </div>
-              <h2 style={{margin:"10px 0",fontSize:26}}>PROFITX (PFX)</h2>
+              <h2 style={{margin:"10px 0",fontSize:26}}><img src="/pfx-logo-spectrum.webp" alt="" width={40} height={40} style={{ verticalAlign: "middle", marginRight: 10 }} />PROFITX (PFX)</h2>
               <p style={{wordBreak:"break-all",fontFamily:"monospace",fontSize:14}}>
                 {OFFICIAL_PFX_MINT}
               </p>
@@ -1095,6 +1096,11 @@ export default function Radar() {
                       {token.symbol !== "N/D"
                         ? token.symbol.slice(0, 2).toUpperCase()
                         : "?"}
+                      {token.imageUri && (
+                        <img key={token.imageUri} src={token.imageUri} alt="" loading="lazy"
+                          referrerPolicy="no-referrer"
+                          onError={(event) => { event.currentTarget.hidden = true; }} />
+                      )}
                     </div>
                     <div className="tokenTitle">
                       <h2>{token.name}</h2>
@@ -1888,7 +1894,18 @@ export default function Radar() {
           gap: 14px;
           margin: 22px 0 14px;
         }
+        .tokenIcon img {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          border-radius: inherit;
+          background: #101c28;
+        }
+
         .tokenIcon {
+          position: relative;
           width: 48px;
           height: 48px;
           display: grid;

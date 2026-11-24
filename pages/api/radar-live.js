@@ -60,7 +60,7 @@ async function enrichOnRead(rows, _supabaseUrl, _supabaseKey, signal) {
     const assets = new Map(data.result.filter(asset => validMint(asset?.id)).map(asset => [asset.id, asset]));
     for (const row of candidates) {
       const metadata = assets.get(row.mint)?.content?.metadata;
-      row.liveMetadata = { name: tokenText(metadata?.name), symbol: tokenText(metadata?.symbol) };
+      row.liveMetadata = { name: tokenText(metadata?.name), symbol: tokenText(metadata?.symbol), imageUri: assets.get(row.mint)?.content?.links?.image };
     }
   } catch (error) {
     console.warn("PFX live enrichment lookup:", error.message);
@@ -142,6 +142,7 @@ async function enrichMarketRows(rows, _supabaseUrl, _supabaseKey, signal) {
     const sells24h = finiteNonNegative(pair?.txns?.h24?.sells);
     const values = {
       name: tokenText(pair.baseToken?.name), symbol: tokenText(pair.baseToken?.symbol),
+      imageUri: pair.info?.imageUrl,
       liquidityUsd, volume24h, marketCap, priceUsd, buys24h, sells24h,
       dexId: typeof pair.dexId === "string" ? pair.dexId : null,
       pairAddress: typeof pair.pairAddress === "string" ? pair.pairAddress : null,
@@ -471,6 +472,8 @@ export default async function handler(req, res) {
       creatorSeenTokenCount: creatorCounts.get(row.creator_address) ?? null,
       mint: row.mint,
       ...resolveTokenIdentity(row, onchainChecks.get(row.mint), liveMarkets.get(row.mint)),
+      imageUri: [row.liveMetadata?.imageUri, liveMarkets.get(row.mint)?.imageUri]
+        .find((uri) => typeof uri === "string" && uri.startsWith("https://")) ?? null,
       source: row.launch_platform || row.source,
       detectedAt: row.detected_at,
       createdOnchainAt: row.created_onchain_at,

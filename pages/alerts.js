@@ -1064,7 +1064,7 @@ export default function Alerts() {
                       }
                     )}
                   </select>
-                  </>
+                  </>}
                 </div>
 
                 <div className="field">

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import DiscoverTools from "../components/DiscoverTools";
 import ObservatoryMark from "../components/ObservatoryMark";
 import QuoteFreshness from "../components/QuoteFreshness";
@@ -809,6 +810,12 @@ async function searchToken(query) {
           Explorez ce qui se cache derrière un token : liquidité,
           détenteurs, activité et autorités. Des preuves accessibles,
           des limites visibles. L’analyse Solana, gratuitement.
+        </p>
+
+        <p>
+          <Link className="secondaryButton" href="/decouvrir#guide-crypto">
+            Nouveau en crypto ? Commencer le guide
+          </Link>
         </p>
 
         <div className="search" style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "flex-start" }}>

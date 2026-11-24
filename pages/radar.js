@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
@@ -1007,6 +1008,8 @@ export default function Radar() {
               >
                 ANALYSER PFX
               </button>
+              <Link className="secondaryButton" href={{ pathname: "/compare", query: { mint: OFFICIAL_PFX_MINT } }}>Comparer</Link>
+              <Link className="secondaryButton" href={{ pathname: "/alerts", query: { mint: OFFICIAL_PFX_MINT } }}>Créer une alerte</Link>
             </section>
           )}
 
@@ -1371,6 +1374,8 @@ export default function Radar() {
                       >
                         ANALYSER →
                       </button>
+                      <Link className="secondaryButton" href={{ pathname: "/compare", query: { mint: token.mint } }}>Comparer</Link>
+                      <Link className="secondaryButton" href={{ pathname: "/alerts", query: { mint: token.mint } }}>Créer une alerte</Link>
                     </div>
                   </div>
                 </article>

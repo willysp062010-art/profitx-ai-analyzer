@@ -892,8 +892,9 @@ async function searchToken(query) {
           overflowWrap: "anywhere"
         }}
       >
-        {token.verificationStatus === "OFFICIAL_PROJECT_MINT" && token.imageUri && (
-          <img src={token.imageUri} alt="" width={28} height={28}
+        {token.imageUri && (
+          <img key={token.imageUri} src={token.imageUri} alt="" width={28} height={28}
+            loading="lazy" referrerPolicy="no-referrer" onError={(event) => { event.currentTarget.hidden = true; }}
             style={{ verticalAlign: "middle", marginRight: 8 }} />
         )}
         <strong>{token.name} ({token.symbol})</strong>

@@ -542,8 +542,9 @@ function TokenPicker({ id, label, value, onChange, selected, onSelect, disabled 
             <button key={token.mint} type="button" role="option" aria-selected={false}
               onClick={() => { onSelect(token); setOpen(false); }}
               style={{ display: "block", width: "100%", padding: "10px 12px", textAlign: "left", background: "transparent", color: "#f5fff9", border: 0, borderBottom: "1px solid #254133", cursor: "pointer", overflowWrap: "anywhere" }}>
-              {token.verificationStatus === "OFFICIAL_PROJECT_MINT" && token.imageUri && (
-                <img src={token.imageUri} alt="" width={28} height={28}
+              {token.imageUri && (
+                <img key={token.imageUri} src={token.imageUri} alt="" width={28} height={28}
+                  loading="lazy" referrerPolicy="no-referrer" onError={(event) => { event.currentTarget.hidden = true; }}
                   style={{ verticalAlign: "middle", marginRight: 8 }} />
               )}
               <strong>{token.name || "Token"} ({token.symbol || "?"})</strong>

@@ -576,6 +576,10 @@ export default function ComparePage() {
 
   const [mintA, setMintA] = useState("");
   const [mintB, setMintB] = useState("");
+  useEffect(() => {
+    const mint = router.query.mint;
+    if (router.isReady && typeof mint === "string" && isSolanaMint(mint)) setMintA(mint);
+  }, [router.isReady, router.query.mint]);
   const [selectedA, setSelectedA] = useState(null);
   const [selectedB, setSelectedB] = useState(null);
 

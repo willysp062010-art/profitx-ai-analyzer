@@ -1,5 +1,5 @@
 import { summarizeAlertCheck } from "../utils/alert-check-summary";
-import { watchlistIdentityLabel, readWatchlist } from "../utils/watchlist";
+import { watchlistIdentityLabel, readWatchlist, isSolanaMint } from "../utils/watchlist";
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
@@ -334,6 +334,35 @@ export default function Alerts() {
   const [selectedTokenId, setSelectedTokenId] =
     useState("");
 
+  const [tokenQuery, setTokenQuery] = useState("");
+  const [tokenLookup, setTokenLookup] = useState(null);
+  const query = tokenQuery.trim();
+
+  useEffect(() => {
+    if (query.length < 2 || isSolanaMint(query)) return;
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const response = await fetch("/api/search-token?q=" + encodeURIComponent(query), {
+          signal: controller.signal
+        });
+        const data = await response.json();
+        if (!response.ok || data?.ok !== true || !Array.isArray(data.results)) {
+          throw new Error("Recherche indisponible");
+        }
+        if (!controller.signal.aborted) {
+          setTokenLookup({ query, tokens: data.results.filter((item) => isSolanaMint(item.mint)) });
+        }
+      } catch {
+        if (!controller.signal.aborted) setTokenLookup({ query, error: true });
+      }
+    }, 300);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [query]);
+
   const [metric, setMetric] =
     useState("priceUsd");
 
@@ -522,24 +551,15 @@ export default function Alerts() {
     if (saving) return;
     clearMessages();
 
-    if (!selectedToken) {
-      setError(
-        "Ajoutez d'abord un token à votre PFX Watchlist."
-      );
-      return;
-    }
+    const cleanAddress = query || selectedToken?.tokenAddress?.trim();
 
-    const cleanAddress =
-      selectedToken.tokenAddress?.trim();
-
-    if (!cleanAddress) {
-      setError(
-        "L'adresse du token sélectionné est invalide."
-      );
+    if (!isSolanaMint(cleanAddress)) {
+      setError("Choisissez un résultat de recherche, un token de la Watchlist ou collez un mint Solana valide.");
       return;
     }
 
     const cleanTarget = String(targetValue ?? "")
+      .replace(/(?<=\d)[ \u00a0\u202f](?=\d)/g, "")
       .replace(",", ".")
       .trim();
 
@@ -567,18 +587,7 @@ export default function Alerts() {
       return;
     }
 
-    const chainId =
-      selectedToken.chainId || "solana";
-
-    if (chainId !== "solana") {
-      setError("Les alertes sur les autres réseaux seront disponibles avec PROFITX Multi-Chain.");
-      return;
-    }
-
-    if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(cleanAddress)) {
-      setError("Adresse Mint Solana invalide dans la Watchlist.");
-      return;
-    }
+    const chainId = "solana";
 
     const duplicate = alerts.some(
       (alert) =>
@@ -983,45 +992,49 @@ export default function Alerts() {
               <div className="empty">
                 Chargement de PFX Alerts...
               </div>
-            ) : watchlist.length === 0 ? (
-              <div className="empty">
-                <strong>
-                  Votre Watchlist est vide.
-                </strong>
-
-                <p>
-                  Ajoutez d&apos;abord un token
-                  depuis PFX Radar ou PFX
-                  Watchlist.
-                </p>
-
-                <button
-                  type="button"
-                  className="primary"
-                  onClick={() =>
-                    router.push("/radar")
-                  }
-                >
-                  OUVRIR PFX RADAR
-                </button>
-              </div>
             ) : (
               <form
                 className="alertForm"
                 onSubmit={createAlert}
               >
                 <div className="field tokenField">
-                  <label htmlFor="alert-token">
-                    TOKEN
-                  </label>
-
+                  <label htmlFor="alert-token-search">RECHERCHER UN TOKEN SOLANA</label>
+                  <input id="alert-token-search" type="search"
+                    value={tokenQuery} maxLength={80} autoComplete="off"
+                    autoCapitalize="none" spellCheck={false}
+                    placeholder="Nom, symbole ou adresse mint"
+                    onChange={(event) => {
+                      setTokenQuery(event.target.value);
+                      setTokenLookup(null);
+                      clearMessages();
+                    }}
+                  />
+                  {query.length >= 2 && !isSolanaMint(query) && (
+                    <div className="alertTokenMatches">
+                      {tokenLookup?.query !== query ? <p role="status">Recherche de tokens…</p>
+                        : tokenLookup.error ? <p role="status">Recherche indisponible. Vous pouvez coller un mint Solana.</p>
+                        : tokenLookup.tokens.length === 0 ? <p role="status">Aucun token trouvé.</p>
+                        : tokenLookup.tokens.map((token) => (
+                          <button type="button" key={token.mint} onClick={() => {
+                            setTokenQuery(token.mint);
+                            setTokenLookup(null);
+                            clearMessages();
+                          }}>
+                            <strong>{token.name} ({token.symbol})</strong>
+                            <small>{token.mint}</small>
+                          </button>
+                        ))}
+                    </div>
+                  )}
+                  {watchlist.length > 0 && <>
+                  <label className="watchlistFieldLabel" htmlFor="alert-token">OU CHOISIR DANS LA WATCHLIST</label>
                   <select
                     id="alert-token"
                     value={selectedTokenId}
                     onChange={(event) => {
-                      setSelectedTokenId(
-                        event.target.value
-                      );
+                      setSelectedTokenId(event.target.value);
+                      setTokenQuery("");
+                      setTokenLookup(null);
                       clearMessages();
                     }}
                   >
@@ -1051,6 +1064,7 @@ export default function Alerts() {
                       }
                     )}
                   </select>
+                  </>
                 </div>
 
                 <div className="field">
@@ -1727,6 +1741,24 @@ export default function Alerts() {
           margin-top: 25px;
           align-items: end;
         }
+
+        .tokenField { min-width: 0; }
+        .watchlistFieldLabel { margin-top: 12px; }
+        .alertTokenMatches { max-height: 230px; overflow-y: auto; margin-top: 8px; }
+        .alertTokenMatches p { font-size: 13px; }
+        .alertTokenMatches button {
+          display: block;
+          width: 100%;
+          min-height: 44px;
+          padding: 8px;
+          text-align: left;
+          overflow-wrap: anywhere;
+          background: #101b17;
+          color: #f2fff9;
+          border: 1px solid #36534a;
+          cursor: pointer;
+        }
+        .alertTokenMatches small { display: block; }
 
         .field label {
           display: block;

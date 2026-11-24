@@ -336,6 +336,10 @@ export default function Alerts() {
 
   const [tokenQuery, setTokenQuery] = useState("");
   const [tokenLookup, setTokenLookup] = useState(null);
+  useEffect(() => {
+    const mint = router.query.mint;
+    if (router.isReady && typeof mint === "string" && isSolanaMint(mint)) setTokenQuery(mint);
+  }, [router.isReady, router.query.mint]);
   const query = tokenQuery.trim();
 
   useEffect(() => {

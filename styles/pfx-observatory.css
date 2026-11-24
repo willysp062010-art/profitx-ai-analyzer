@@ -282,11 +282,41 @@ body { background-image:radial-gradient(ellipse at 94% 12%,#a431ff1a,transparent
 @media(prefers-reduced-motion:reduce) { .pfxNavigationLinks a { transition:none; } }
 
 /* Visible release announcement and practical discovery, without interrupting tools. */
-.pfxReleaseStrip { width:min(1360px,calc(100% - 64px)); margin:16px auto 0; display:flex; align-items:center; gap:16px; padding:10px 16px; border:1px solid #324465; border-radius:12px; background:linear-gradient(100deg,#00cfff08,#b45cff10); font-family:var(--pfx-font); font-size:12px; }
-.pfxReleaseStrip > span { font-size:9px; letter-spacing:.12em; color:#83e5ff; white-space:nowrap; }
-.pfxReleaseStrip p { margin:0; color:#c0c9db; }
-.pfxReleaseStrip a { margin-left:auto; display:flex; gap:8px; align-items:center; color:#e4dcff; text-decoration:none; min-height:24px; white-space:nowrap; }
-.pfxReleaseStrip a:hover,.pfxDiscoverHeading > a:hover,.pfxGuideTool a:hover { color:#70e6ff; text-decoration:underline; text-underline-offset:4px; }
+.pfxReleaseStrip {
+  width:min(1360px,calc(100% - 64px));
+  margin:16px auto 0;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:16px 20px;
+  border:2px solid #72eaff;
+  border-radius:16px;
+  background:linear-gradient(110deg,#102d49,#231452 62%,#401a55);
+  box-shadow:0 0 24px #00e5ff45;
+  color:#fff;
+  font-family:var(--pfx-font);
+  text-decoration:none;
+}
+.pfxReleaseCopy { display:grid; gap:4px; font-size:14px; color:#edf4ff; }
+.pfxReleaseCopy strong { color:#fff; font-size:clamp(20px,2.5vw,27px); }
+.pfxReleaseAction {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  min-height:44px;
+  padding:8px 16px;
+  border-radius:10px;
+  background:linear-gradient(100deg,#6ef6ff,#d1abff);
+  color:#101323;
+  font-weight:800;
+  text-align:center;
+}
+.pfxReleaseStrip:hover { border-color:#f2c4ff; box-shadow:0 0 28px #c26cff75; }
+.pfxReleaseStrip:hover .pfxReleaseAction { text-decoration:underline; }
+.pfxReleaseStrip:focus-visible { outline:3px solid #fff; outline-offset:4px; }
+.pfxDiscoverHeading > a:hover,.pfxGuideTool a:hover { color:#70e6ff; text-decoration:underline; text-underline-offset:4px; }
 .pfxDiscover { margin:42px 0 30px; }
 .pfxDiscoverHeading { display:flex; align-items:end; justify-content:space-between; flex-wrap:wrap; gap:18px; margin:0 0 22px; }
 #pfx-main-content .pfxDiscoverHeading h2 { margin:10px 0 0; font-weight:450; }
@@ -329,10 +359,7 @@ body { background-image:radial-gradient(ellipse at 94% 12%,#a431ff1a,transparent
  #pfx-main-content .pfxGuideSteps h3 { margin-top:0; }
 }
 @media(max-width:600px) {
- .pfxReleaseStrip { flex-wrap:wrap; padding:8px 12px; gap:0 12px; }
- .pfxReleaseStrip > span { flex:1; }
- .pfxReleaseStrip p { order:3; width:100%; font-size:12px; padding-bottom:6px; }
- .pfxReleaseStrip a { min-height:36px; }
+ .pfxReleaseStrip { flex-direction:column; align-items:stretch; padding:14px; }
  .pfxGuideGrid { grid-template-columns:1fr; }
  #pfx-main-content .pfxGuideHero { padding:34px 0; }
  #pfx-main-content .pfxGuideHero h1 { font-size:clamp(34px,8.5vw,48px); }

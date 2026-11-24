@@ -40,10 +40,13 @@ export default function App({ Component, pageProps }) {
       </div>
       <div className="pfxSiteContent">
         <SiteNavigation />
-        <aside className="pfxReleaseStrip" aria-label="Les nouveautés PROFITX AI">
-          <span>NOUVEAU VISAGE</span><p>PFX fait peau neuve. Découvrez nos outils.</p>
-          <Link href="/decouvrir">Découvrir <span aria-hidden="true">↗</span></Link>
-        </aside>
+        <Link className="pfxReleaseStrip" href="/decouvrir#guide-crypto">
+          <span className="pfxReleaseCopy">
+            <strong>Nouveau en crypto ?</strong>
+            <span>Comprenez la blockchain et apprenez à repérer les risques.</span>
+          </span>
+          <span className="pfxReleaseAction">Ouvrir le guide gratuit <span aria-hidden="true">↗</span></span>
+        </Link>
         <nav className="pfxRaydiumLinks" aria-label="Liens Raydium">
           <a href={raydiumPfx}>PFX sur Raydium ↗</a>
           <a href="https://raydium.io/liquidity/">Pools Raydium ↗</a>

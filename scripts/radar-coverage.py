@@ -163,7 +163,11 @@ def main():
     parser.add_argument("--checkpoint", type=Path, help="Resume verified repair ranges from this file")
     parser.add_argument("--batch-size", type=int, metavar="SLOTS",
                         help="Process successive ranges of 1 to 500 slots through the anchor")
+    parser.add_argument("--max-batches", type=int,
+                        help="Stop after this many verified batches and resume on the next invocation")
     args = parser.parse_args()
+    if args.max_batches is not None and (args.batch_size is None or args.max_batches < 1):
+        parser.error("--max-batches requires --batch-size and a positive count")
     if args.anchor is None and args.batch_size is None:
         parser.error("The finalized anchor requires --batch-size and --checkpoint")
     if args.batch_size is not None and (not args.checkpoint or not 1 <= args.batch_size <= 500):
@@ -204,6 +208,7 @@ def catch_up(args, parser):
         print(json.dumps({"finalized_target": target, "next_slot": args.start}), flush=True)
 
     batch = copy.copy(args)
+    batches = 0
     while batch.start <= target:
         batch.anchor = min(batch.start + args.batch_size - 1, target)
         for attempt in range(3):
@@ -223,6 +228,11 @@ def catch_up(args, parser):
             print(f"Could not verify slots {batch.start}–{batch.anchor}", file=sys.stderr)
             return 1
         batch.start = batch.anchor + 1
+        batches += 1
+        if batches == args.max_batches and batch.start <= target:
+            print(json.dumps({"next_slot": batch.start, "finalized_target": target,
+                              "remaining_slots": target - batch.start + 1}), flush=True)
+            break
     return 0
 
 

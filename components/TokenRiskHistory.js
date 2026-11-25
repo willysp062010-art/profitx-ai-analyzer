@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { fetchAnalysisResponse } from "../utils/analysis-request";
 import { isSolanaMint } from "../utils/watchlist";
@@ -82,6 +83,11 @@ export default function TokenRiskHistory({ mint }) {
           <p role="status">{changes !== null
             ? `Liquidité de la même paire : ${percentage.format(changes)} depuis le relevé précédent.`
             : "Comparaison indisponible. Deux valeurs comparables sur la même paire sont nécessaires."}</p>
+          {isSolanaMint(latest?.pair) && Number.isFinite(latest.amount) && latest.amount > 0 && (
+            <Link className="copyButton" href={{ pathname: "/alerts", query: {
+              mint, pair: latest.pair, at: latest.at, liquidity: latest.amount
+            } }}>Créer une alerte de baisse</Link>
+          )}
           <ul>
             {entries.map((entry) => (
               <li key={entry.at}>

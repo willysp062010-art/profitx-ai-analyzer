@@ -339,6 +339,7 @@ function normalizeStoredAlert(row) {
     metric,
     condition,
     targetValue,
+    liquidityReference: row.liquidity_reference,
     enabled: row.enabled !== false,
     previousStatus:
       cleanText(row.status, 100) ||
@@ -420,9 +421,8 @@ function buildEvaluation(
     };
   }
 
-  const currentValue = toNumber(
-    marketData[alert.metric]
-  );
+  const currentValue = alert.liquidityReference && (marketData.pairAddress !== alert.liquidityReference.pair ||
+    marketData.dexId?.toLowerCase() === "pumpfun") ? null : toNumber(marketData[alert.metric]);
 
   if (currentValue === null) {
     return {

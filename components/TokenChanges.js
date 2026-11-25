@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { analysisSnapshot, changeReportPath, readComparison, readSnapshot } from "../utils/token-changes";
 
 const number = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 });
-const date = new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" });
+const date = new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "medium", timeZone: "UTC" });
 const missing = "Impossible à vérifier";
 const formatAuthority = revoked => revoked ? "Révoquée" : "Active";
 

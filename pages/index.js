@@ -813,7 +813,8 @@ async function searchToken(query) {
           des limites visibles. L’analyse Solana, gratuitement.
         </p>
 
-        <p>
+        <p style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          <Link className="primaryButton" href="/exemple">Voir un exemple réel</Link>
           <Link className="secondaryButton" href="/decouvrir#guide-crypto">
             Nouveau en crypto ? Commencer le guide
           </Link>

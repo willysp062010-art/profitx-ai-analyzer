@@ -1,5 +1,7 @@
 import Head from "next/head";
 import Link from "next/link";
+import { useEffect } from "react";
+import { demoJourneyId, recordDemoEvent } from "../utils/demo-usage";
 import { ChangeEvidence } from "../components/TokenChanges";
 import { changeReportPath } from "../utils/token-changes";
 
@@ -10,6 +12,10 @@ const comparison = [
 const mint = comparison[1].mint;
 
 export default function RealExample() {
+  useEffect(() => {
+    recordDemoEvent(demoJourneyId({ create: true }), "demo_open");
+  }, []);
+
   return (
     <main id="pfx-main-content" style={{ width: "min(720px, calc(100% - 32px))", margin: "32px auto" }}>
       <Head><title>Exemple réel sur BONK | PROFITX AI</title></Head>
@@ -19,7 +25,7 @@ export default function RealExample() {
         <ChangeEvidence comparison={comparison} />
       </section>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-        <Link className="primaryButton" href={`/?mint=${mint}&analyze=1`}>Analyser BONK maintenant</Link>
+        <Link className="primaryButton" href={`/?mint=${mint}&analyze=1&from=demo`}>Analyser BONK maintenant</Link>
         <Link className="secondaryButton" href={`/alerts?mint=${mint}`}>Créer une alerte sur BONK</Link>
         <a className="secondaryButton" href={changeReportPath(comparison)}>Ouvrir le rapport partageable</a>
       </div>

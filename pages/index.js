@@ -1,5 +1,6 @@
 import TokenChanges from "../components/TokenChanges";
 import Link from "next/link";
+import { demoJourneyId, recordDemoEvent } from "../utils/demo-usage";
 import DiscoverTools from "../components/DiscoverTools";
 import ObservatoryMark from "../components/ObservatoryMark";
 import QuoteFreshness from "../components/QuoteFreshness";
@@ -565,7 +566,7 @@ useEffect(() => () => {
 
     if (isSolanaMint(mintFromRadar || "")) {
       setMint(mintFromRadar);
-      if (params.get("analyze") === "1") runAnalysis(mintFromRadar);
+      if (params.get("analyze") === "1") runAnalysis(mintFromRadar, params.get("from") === "demo" ? demoJourneyId() : null);
     }
   }, []);
 
@@ -626,7 +627,7 @@ async function searchToken(query) {
     return searchToken(query);
   }
 
-  async function runAnalysis(requestedMint) {
+  async function runAnalysis(requestedMint, demoId = null) {
     if (loading || analysisRequest.current) return;
     const cleanMint = requestedMint.trim();
     if (!isSolanaMint(cleanMint)) { setError("Sélectionnez un token dans les résultats ou collez une adresse mint Solana valide."); return; }
@@ -651,10 +652,12 @@ async function searchToken(query) {
 
     const usageId = usageEventId();
     recordAnalysisJourney(usageId, "started");
+    recordDemoEvent(demoId, "analysis_started");
     try {
       const result = await fetchAnalysisResponse(cleanMint, {eventId:usageId, controller});
       if (analysisRequest.current !== controller) return;
       setData(result);
+      recordDemoEvent(demoId, "analysis_completed");
       window.dispatchEvent(new Event("pfx-usage-updated"));
 
     } catch (e) {
@@ -814,7 +817,7 @@ async function searchToken(query) {
         </p>
 
         <p style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          <Link className="primaryButton" href="/exemple">Voir un exemple réel</Link>
+          <Link className="primaryButton" href="/exemple" onClick={() => recordDemoEvent(demoJourneyId({ restart: true, create: true }), "home_click")}>Voir un exemple réel</Link>
           <Link className="secondaryButton" href="/decouvrir#guide-crypto">
             Nouveau en crypto ? Commencer le guide
           </Link>

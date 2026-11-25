@@ -3,6 +3,9 @@ import { fetchAnalysisResponse } from "../utils/analysis-request";
 import { isSolanaMint } from "../utils/watchlist";
 
 const MAX_READINGS = 10;
+const percentage = new Intl.NumberFormat("fr-FR", {
+  style: "percent", signDisplay: "exceptZero", maximumFractionDigits: 1
+});
 const money = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "USD" });
 
 function readHistory(key) {
@@ -20,6 +23,17 @@ function recordedLiquidity(result) {
     return { pair: null, amount: null };
   }
   return { pair, amount };
+}
+
+export function compareLiquidityReadings(reference, current) {
+  if (!isSolanaMint(reference?.pair) || reference.pair !== current?.pair ||
+    !Number.isFinite(reference.amount) || reference.amount <= 0 ||
+    !Number.isFinite(current.amount) || current.amount < 0 ||
+    !Number.isFinite(Date.parse(reference.at)) || Date.parse(current.at) <= Date.parse(reference.at) ||
+    !Number.isFinite(Date.parse(current.at))) return null;
+
+  const variation = (current.amount - reference.amount) / reference.amount;
+  return Number.isFinite(variation) ? variation : null;
 }
 
 export default function TokenRiskHistory({ mint }) {
@@ -53,12 +67,7 @@ export default function TokenRiskHistory({ mint }) {
   }
 
   const [latest, previous] = entries;
-  const comparable = latest?.pair && latest.pair === previous?.pair
-    && Number.isFinite(latest.amount) && Number.isFinite(previous.amount) && previous.amount > 0;
-  const variation = comparable ? (latest.amount - previous.amount) / previous.amount : null;
-  const changes = Number.isFinite(variation)
-    ? new Intl.NumberFormat("fr-FR", { style: "percent", signDisplay: "exceptZero", maximumFractionDigits: 1 }).format(variation)
-    : null;
+  const changes = compareLiquidityReadings(previous, latest);
 
   return (
     <details>
@@ -71,7 +80,7 @@ export default function TokenRiskHistory({ mint }) {
       {entries.length > 0 && (
         <>
           <p role="status">{changes !== null
-            ? `Liquidité de la même paire : ${changes} depuis le relevé précédent.`
+            ? `Liquidité de la même paire : ${percentage.format(changes)} depuis le relevé précédent.`
             : "Comparaison indisponible. Deux valeurs comparables sur la même paire sont nécessaires."}</p>
           <ul>
             {entries.map((entry) => (

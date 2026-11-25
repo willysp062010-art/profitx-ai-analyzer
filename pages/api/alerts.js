@@ -92,6 +92,7 @@ function normalizeAlert(alert, index) {
     metric,
     condition,
     targetValue,
+    liquidityReference: alert.liquidityReference,
     enabled: alert.enabled !== false,
   };
 }
@@ -264,12 +265,8 @@ function buildResult(
     };
   }
 
-  const currentValue =
-    toNumber(
-      marketData[
-        alert.metric
-      ]
-    );
+  const currentValue = alert.liquidityReference && (marketData.pairAddress !== alert.liquidityReference.pair ||
+    marketData.dexId?.toLowerCase() === "pumpfun") ? null : toNumber(marketData[alert.metric]);
 
   if (currentValue === null) {
     return {

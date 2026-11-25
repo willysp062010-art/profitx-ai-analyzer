@@ -11,6 +11,7 @@ const TOOLS = [
   ["/alerts", "Alertes"],
   ["/protection", "Protection"],
   ["/obtenir-pfx", "Le token PFX"],
+  ["/contact", "Contact"],
 ];
 
 export default function SiteNavigation() {

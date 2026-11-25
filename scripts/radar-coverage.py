@@ -22,6 +22,10 @@ PROGRAMS = {
 }
 MINT = re.compile(r"[1-9A-HJ-NP-Za-km-z]{32,44}")
 
+class RpcResponseError(ValueError):
+    """The RPC could not provide a usable result."""
+
+
 def rpc(method, params):
     request = urllib.request.Request(
         RPC, data=json.dumps(dict(jsonrpc="2.0", id=1, method=method, params=params)).encode(),
@@ -34,7 +38,7 @@ def rpc(method, params):
         else:
             payload = json.load(response)
     if payload.get("error") or "result" not in payload:
-        raise ValueError(f"{method} failed")
+        raise RpcResponseError(f"{method} failed")
     return payload["result"]
 
 
@@ -218,7 +222,7 @@ def catch_up(args, parser):
                 if error.code not in (408, 429, 500, 502, 503, 504):
                     raise
                 result = 1
-            except (urllib.error.URLError, TimeoutError):
+            except (urllib.error.URLError, TimeoutError, RpcResponseError):
                 result = 1
             if result == 0:
                 break

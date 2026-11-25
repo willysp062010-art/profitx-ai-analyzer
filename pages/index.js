@@ -652,12 +652,12 @@ async function searchToken(query) {
 
     const usageId = usageEventId();
     recordAnalysisJourney(usageId, "started");
-    recordDemoEvent(demoId, "analysis_started");
+    if (demoId) recordDemoEvent(demoId, "analysis_started");
     try {
       const result = await fetchAnalysisResponse(cleanMint, {eventId:usageId, controller});
       if (analysisRequest.current !== controller) return;
       setData(result);
-      recordDemoEvent(demoId, "analysis_completed");
+      if (demoId) recordDemoEvent(demoId, "analysis_completed");
       window.dispatchEvent(new Event("pfx-usage-updated"));
 
     } catch (e) {

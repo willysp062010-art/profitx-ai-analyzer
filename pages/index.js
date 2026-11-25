@@ -1,3 +1,4 @@
+import TokenChanges from "../components/TokenChanges";
 import Link from "next/link";
 import DiscoverTools from "../components/DiscoverTools";
 import ObservatoryMark from "../components/ObservatoryMark";
@@ -1243,6 +1244,7 @@ async function searchToken(query) {
 
 
           <AnalysisQualityNotice quality={data.dataQuality} />
+          <TokenChanges key={data.mint + data.timestamp} analysis={data} />
           <div style={{ display: "flex", flexWrap: "wrap", gap: 12, margin: "16px 0" }}>
             <button type="button" className="secondaryButton" onClick={() => followAnalyzedToken()} style={{ padding: "12px 18px", cursor: "pointer" }}>Suivre ce token</button>
             <Link className="secondaryButton" href={{ pathname: "/compare", query: { mint: data.mint } }}>Comparer ce token</Link>

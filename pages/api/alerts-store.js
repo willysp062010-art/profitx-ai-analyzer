@@ -6,7 +6,7 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const TABLE_NAME = "pfx_alerts";
-const PUBLIC_ALERT_COLUMNS = "alert_id,chain_id,token_address,metric,condition,target_value,enabled,status,created_at,current_value,token_symbol,dex_id,last_checked_at,last_triggered_at,trigger_count";
+const PUBLIC_ALERT_COLUMNS = "alert_id,chain_id,token_address,metric,condition,target_value,enabled,status,created_at,current_value,token_symbol,dex_id,last_checked_at,last_triggered_at,trigger_count,liquidity_reference";
 function publicAlert(row) {
   if (!row || typeof row !== "object") return null;
   return Object.fromEntries(PUBLIC_ALERT_COLUMNS.split(",").map((key) => [key, row[key] ?? null]));
@@ -36,6 +36,7 @@ function normalizeAlert(alert = {}) {
     metric: cleanText(alert.metric, 100),
     condition: cleanText(alert.condition, 50).toLowerCase(),
     target_value: targetValue,
+    liquidity_reference: alert.liquidityReference ?? null,
     enabled: alert.enabled === undefined ? true : alert.enabled,
   };
 }
@@ -63,6 +64,13 @@ function validateAlert(alert) {
   if (!Number.isFinite(alert.target_value) ||
       (alert.metric !== "change24h" && alert.target_value < 0)) {
     return "target_value invalide.";
+  }
+
+  const reference = alert.liquidity_reference;
+  if (reference !== null && (alert.metric !== "liquidityUsd" || alert.condition !== "below" ||
+      !isSolanaMint(reference?.pair) || !Number.isFinite(reference.amount) ||
+      reference.amount <= alert.target_value || !Number.isFinite(Date.parse(reference.at)))) {
+    return "Relevé de référence invalide.";
   }
 
   if (alert.chain_id !== "solana") {
@@ -205,6 +213,10 @@ export default async function handler(req, res) {
         condition: alert.condition,
         target_value: alert.target_value,
         enabled: alert.enabled,
+        ...(alert.liquidity_reference && { liquidity_reference: {
+          pair: alert.liquidity_reference.pair, amount: alert.liquidity_reference.amount,
+          at: alert.liquidity_reference.at
+        } }),
         updated_at: new Date().toISOString(),
       };
 

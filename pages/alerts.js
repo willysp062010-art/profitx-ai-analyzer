@@ -1,3 +1,4 @@
+import { changeReportPath } from "../utils/token-changes";
 import { summarizeAlertCheck } from "../utils/alert-check-summary";
 import { watchlistIdentityLabel, readWatchlist, isSolanaMint } from "../utils/watchlist";
 import { useEffect, useMemo, useState } from "react";
@@ -1308,6 +1309,14 @@ export default function Alerts() {
 
                   const engineResult = latestAlertResult(engineResults[alert.id] || alert.lastManualEvaluation, alert.lastEvaluation);
 
+                  const reference = alert.liquidityReference;
+                  const report = reference && engineResult?.status === "triggered" && typeof engineResult.currentValue === "number"
+                    ? changeReportPath([
+                        { mint: alert.tokenAddress, pair: reference.pair, at: reference.at, liquidity: reference.amount },
+                        { mint: alert.tokenAddress, pair: reference.pair, at: engineResult.checkedAt, liquidity: engineResult.currentValue },
+                      ])
+                    : null;
+
                   const engineStatus =
                     !enabled
                       ? "paused"
@@ -1423,6 +1432,7 @@ export default function Alerts() {
                       {alert.liquidityReference && <p className="hint">
                         Référence de liquidité : {formatTarget(alert.liquidityReference.amount, "liquidityUsd")} · {new Date(alert.liquidityReference.at).toLocaleString("fr-FR")}.
                         {" "}<a href={`https://dexscreener.com/solana/${encodeURIComponent(alert.liquidityReference.pair)}`}>Voir la paire suivie</a>
+                        {report && <> · <a href={report}>Voir les relevés de l’alerte</a></>}
                       </p>}
 
                       <div className="marketResult">

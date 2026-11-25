@@ -128,6 +128,7 @@ function serverRowToAlert(row) {
     metric: row.metric || "priceUsd",
     condition: row.condition || "above",
     targetValue: Number(row.target_value),
+    liquidityReference: row.liquidity_reference ?? null,
     enabled: row.enabled !== false,
     triggered: row.status === "triggered",
     createdAt:
@@ -341,6 +342,16 @@ export default function Alerts() {
     if (router.isReady && typeof mint === "string" && isSolanaMint(mint)) setTokenQuery(mint);
   }, [router.isReady, router.query.mint]);
   const query = tokenQuery.trim();
+  const [drop, setDrop] = useState("");
+  const referencePair = router.query.pair;
+  const referenceAt = router.query.at;
+  const referenceAmount = Number(router.query.liquidity);
+  const liquidityReference = query && query === router.query.mint && isSolanaMint(referencePair)
+    && typeof referenceAt === "string" && Number.isFinite(Date.parse(referenceAt))
+    && Number.isFinite(referenceAmount) && referenceAmount > 0
+    ? { pair: referencePair, at: referenceAt, amount: referenceAmount }
+    : null;
+
 
   useEffect(() => {
     if (query.length < 2 || isSolanaMint(query)) return;
@@ -562,7 +573,7 @@ export default function Alerts() {
       return;
     }
 
-    const cleanTarget = String(targetValue ?? "")
+    const cleanTarget = String((liquidityReference ? drop : targetValue) ?? "")
       .replace(/(?<=\d)[ \u00a0\u202f](?=\d)/g, "")
       .replace(",", ".")
       .trim();
@@ -572,7 +583,14 @@ export default function Alerts() {
       return;
     }
 
-    const numericTarget = Number(cleanTarget);
+    const percentage = Number(cleanTarget);
+    if (liquidityReference && !(percentage > 0 && percentage < 100)) {
+      setError("Indiquez une baisse strictement comprise entre 0 et 100 %.");
+      return;
+    }
+    const numericTarget = liquidityReference ? liquidityReference.amount * (1 - percentage / 100) : percentage;
+    const ruleMetric = liquidityReference ? "liquidityUsd" : metric;
+    const ruleCondition = liquidityReference ? "below" : condition;
 
     if (!Number.isFinite(numericTarget)) {
       setError(
@@ -597,8 +615,9 @@ export default function Alerts() {
       (alert) =>
         alert.chainId === chainId &&
         alert.tokenAddress === cleanAddress &&
-        alert.metric === metric &&
-        alert.condition === condition &&
+        alert.metric === ruleMetric &&
+        alert.condition === ruleCondition &&
+        alert.liquidityReference?.pair === liquidityReference?.pair &&
         Number(alert.targetValue) ===
           numericTarget
     );
@@ -618,12 +637,13 @@ export default function Alerts() {
     }
 
     const alert = {
-      id: `${chainId}:${cleanAddress}:${metric}:${condition}:${Date.now()}`,
+      id: `${chainId}:${cleanAddress}:${ruleMetric}:${ruleCondition}:${Date.now()}`,
       chainId,
       tokenAddress: cleanAddress,
-      metric,
-      condition,
+      metric: ruleMetric,
+      condition: ruleCondition,
       targetValue: numericTarget,
+      ...(liquidityReference && { liquidityReference }),
       enabled: true,
       triggered: false,
       createdAt: new Date().toISOString(),
@@ -1071,6 +1091,14 @@ export default function Alerts() {
                   </>}
                 </div>
 
+                {liquidityReference ? (
+                  <div className="field tokenField">
+                    <label htmlFor="alert-drop">BAISSE DE LIQUIDITÉ (%)</label>
+                    <input id="alert-drop" inputMode="decimal" value={drop}
+                      onChange={(event) => setDrop(event.target.value)} placeholder="Ex. 30" />
+                    <p className="hint">Référence : {formatTarget(liquidityReference.amount, "liquidityUsd")} · {new Date(liquidityReference.at).toLocaleString("fr-FR")}.</p>
+                  </div>
+                ) : <>
                 <div className="field">
                   <label htmlFor="alert-metric">
                     DONNÉE
@@ -1150,6 +1178,8 @@ export default function Alerts() {
                     autoComplete="off"
                   />
                 </div>
+
+                </>}
 
                 <button
                   type="submit"
@@ -1389,6 +1419,11 @@ export default function Alerts() {
                           </strong>
                         </div>
                       </div>
+
+                      {alert.liquidityReference && <p className="hint">
+                        Référence de liquidité : {formatTarget(alert.liquidityReference.amount, "liquidityUsd")} · {new Date(alert.liquidityReference.at).toLocaleString("fr-FR")}.
+                        {" "}<a href={`https://dexscreener.com/solana/${encodeURIComponent(alert.liquidityReference.pair)}`}>Voir la paire suivie</a>
+                      </p>}
 
                       <div className="marketResult">
                         <span>

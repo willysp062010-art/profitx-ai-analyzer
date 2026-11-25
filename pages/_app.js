@@ -49,7 +49,7 @@ export default function App({ Component, pageProps }) {
         </Link>
         <nav className="pfxRaydiumLinks" aria-label="Liens Raydium">
           <a href={raydiumPfx}>PFX sur Raydium ↗</a>
-          <a href="https://raydium.io/liquidity/">Pools Raydium ↗</a>
+          <a href="https://raydium.io/liquidity-pools/?token=6FwDVfnnETqUe2UrxZEeLA6u7Vo5Td2Nm79z7s38pump">Pool PFX/SOL ↗</a>
         </nav>
         <Component {...pageProps} />
       </div>

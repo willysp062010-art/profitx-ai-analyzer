@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 
 const TABLE = "pfx_radar_tokens";
 const MAX_EVENTS = 100;
+const WRITE_BATCH_SIZE = 15;
 
 function secureEqual(a, b) {
   if (typeof a !== "string" || typeof b !== "string") {
@@ -169,7 +170,7 @@ async function verifyCreation(event, endpoint, signal) {
   }));
 }
 
-async function saveToken(token, url, key) {
+async function saveTokens(tokens, url, key) {
   const endpoint =
     `${url}/rest/v1/${TABLE}?on_conflict=chain_id,mint`;
 
@@ -181,7 +182,7 @@ async function saveToken(token, url, key) {
       "Content-Type": "application/json",
       Prefer: "resolution=ignore-duplicates,return=minimal"
     },
-    body: JSON.stringify(token),
+    body: JSON.stringify(tokens),
     signal: AbortSignal.timeout(8000)
   });
 
@@ -269,22 +270,26 @@ export default async function handler(req, res) {
   }));
   verificationFailed += verificationQueue.length - verificationCursor;
 
-  // Bounded concurrency prevents a full 100-event batch from exceeding
-  // the serverless execution window while avoiding a Supabase request burst.
-  const queue = [...tokens.values()];
-  const concurrency = Math.min(8, queue.length);
+  // Each atomic insert handles up to 15 tokens instead of opening a separate
+  // database transaction per token. Two workers bound database pressure.
+  const rows = [...tokens.values()];
+  const queue = [];
+  for (let i = 0; i < rows.length; i += WRITE_BATCH_SIZE) {
+    queue.push(rows.slice(i, i + WRITE_BATCH_SIZE));
+  }
+  const concurrency = Math.min(2, queue.length);
   let cursor = 0;
   let processed = 0;
   let failed = 0;
 
   await Promise.all(Array.from({ length: concurrency }, async () => {
     while (cursor < queue.length) {
-      const token = queue[cursor++];
+      const batch = queue[cursor++];
       try {
-        await saveToken(token, supabaseUrl.replace(/\/$/, ""), supabaseKey);
-        processed++;
+        await saveTokens(batch, supabaseUrl.replace(/\/$/, ""), supabaseKey);
+        processed += batch.length;
       } catch (error) {
-        failed++;
+        failed += batch.length;
         console.error("PFX Radar webhook database error:", error.message);
       }
     }
